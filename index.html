@@ -3,85 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>公司內部倉儲網格系統</title>
+    <title>公司內部倉儲網格系統 - 進階版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
             --grid-cols: 30;
             --grid-rows: 30;
-            --cell-size: 40px; /* 一個格子代表 1 平方公尺 = 40像素 */
+            --cell-size: 40px; /* 預設 1m = 40px */
         }
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f4f6f9;
-            display: flex;
-            gap: 20px;
-        }
-        /* 左側控制面板 */
-        #control-panel {
-            width: 320px;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        .control-group {
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #eee;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        input, select, button {
-            width: 100%;
-            padding: 8px;
-            margin-bottom: 10px;
-            box-sizing: border-box;
-        }
-        button {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f6f9; display: flex; gap: 20px; }
+        #control-panel { width: 320px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); height: fit-content; }
+        .control-group { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+        input, select, button { width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; }
+        button { background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         button:hover { background-color: #0056b3; }
         
-        /* 最近使用顏色 */
-        .color-history {
-            display: flex;
-            gap: 5px;
-            flex-wrap: wrap;
-            margin-top: 5px;
-        }
-        .color-dot {
-            width: 25px;
-            height: 25px;
-            border-radius: 4px;
-            cursor: pointer;
-            border: 1px solid #ccc;
-        }
+        /* 切換鈕樣式 */
+        .switch-container { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+        .switch-container input { width: auto; margin: 0; }
 
-        /* 右側畫布區 */
-        #main-area {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        /* 倉庫網格容器 */
-        #warehouse-container {
-            border: 2px solid #333;
-            background-color: #e2e8f0;
-            overflow: auto; /* 讓大網格在手機/電腦上可以滾動 */
-            position: relative;
-            width: 100%;
-            height: 600px;
-        }
+        .color-history { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
+        .color-dot { width: 25px; height: 25px; border-radius: 4px; cursor: pointer; border: 1px solid #ccc; }
+
+        #main-area { flex-grow: 1; display: flex; flex-direction: column; gap: 10px; }
+        #warehouse-container { border: 2px solid #333; background-color: #e2e8f0; overflow: auto; position: relative; width: 100%; height: 550px; }
         #warehouse-grid {
             display: grid;
             grid-template-columns: repeat(var(--grid-cols), var(--cell-size));
@@ -94,24 +40,13 @@
             top: 0; left: 0;
         }
         
-        /* 緩衝區（生成貨物的地方） */
-        #cargo-buffer {
-            min-height: 120px;
-            background: #fff;
-            border: 2px dashed #999;
-            border-radius: 8px;
-            padding: 10px;
-            display: flex;
-            gap: 15px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
+        #cargo-buffer { min-height: 100px; background: #fff; border: 2px dashed #999; border-radius: 8px; padding: 10px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
 
-        /* 貨物樣式 */
+        /* 貨物物件 */
         .cargo-item {
-            background-color: #ffc107;
-            border: 2px solid rgba(0,0,0,0.15);
-            color: #000;
+            position: absolute; /* 讓其能自由定位 */
+            box-sizing: border-box;
+            border: 2px solid rgba(0,0,0,0.2);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -120,10 +55,13 @@
             text-align: center;
             border-radius: 4px;
             cursor: move;
-            touch-action: none; /* 防止手機瀏覽器預設拖動行為 */
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+            touch-action: none;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.15);
             user-select: none;
+            z-index: 10;
         }
+        /* 在緩衝區時的預設狀態 */
+        #cargo-buffer .cargo-item { position: relative !important; transform: none !important; top: auto !important; left: auto !important; }
     </style>
 </head>
 <body>
@@ -132,12 +70,22 @@
         <h2>倉庫控制台</h2>
         
         <div class="control-group">
-            <h3>1. 倉庫切換與設定</h3>
+            <h3>1. 視角與模式</h3>
+            <label>網格比例尺 (目前格寬: <span id="scale-val">40</span>px)</label>
+            <input type="range" id="grid-scale" min="20" max="80" value="40" oninput="changeScale(this.value)">
+            
+            <div class="switch-container">
+                <label for="snap-toggle">自動吸附對齊網格</label>
+                <input type="checkbox" id="snap-toggle" checked onchange="toggleSnap(this.checked)">
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3>2. 倉庫專案管理</h3>
             <label>選擇倉庫</label>
             <select id="warehouse-select" onchange="switchWarehouse()">
                 <option value="wh1">倉庫一 (30x30)</option>
             </select>
-            <label>修改/新增名稱</label>
             <input type="text" id="wh-name" value="倉庫一">
             <div style="display:flex; gap:5px;">
                 <input type="number" id="wh-w" value="30" placeholder="寬">
@@ -147,16 +95,24 @@
         </div>
 
         <div class="control-group">
-            <h3>2. 生成新貨物</h3>
+            <h3>3. 生成新貨物</h3>
             <label>貨物名稱</label>
             <input type="text" id="cargo-name" value="棧板A">
             <div style="display:flex; gap:5px;">
                 <input type="number" id="cargo-w" step="0.1" value="2" placeholder="寬(m)">
                 <input type="number" id="cargo-h" step="0.1" value="2" placeholder="高(m)">
             </div>
-            <label>自訂顏色</label>
-            <input type="color" id="cargo-color" value="#ffc107" onchange="updateColorHistory(this.value)">
-            <label>最近使用顏色 (最多10種)</label>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px;">
+                <div>
+                    <label>方塊顏色</label>
+                    <input type="color" id="cargo-color" value="#ffc107" onchange="updateColorHistory(this.value)">
+                </div>
+                <div>
+                    <label>文字顏色</label>
+                    <input type="color" id="text-color" value="#000000">
+                </div>
+            </div>
+            <label>最近使用顏色</label>
             <div class="color-history" id="color-history-container"></div>
             <button onclick="createNewCargo()" style="background-color: #28a745;">生成貨物</button>
         </div>
@@ -165,182 +121,28 @@
     <div id="main-area">
         <h3>當前倉庫網格 (1格 = 1m²)</h3>
         <div id="warehouse-container">
-            <div id="warehouse-grid">
-                </div>
+            <div id="warehouse-grid"></div>
         </div>
 
         <h3>貨物待放置區 (請從此處拖拉至上方網格)</h3>
-        <div id="cargo-buffer">
-            </div>
+        <div id="cargo-buffer"></div>
     </div>
 
     <script>
-        // 模擬前端資料庫 (之後改為對接 GAS)
-        let warehouses = {
-            'wh1': { name: '倉庫一', width: 30, height: 30 }
-        };
+        let warehouses = { 'wh1': { name: '倉庫一', width: 30, height: 30 } };
         let currentWhId = 'wh1';
-        let colorHistory = ['#ffc107', '#28a745', '#007bff', '#dc3545']; // 初始常用色
+        let colorHistory = ['#ffc107', '#28a745', '#007bff', '#dc3545'];
+        
+        let cellSize = 40; 
+        let isSnapEnabled = true;
 
-        const cellSize = 40; // 1公尺 = 40px
-
-        // 初始化
         window.onload = function() {
             renderGrid();
             renderColorHistory();
         };
 
-        // 渲染網格
-        function renderGrid() {
-            const wh = warehouses[currentWhId];
-            const grid = document.getElementById('warehouse-grid');
-            
-            // 更新 CSS 變數
-            document.documentElement.style.setProperty('--grid-cols', wh.width);
-            document.documentElement.style.setProperty('--grid-rows', wh.height);
-            
-            // 設定網格容器實際寬高
-            grid.style.width = (wh.width * cellSize) + 'px';
-            grid.style.height = (wh.height * cellSize) + 'px';
-        }
-
-        // 儲存或新增倉庫
-        function saveWarehouseSettings() {
-            const name = document.getElementById('wh-name').value;
-            const w = parseInt(document.getElementById('wh-w').value);
-            const h = parseInt(document.getElementById('wh-h').value);
-            
-            // 這裡簡單以名稱轉成 ID 模擬新增
-            const id = 'wh_' + Date.now();
-            warehouses[id] = { name: name, width: w, height: h };
-            
-            // 更新下拉選單
-            const select = document.getElementById('warehouse-select');
-            const opt = document.createElement('option');
-            opt.value = id;
-            opt.textContent = `${name} (${w}x${h})`;
-            select.appendChild(opt);
-            
-            select.value = id;
-            currentWhId = id;
-            renderGrid();
-        }
-
-        function switchWarehouse() {
-            currentWhId = document.getElementById('warehouse-select').value;
-            const wh = warehouses[currentWhId];
-            document.getElementById('wh-name').value = wh.name;
-            document.getElementById('wh-w').value = wh.width;
-            document.getElementById('wh-h').value = wh.height;
-            renderGrid();
-        }
-
-        // 色盤歷史紀錄邏輯
-        function updateColorHistory(color) {
-            if (!colorHistory.includes(color)) {
-                colorHistory.unshift(color); // 加到最前面
-                if (colorHistory.length > 10) colorHistory.pop(); // 超過10個就刪除最後一個
-                renderColorHistory();
-            }
-        }
-
-        function renderColorHistory() {
-            const container = document.getElementById('color-history-container');
-            container.innerHTML = '';
-            colorHistory.forEach(color => {
-                const dot = document.createElement('div');
-                dot.className = 'color-dot';
-                dot.style.backgroundColor = color;
-                dot.onclick = () => {
-                    document.getElementById('cargo-color').value = color;
-                };
-                container.appendChild(dot);
-            });
-        }
-
-        // 生成貨物 (支援小數點尺寸)
-        function createNewCargo() {
-            const name = document.getElementById('cargo-name').value;
-            const w = parseFloat(document.getElementById('cargo-w').value);
-            const h = parseFloat(document.getElementById('cargo-h').value);
-            const color = document.getElementById('cargo-color').value;
-
-            const cargo = document.createElement('div');
-            cargo.className = 'cargo-item';
-            cargo.textContent = name;
-            
-            // 依據米數計算實際 px 大小 (例如 1.5米 * 40px = 60px)
-            cargo.style.width = (w * cellSize) + 'px';
-            cargo.style.height = (h * cellSize) + 'px';
-            cargo.style.backgroundColor = color;
-            
-            // 設定初始座標資料
-            cargo.setAttribute('data-x', 0);
-            cargo.setAttribute('data-y', 0);
-
-            document.getElementById('cargo-buffer').appendChild(cargo);
-            
-            // 初始化這個新元件的拖拉功能
-            initDraggable(cargo);
-        }
-
-        // Interact.js 拖拉與「網格磁吸」核心邏輯
-        function initDraggable(element) {
-            interact(element).draggable({
-                inertia: true,
-                modifiers: [
-                    // 限制貨物不能拖出大容器
-                    interact.modifiers.restrictRect({
-                        restriction: '#main-area',
-                        endOnly: false
-                    }),
-                    // 關鍵功能：磁吸到 40px (1公尺) 的網格點上
-                    interact.modifiers.snap({
-                        targets: [
-                            interact.snappers.grid({ x: cellSize, y: cellSize })
-                        ],
-                        range: Infinity,
-                        relativePoints: [ { x: 0, y: 0 } ] // 以貨物的左上角為磁吸基準點
-                    })
-                ],
-                autoScroll: true, // 拖到邊緣時自動滾動
-                listeners: {
-                    move(event) {
-                        const target = event.target;
-                        // 讀取目前的累計位移
-                        const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
-                        const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
-
-                        // 運用 CSS translate 移動方塊
-                        target.style.transform = `translate(${x}px, ${y}px)`;
-
-                        // 存回屬性中
-                        target.setAttribute('data-x', x);
-                        target.setAttribute('data-y', y);
-                    },
-                    end(event) {
-                        const target = event.target;
-                        
-                        // 計算目前落在網格的第幾格座標 (X, Y 軸米數)
-                        // 這裡可以透過計算相對於 #warehouse-grid 的 offset 來取得精確儲位
-                        const rect = target.getBoundingClientRect();
-                        const gridRect = document.getElementById('warehouse-grid').getBoundingClientRect();
-                        
-                        const relativeX = rect.left - gridRect.left;
-                        const relativeY = rect.top - gridRect.top;
-                        
-                        // 如果成功拖進倉庫範圍內
-                        if (relativeX >= 0 && relativeY >= 0 && relativeX < gridRect.width && relativeY < gridRect.height) {
-                            const gridX = Math.round(relativeX / cellSize);
-                            const gridY = Math.round(relativeY / cellSize);
-                            console.log(`內勤指引：貨物 [${target.textContent}] 已被放置於座標 (${gridX}m, ${gridY}m)`);
-                            
-                            // 【下一步預留】在這裡呼叫 GAS 將座標同步到 Google Sheets
-                        }
-                    }
-                }
-            });
-        }
-    </script>
-</body>
-</html>
+        // 調整比例尺
+        function changeScale(val) {
+            cellSize = parseInt(val);
+            document.getElementById('scale-val').textContent = cellSize;
+            document.documentElement.style.setProperty('--cell-size',
