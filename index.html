@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>公司內部倉儲網格系統 - 全面同步縮放版</title>
+    <title>公司內部倉儲網格系統 - 電腦行動雙優化版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -19,6 +19,7 @@
             flex-direction: column; 
             gap: 15px; 
             user-select: none;
+            align-items: flex-start; /* 確保整體元件靠左對齊，視覺更整齊 */
         }
 
         #main-area { 
@@ -26,8 +27,10 @@
             flex-direction: column; 
             gap: 10px; 
             width: 100%; 
+            max-width: 900px; /* 控制大標題與緩衝區的視覺上限 */
         }
         
+        /* 外框：完美貼合內部網格設定的實際大小，不多留白邊 */
         #warehouse-container { 
             border: 2px solid #333; 
             background-color: #ffffff; 
@@ -39,12 +42,12 @@
             max-height: 500px; 
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            margin-bottom: 5px;
         }
         
         #warehouse-grid {
             position: relative;
             top: 0; left: 0;
-            /* 讓畫布寬高物理性由變數決定，達到外框自動縮放 */
             width: calc(var(--grid-cols) * var(--cell-size));
             height: calc(var(--grid-rows) * var(--cell-size));
         }
@@ -90,6 +93,7 @@
             position: relative;
         }
 
+        /* 【核心優化點】：限制控制台最大寬度為 900px，在電腦大螢幕看時收束美化，不再無限拉寬 */
         #control-panel { 
             background: white; 
             border-radius: 12px; 
@@ -97,6 +101,9 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            width: 100%;
+            max-width: 900px; 
+            box-sizing: border-box;
         }
 
         .collapsible-header {
@@ -281,6 +288,7 @@
     <script>
         const GAS_URL = "https://script.google.com/macros/s/AKfycbx-sEY_rLOfnDHPl9YMBzIC3TBUUYuwQUeCP0rQABU_x2bYfOqW_7gS8vB2eY5Mm2hN/exec";
 
+        let globalCargoCache = [];
         let warehouses = { 'wh1': { name: '倉庫一', width: 30, height: 30 } };
         let currentWhId = 'wh1';
         let colorHistory = [
@@ -316,18 +324,12 @@
             }
         }
 
-        // 【終極比例尺連動修正】
         function changeScale(val) {
             cellSize = parseInt(val);
             document.getElementById('scale-val').textContent = cellSize;
-            
-            // 【關鍵步】：將新的 cellSize 動態指派給 CSS 變數，逼底層的實體格子線、格子容器同步放大縮小！
             document.documentElement.style.setProperty('--cell-size', cellSize + 'px');
-            
-            // 重新刷新基礎底座寬高
             renderGrid();
             
-            // 重新刷新所有貨物的顯示大小與位置
             document.querySelectorAll('.cargo-item').forEach(item => {
                 const w_m = parseFloat(item.getAttribute('data-w-m'));
                 const h_m = parseFloat(item.getAttribute('data-h-m'));
@@ -423,31 +425,9 @@
                 document.getElementById('wh-w').value = wh.width;
                 document.getElementById('wh-h').value = wh.height;
                 
-                renderGrid();
-
-                const layer = document.getElementById('cargo-layer');
-                if (layer) layer.innerHTML = '';
-                document.getElementById('cargo-buffer').innerHTML = '';
-
-                if(data && Array.isArray(data.cargoItems)) {
-                    data.cargoItems.forEach(itemData => {
-                        if(!itemData.name) return;
-                        const cargo = reCreateCargoNode(itemData);
-                        
-                        if (itemData.warehouseId === currentWhId) {
-                            const pixelX = parseFloat(itemData.m_x || 0) * cellSize;
-                            const pixelY = parseFloat(itemData.m_y || 0) * cellSize;
-                            cargo.style.transform = `translate(${pixelX}px, ${pixelY}px)`;
-                            cargo.setAttribute('data-x', pixelX);
-                            cargo.setAttribute('data-y', pixelY);
-                            cargo.setAttribute('data-m-x', itemData.m_x || 0);
-                            cargo.setAttribute('data-m-y', itemData.m_y || 0);
-                            document.getElementById('cargo-layer').appendChild(cargo);
-                        } else if (itemData.warehouseId === 'buffer') {
-                            document.getElementById('cargo-buffer').appendChild(cargo);
-                        }
-                    });
-                }
+                globalCargoCache = data && Array.isArray(data.cargoItems) ? data.cargoItems : [];
+                renderCurrentWarehouseCargoes();
+                
                 document.getElementById('sync-status').textContent = "✅ 雲端資料同步完成";
                 document.getElementById('sync-status').style.color = "#28a745";
             })
@@ -459,14 +439,43 @@
             });
         }
 
+        function renderCurrentWarehouseCargoes() {
+            renderGrid();
+            
+            const layer = document.getElementById('cargo-layer');
+            if (layer) layer.innerHTML = '';
+            document.getElementById('cargo-buffer').innerHTML = '';
+
+            globalCargoCache.forEach(itemData => {
+                if (!itemData.name) return;
+                const cargo = reCreateCargoNode(itemData);
+                
+                if (itemData.warehouseId === currentWhId) {
+                    const pixelX = parseFloat(itemData.m_x || 0) * cellSize;
+                    const pixelY = parseFloat(itemData.m_y || 0) * cellSize;
+                    cargo.style.transform = `translate(${pixelX}px, ${pixelY}px)`;
+                    cargo.setAttribute('data-x', pixelX);
+                    cargo.setAttribute('data-y', pixelY);
+                    cargo.setAttribute('data-m-x', itemData.m_x || 0);
+                    cargo.setAttribute('data-m-y', itemData.m_y || 0);
+                    document.getElementById('cargo-layer').appendChild(cargo);
+                } 
+                else if (itemData.warehouseId === 'buffer') {
+                    document.getElementById('cargo-buffer').appendChild(cargo);
+                }
+            });
+        }
+
         function autoSaveToCloud() {
             document.getElementById('sync-status').textContent = "⏳ 正在自動儲存至雲端...";
             document.getElementById('sync-status').style.color = "#6c757d";
 
-            const cargoItems = [];
+            const cargoItemsToUpload = globalCargoCache.filter(item => 
+                item.warehouseId !== currentWhId && item.warehouseId !== 'buffer'
+            );
             
             document.querySelectorAll('#cargo-layer .cargo-item').forEach(item => {
-                cargoItems.push({
+                cargoItemsToUpload.push({
                     id: item.getAttribute('data-id'),
                     name: item.getAttribute('data-name'),
                     qty: item.getAttribute('data-qty'),
@@ -481,7 +490,7 @@
             });
 
             document.querySelectorAll('#cargo-buffer .cargo-item').forEach(item => {
-                cargoItems.push({
+                cargoItemsToUpload.push({
                     id: item.getAttribute('data-id'),
                     name: item.getAttribute('data-name'),
                     qty: item.getAttribute('data-qty'),
@@ -495,7 +504,8 @@
                 });
             });
 
-            const payload = { warehouses: warehouses, cargoItems: cargoItems };
+            globalCargoCache = cargoItemsToUpload;
+            const payload = { warehouses: warehouses, cargoItems: cargoItemsToUpload };
 
             fetch(GAS_URL, {
                 method: "POST",
@@ -550,8 +560,7 @@
                 document.getElementById('wh-name').value = wh.name;
                 document.getElementById('wh-w').value = wh.width;
                 document.getElementById('wh-h').value = wh.height;
-                renderGrid();
-                syncFromCloud(); 
+                renderCurrentWarehouseCargoes();
             }
         }
 
@@ -593,9 +602,10 @@
             const bgColor = document.getElementById('cargo-color').value;
             const textColor = document.getElementById('text-color').value;
 
-            const itemData = { id: 'item_' + Date.now(), name: name, qty: qty, w_m: w, h_m: h, bg: bgColor, text: textColor };
+            const itemData = { id: 'item_' + Date.now(), name: name, qty: qty, w_m: w, h_m: h, bg: bgColor, text: textColor, warehouseId: 'buffer' };
             const cargo = reCreateCargoNode(itemData);
             document.getElementById('cargo-buffer').appendChild(cargo);
+            globalCargoCache.push(itemData);
         }
 
         function reCreateCargoNode(itemData) {
@@ -690,8 +700,10 @@
 
         function deleteSelectedCargo() { 
             if(rightClickedElement) { 
+                const targetId = rightClickedElement.getAttribute('data-id');
                 rightClickedElement.remove(); 
-                rightClickedElement = null; 
+                rightClickedElement = null;
+                globalCargoCache = globalCargoCache.filter(item => item.id !== targetId);
                 autoSaveToCloud();
             } 
         }
@@ -739,7 +751,7 @@
                         const rect = target.getBoundingClientRect();
                         const containerRect = document.getElementById('warehouse-container').getBoundingClientRect();
                         
-                        if (rect.top > containerRect.bottom || rect.bottom < containerRect.top) {
+                        if (rect.top > containerRect.bottom || rect.bottom < containerRect.top || rect.left > containerRect.right || rect.right < containerRect.left) {
                             document.getElementById('cargo-buffer').appendChild(target);
                             target.removeAttribute('data-x');
                             target.removeAttribute('data-y');
