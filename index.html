@@ -144,7 +144,7 @@
 <body>
 
     <div id="main-area">
-        <h3 id="dynamic-title-heading">
+        <h3>
             <span class="wh-title-highlight" id="title-wh-name">倉庫一</span>網格平面圖 (1格 = 1m²) 
             <span id="sync-status" style="font-size:12px; color:#e67e22; margin-left:10px;">⏳ 系統載入中...</span>
         </h3>
@@ -161,11 +161,12 @@
                 <div id="warehouse-grid"></div>
             </div>
             
+            <!-- 【已修正】：順序完全對齊，預設第1層亮燈 active -->
             <div class="layer-selector-sidebar">
-    <div class="layer-tab-btn" id="btn-z3" onclick="switchZLayer(3)"><span>第 3 層</span><span style="font-size:9px;opacity:0.7;">(最上層)</span></div>
-    <div class="layer-tab-btn" id="btn-z2" onclick="switchZLayer(2)"><span>第 2 層</span><span style="font-size:9px;opacity:0.7;">(中層)</span></div>
-    <div class="layer-tab-btn active" id="btn-z1" onclick="switchZLayer(1)"><span>第 1 層</span><span style="font-size:9px;opacity:0.7;">(地面棧板)</span></div>
-</div>
+                <div class="layer-tab-btn" id="btn-z3" onclick="switchZLayer(3)"><span>第 3 層</span><span style="font-size:9px;opacity:0.7;">(最上層)</span></div>
+                <div class="layer-tab-btn" id="btn-z2" onclick="switchZLayer(2)"><span>第 2 層</span><span style="font-size:9px;opacity:0.7;">(中層)</span></div>
+                <div class="layer-tab-btn active" id="btn-z1" onclick="switchZLayer(1)"><span>第 1 層</span><span style="font-size:9px;opacity:0.7;">(地面棧板)</span></div>
+            </div>
         </div>
 
         <h3>貨物待放置區 (每個倉庫、每個樓層獨立分流)</h3>
@@ -191,7 +192,7 @@
                     <select id="warehouse-select" onchange="switchWarehouseSelect(this.value)" style="margin-bottom: 12px;"></select>
                     
                     <label>新增/修改倉庫名稱</label>
-                    <input type="text" id="wh-name" value="倉庫一">
+                    <input text" id="wh-name" value="倉庫一">
                     <div style="display:flex; gap:8px;">
                         <input type="number" id="wh-w" value="30" placeholder="寬">
                         <input type="number" id="wh-h" value="30" placeholder="高">
@@ -236,6 +237,7 @@
         </div>
     </div>
 
+    <!-- 選單面板 -->
     <div id="context-menu">
         <div onclick="editSelectedName()">✏️ 變更名稱</div>
         <div onclick="editSelectedQty()">🔢 修改數量</div>
@@ -254,7 +256,7 @@
         let currentWhId = 'wh1';
         let currentZLevel = 1; 
         let autoSyncTimer = null;
-        let isDraggingActive = false; // 關鍵鎖：標記目前是否正在進行手勢拖曳
+        let isDraggingActive = false;
 
         let colorHistory = JSON.parse(localStorage.getItem('wh_color_memory')) || [
             {bg: '#ffc107', text: '#000000'},
@@ -296,10 +298,7 @@
             if (autoSyncTimer) clearInterval(autoSyncTimer);
             if (enabled) {
                 autoSyncTimer = setInterval(() => {
-                    // 【修正點 1】如果使用者正在拖拉，或者畫面上存在拖拉中的物件，直接跳過這輪同步，杜絕卡頓與回溯
-                    if (isDraggingActive || document.querySelector('.is-dragging')) {
-                        return;
-                    }
+                    if (isDraggingActive || document.querySelector('.is-dragging')) return;
                     syncFromCloudSilent();
                 }, 5000);
             }
@@ -310,7 +309,6 @@
             fetch(GAS_URL)
             .then(res => res.json())
             .then(data => {
-                // 再次雙重防禦檢查
                 if (isDraggingActive || document.querySelector('.is-dragging')) return;
                 if(data && data.warehouses) warehouses = data.warehouses;
                 globalCargoCache = data && Array.isArray(data.cargoItems) ? data.cargoItems : [];
@@ -361,7 +359,6 @@
             let underlay = document.getElementById('grid-underlay');
             if (underlay) underlay.remove();
             
-            // 如果原本沒有 cargo-layer，則建立一個新的
             let layer = document.getElementById('cargo-layer');
             if (!layer) {
                 layer = document.createElement('div');
@@ -425,7 +422,6 @@
                 select.value = currentWhId;
                 refreshWarehouseTabs();
                 if (triggerRender) {
-                    // 切換倉庫時可以全面清空重建
                     const layer = document.getElementById('cargo-layer');
                     if (layer) layer.innerHTML = '';
                     document.getElementById('cargo-buffer').innerHTML = '';
@@ -434,35 +430,29 @@
             }
         }
 
-        // 【修正點 2】採用高階 DOM 保留技術，只更新有變動的元素，杜絕「初始空白閃爍」問題
         function renderCurrentWarehouseCargoes() {
-            if (isDraggingActive) return; // 安全鎖：拖拉中絕對不允許進行 DOM 刷新渲染
+            if (isDraggingActive) return; 
             
             renderGrid();
             const layer = document.getElementById('cargo-layer');
             const buffer = document.getElementById('cargo-buffer');
 
-            // 建立當前雲端資料中「應該出現在目前畫面」的 id 集合
             const validIds = new Set();
 
             globalCargoCache.forEach(itemData => {
                 if (!itemData.name || !itemData.id) return;
                 const cargoZ = parseInt(itemData.z_level || 1);
                 
-                // A. 屬於目前倉庫的貨物
                 if (itemData.warehouseId === currentWhId) {
                     validIds.add(itemData.id);
                     let cargo = document.querySelector(`#cargo-layer [data-id="${itemData.id}"]`);
                     
-                    // 如果原本不存在，則動態新建
                     if (!cargo) {
                         cargo = reCreateCargoNode(itemData);
                     } else {
-                        // 存在則只更新數值與外觀，不刪除節點
                         updateCargoNodeData(cargo, itemData);
                     }
 
-                    // 處理特定層級的外觀樣式
                     cargo.className = 'cargo-item';
                     if (itemData.isLocked === true || itemData.isLocked === "true") {
                         cargo.classList.add('is-locked'); cargo.setAttribute('data-locked', 'true');
@@ -483,11 +473,9 @@
                         cargo.title = `下方 ${cargoZ} 層墊底商品: ${itemData.name}`;
                         if (cargo.parentElement !== layer) layer.appendChild(cargo);
                     } else {
-                        // 高於當前層級的，暫時從畫面上移除
                         cargo.remove();
                     }
                 } 
-                // B. 屬於目前分流的待放置區貨物
                 else if (itemData.warehouseId === `buffer_${currentWhId}_z${currentZLevel}`) {
                     validIds.add(itemData.id);
                     let cargo = document.querySelector(`#cargo-buffer [data-id="${itemData.id}"]`);
@@ -503,7 +491,6 @@
                 }
             });
 
-            // 清理機制：把畫面上存在、但實際上已經在雲端被移除（或改去別的倉庫/樓層）的垃圾 DOM 移除
             document.querySelectorAll('#cargo-layer .cargo-item, #cargo-buffer .cargo-item').forEach(node => {
                 const id = node.getAttribute('data-id');
                 if (id && !validIds.has(id)) {
@@ -514,7 +501,6 @@
             initInteractEngine();
         }
 
-        // 輔助函式：當物件已存在時，只更新純文字和樣式，不影響拖拉狀態
         function updateCargoNodeData(cargo, itemData) {
             cargo.setAttribute('data-w-m', itemData.w_m || 2);
             cargo.setAttribute('data-h-m', itemData.h_m || 2);
@@ -821,7 +807,6 @@
                         if (target.getAttribute('data-locked') === 'true' || target.classList.contains('underlay-ghost')) {
                             return;
                         }
-                        // 【關鍵修復】一旦開始拖曳，立刻封鎖所有背景異步刷新動作
                         isDraggingActive = true; 
                         target.classList.add('is-dragging'); 
                     },
@@ -839,21 +824,18 @@
                             document.getElementById('cargo-layer').appendChild(target);
                             target.setAttribute('data-x', initX); target.setAttribute('data-y', initY);
                         }
+                        
+                        // 【關鍵核心優化】：移除了拖曳 move 時的強制座標鎖死邊界限制！
+                        // 允許使用者把貨物自由、順暢地拉到網格之外，否則根本拉不進待放置區
                         let x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
                         let y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
-                        
-                        const wh = warehouses[currentWhId];
-                        const maxW = (wh.width * cellSize) - target.offsetWidth;
-                        const maxH = (wh.height * cellSize) - target.offsetHeight;
-                        
-                        if (x < 0) x = 0; if (x > maxW) x = maxW;
-                        if (y < 0) y = 0; if (y > maxH) y = maxH;
 
                         target.style.transform = `translate(${x}px, ${y}px)`;
                         target.setAttribute('data-x', x); target.setAttribute('data-y', y);
                     },
                     end(event) {
                         const target = event.target;
+                        if (!isDraggingActive) return; 
                         
                         target.classList.remove('is-dragging');
                         
@@ -864,6 +846,8 @@
                         const duplicates = document.querySelectorAll(`[data-id="${thisId}"]`);
                         if (duplicates.length > 1) { for (let i = 1; i < duplicates.length; i++) duplicates[i].remove(); }
 
+                        // 【安全判定】：改在放手的這一瞬間才去做高精準邊界判定！
+                        // 1. 如果放手的位置，超過了倉庫的黑色實體大外框 boundary，直接認定是要退回待放區
                         if (rect.top > containerRect.bottom || rect.bottom < containerRect.top || rect.left > containerRect.right || rect.right < containerRect.left) {
                             document.getElementById('cargo-buffer').appendChild(target);
                             target.removeAttribute('data-x'); target.removeAttribute('data-y');
@@ -872,6 +856,7 @@
                             target.style.transform = 'none';
                         } 
                         else {
+                            // 2. 如果落在容器內，則抓取網格相對座標進行吸附與碰撞
                             const gridRect = document.getElementById('warehouse-grid').getBoundingClientRect();
                             let localX = rect.left - gridRect.left; let localY = rect.top - gridRect.top;
                             if (isSnapEnabled) { localX = Math.round(localX / cellSize) * cellSize; localY = Math.round(localY / cellSize) * cellSize; }
@@ -879,9 +864,12 @@
                             const wh = warehouses[currentWhId];
                             const maxW = (wh.width * cellSize) - target.offsetWidth;
                             const maxH = (wh.height * cellSize) - target.offsetHeight;
+                            
+                            // 在這裡執行邊界防呆修正（只要人還在黑框裡，就幫忙自動咬合回格子上）
                             if (localX < 0) localX = 0; if (localX > maxW) localX = maxW;
                             if (localY < 0) localY = 0; if (localY > maxH) localY = maxH;
                             
+                            // 碰撞防疊擠開演算法
                             const otherItems = document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)');
                             for (let other of otherItems) {
                                 if (other === target) continue;
@@ -901,12 +889,14 @@
                                 }
                             }
                             
+                            // 檢查：如果被推擠完之後，被迫飛出邊界，代表沒地方放了，直接強制彈回待放置區
                             if (localX < 0 || localX > maxW || localY < 0 || localY > maxH) {
                                 document.getElementById('cargo-buffer').appendChild(target);
                                 target.removeAttribute('data-x'); target.removeAttribute('data-y');
                                 target.removeAttribute('data-m-x'); target.removeAttribute('data-m-y');
                                 target.style.transform = 'none';
                             } else {
+                                // 成功安全降落
                                 document.getElementById('cargo-layer').appendChild(target);
                                 target.style.transform = `translate(${localX}px, ${localY}px)`;
                                 target.setAttribute('data-x', localX); target.setAttribute('data-y', localY);
@@ -915,7 +905,6 @@
                             }
                         }
                         
-                        // 【關鍵修復】存檔完成後，再把拖曳鎖打開，讓定時器恢復正常功能
                         autoSaveToCloud();
                         isDraggingActive = false; 
                     }
