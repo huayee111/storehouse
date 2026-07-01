@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>公司內部倉儲網格系統 - 無捲軸鎖定優化版</title>
+    <title>公司內部倉儲網格系統 - 倉庫獨立與視覺優化版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
             --grid-cols: 30;
             --grid-rows: 30;
-            --cell-size: 40px;
+            --cell-size: 20px; /* 【優化】：預設改為 20px */
         }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; 
@@ -30,7 +30,6 @@
             max-width: 900px; 
         }
         
-        /* 【核心修正】：徹底移除了 max-height 與 overflow，不論放大縮小，外框絕對不出現拉桿 */
         #warehouse-container { 
             border: 2px solid #333; 
             background-color: #ffffff; 
@@ -160,9 +159,6 @@
             flex-direction: column; 
             align-items: center;
             justify-content: center;
-            font-size: 12px;
-            font-weight: bold;
-            text-align: center;
             border-radius: 6px;
             cursor: move;
             touch-action: none;
@@ -170,21 +166,42 @@
             user-select: none;
             pointer-events: auto; 
             transition: opacity 0.2s;
+            padding: 2px;
+            overflow: hidden; /* 防止文字溢出 */
         }
-        .cargo-qty { font-size: 10px; opacity: 0.9; margin-top: 3px; background: rgba(0,0,0,0.15); padding: 2px 5px; border-radius: 4px; }
+        
+        /* 【核心優化】：利用等比例計算動態縮放字體，完美塞進格子 */
+        .cargo-title {
+            font-size: calc(var(--cell-size) * 0.32);
+            font-weight: bold;
+            line-height: 1.1;
+            max-width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .cargo-qty { 
+            font-size: calc(var(--cell-size) * 0.26); 
+            font-weight: bold;
+            opacity: 0.9; 
+            margin-top: 2px; 
+            background: rgba(0,0,0,0.15); 
+            padding: 1px 4px; 
+            border-radius: 4px; 
+            white-space: nowrap;
+        }
         .cargo-item.is-dragging { opacity: 0.6; z-index: 100; box-shadow: 0 8px 15px rgba(0,0,0,0.2); }
         
-        /* 鎖定狀態下的視覺樣式 */
         .cargo-item.is-locked {
             opacity: 0.55;
             border: 2px dashed rgba(0,0,0,0.5) !important;
             cursor: not-allowed !important;
         }
         .cargo-item.is-locked::before {
-            content: '🔒 ';
+            content: '🔒';
             position: absolute;
-            top: 2px; right: 4px;
-            font-size: 10px;
+            top: 1px; right: 2px;
+            font-size: calc(var(--cell-size) * 0.25);
         }
         
         #cargo-buffer .cargo-item { 
@@ -220,7 +237,7 @@
             <div id="warehouse-grid"></div>
         </div>
 
-        <h3>貨物待放置區 (可點擊/右鍵選單快速切換位置)</h3>
+        <h3>貨物待放置區 (每個倉庫獨立不相容)</h3>
         <div id="cargo-buffer"></div>
     </div>
 
@@ -229,8 +246,8 @@
         <div class="collapsible-content">
             <div class="collapsible-body">
                 <div>
-                    <label>網格比例尺 (目前格寬: <span id="scale-val">40</span>px)</label>
-                    <input type="range" id="grid-scale" min="20" max="80" value="40" oninput="changeScale(this.value)" style="margin-bottom:20px;">
+                    <label>網格比例尺 (目前格寬: <span id="scale-val">20</span>px)</label>
+                    <input type="range" id="grid-scale" min="15" max="80" value="20" oninput="changeScale(this.value)" style="margin-bottom:20px;">
                     
                     <div class="switch-container">
                         <label for="snap-toggle">自動吸附對齊網格</label>
@@ -311,12 +328,13 @@
             {bg: '#dc3545', text: '#ffffff'}
         ];
         
-        let cellSize = 40; 
+        let cellSize = 20; /* 預設改為 20 */
         let isSnapEnabled = true;
         let interactInstance = null;
         let rightClickedElement = null;
 
         window.onload = function() {
+            document.documentElement.style.setProperty('--cell-size', '20px');
             renderGrid();
             renderColorHistory();
             initInteractEngine();
@@ -419,6 +437,12 @@
                     warehouses = data.warehouses;
                 }
                 
+                // 【優化】：如果雲端有記錄歷史顏色，載入進來
+                if (data && Array.isArray(data.colorHistory) && data.colorHistory.length > 0) {
+                    colorHistory = data.colorHistory;
+                }
+                renderColorHistory();
+
                 const select = document.getElementById('warehouse-select');
                 select.innerHTML = '';
                 for (let id in warehouses) {
@@ -472,16 +496,14 @@
                     cargo.setAttribute('data-m-x', itemData.m_x || 0);
                     cargo.setAttribute('data-m-y', itemData.m_y || 0);
                     
-                    // 恢復鎖定狀態
                     if (itemData.isLocked === true || itemData.isLocked === "true") {
                         cargo.classList.add('is-locked');
                         cargo.setAttribute('data-locked', 'true');
                     }
-                    
                     document.getElementById('cargo-layer').appendChild(cargo);
                 } 
-                else if (itemData.warehouseId === 'buffer') {
-                    // 緩衝區物件不應該被鎖定
+                // 【核心優化】：待放置區也過濾符合當前 warehouseId 的物件，實現倉庫間獨立
+                else if (itemData.warehouseId === 'buffer_' + currentWhId) {
                     cargo.removeAttribute('data-locked');
                     cargo.classList.remove('is-locked');
                     document.getElementById('cargo-buffer').appendChild(cargo);
@@ -494,8 +516,9 @@
             document.getElementById('sync-status').textContent = "⏳ 正在自動儲存至雲端...";
             document.getElementById('sync-status').style.color = "#6c757d";
 
+            // 過濾掉非當前倉庫內、也非當前倉庫待放置區的快取資料（保留其他倉庫的）
             const cargoItemsToUpload = globalCargoCache.filter(item => 
-                item.warehouseId !== currentWhId && item.warehouseId !== 'buffer'
+                item.warehouseId !== currentWhId && item.warehouseId !== ('buffer_' + currentWhId)
             );
             
             document.querySelectorAll('#cargo-layer .cargo-item').forEach(item => {
@@ -525,13 +548,14 @@
                     m_y: "0",
                     bg: item.style.backgroundColor,
                     text: item.style.color,
-                    warehouseId: 'buffer',
+                    warehouseId: 'buffer_' + currentWhId, // 依附當前倉庫 ID
                     isLocked: false
                 });
             });
 
             globalCargoCache = cargoItemsToUpload;
-            const payload = { warehouses: warehouses, cargoItems: cargoItemsToUpload };
+            // 【優化】：將 colorHistory 傳送上雲端
+            const payload = { warehouses: warehouses, cargoItems: cargoItemsToUpload, colorHistory: colorHistory };
 
             fetch(GAS_URL, {
                 method: "POST",
@@ -600,7 +624,7 @@
                 renderColorHistory();
             }
             createNewCargo();
-            autoSaveToCloud();
+            autoSaveToCloud(); // 這裡會自動同步將配對儲存至雲端
         }
 
         function renderColorHistory() {
@@ -622,13 +646,13 @@
 
         function createNewCargo() {
             const name = document.getElementById('cargo-name').value;
-            const qty = document.getElementById('cargo-qty').value;
+            const qty = parseInt(document.getElementById('cargo-qty').value) || 0;
             const w = parseFloat(document.getElementById('cargo-w').value);
             const h = parseFloat(document.getElementById('cargo-h').value);
             const bgColor = document.getElementById('cargo-color').value;
             const textColor = document.getElementById('text-color').value;
 
-            const itemData = { id: 'item_' + Date.now(), name: name, qty: qty, w_m: w, h_m: h, bg: bgColor, text: textColor, warehouseId: 'buffer', isLocked: false };
+            const itemData = { id: 'item_' + Date.now(), name: name, qty: qty, w_m: w, h_m: h, bg: bgColor, text: textColor, warehouseId: 'buffer_' + currentWhId, isLocked: false };
             const cargo = reCreateCargoNode(itemData);
             document.getElementById('cargo-buffer').appendChild(cargo);
             globalCargoCache.push(itemData);
@@ -637,7 +661,11 @@
         function reCreateCargoNode(itemData) {
             const cargo = document.createElement('div');
             cargo.className = 'cargo-item';
-            cargo.innerHTML = `<span class="cargo-title">${itemData.name}</span><span class="cargo-qty">${itemData.qty} 件</span>`;
+            
+            // 【核心優化】：判定件數是否為 0，若是則完全隱藏件數標籤
+            const qtyInt = parseInt(itemData.qty) || 0;
+            const qtyHtml = qtyInt > 0 ? `<span class="cargo-qty">${qtyInt} 件</span>` : '';
+            cargo.innerHTML = `<span class="cargo-title">${itemData.name}</span>${qtyHtml}`;
             
             cargo.style.width = (parseFloat(itemData.w_m || 2) * cellSize) + 'px';
             cargo.style.height = (parseFloat(itemData.h_m || 2) * cellSize) + 'px';
@@ -646,19 +674,17 @@
             
             cargo.setAttribute('data-w-m', itemData.w_m || 2);
             cargo.setAttribute('data-h-m', itemData.h_m || 2);
-            cargo.setAttribute('data-qty', itemData.qty || 0);
+            cargo.setAttribute('data-qty', qtyInt);
             cargo.setAttribute('data-name', itemData.name || '未命名');
             cargo.setAttribute('data-id', itemData.id);
             cargo.setAttribute('data-locked', itemData.isLocked ? 'true' : 'false');
 
-            // 點擊直接開啟修改數量
             cargo.addEventListener('click', (e) => {
                 e.stopPropagation();
                 rightClickedElement = cargo;
                 editSelectedQty();
             });
 
-            // 右鍵彈出選單（加入分流與鎖定狀態判斷）
             cargo.addEventListener('contextmenu', (e) => {
                 e.preventDefault(); e.stopPropagation();
                 rightClickedElement = cargo;
@@ -672,12 +698,10 @@
                 lockBtn.textContent = isLocked ? "🔓 解除鎖定" : "🔒 鎖定物件";
 
                 if (cargo.parentElement.id === 'cargo-buffer') {
-                    // 在緩衝區：可以進倉庫，但不能使用鎖定與放回緩衝功能
                     enterBtn.style.display = isLocked ? 'none' : 'block';
                     returnBtn.style.display = 'none';
                     lockBtn.style.display = 'none';
                 } else {
-                    // 在倉庫內：無法進倉庫，依鎖定狀態決定是否隱藏功能
                     enterBtn.style.display = 'none';
                     returnBtn.style.display = isLocked ? 'none' : 'block';
                     lockBtn.style.display = 'block';
@@ -691,7 +715,6 @@
             return cargo;
         }
 
-        // 【新增功能】：修改商品名稱
         function editSelectedName() {
             if(rightClickedElement) {
                 const oldName = rightClickedElement.getAttribute('data-name');
@@ -707,16 +730,28 @@
         function editSelectedQty() { 
             if(rightClickedElement) {
                 const oldQty = rightClickedElement.getAttribute('data-qty');
-                const newQty = prompt("請輸入新的貨物數量：", oldQty);
+                const newQty = prompt("請輸入新的貨物數量（輸入 0 將隱藏件數標籤）：", oldQty);
                 if (newQty !== null && newQty.trim() !== "") {
-                    rightClickedElement.setAttribute('data-qty', newQty);
-                    rightClickedElement.querySelector('.cargo-qty').textContent = `${newQty} 件`;
+                    const parsedQty = parseInt(newQty) || 0;
+                    rightClickedElement.setAttribute('data-qty', parsedQty);
+                    
+                    // 動態更新件數顯示與否
+                    let qtySpan = rightClickedElement.querySelector('.cargo-qty');
+                    if (parsedQty > 0) {
+                        if (!qtySpan) {
+                            qtySpan = document.createElement('span');
+                            qtySpan.className = 'cargo-qty';
+                            rightClickedElement.appendChild(qtySpan);
+                        }
+                        qtySpan.textContent = `${parsedQty} 件`;
+                    } else {
+                        if (qtySpan) qtySpan.remove();
+                    }
                     autoSaveToCloud();
                 }
             }
         }
 
-        // 【新增功能】：切換鎖定狀態
         function toggleCargoLock() {
             if (rightClickedElement) {
                 const isLocked = rightClickedElement.getAttribute('data-locked') === 'true';
@@ -728,7 +763,7 @@
                     rightClickedElement.classList.add('is-locked');
                 }
                 rightClickedElement = null;
-                initInteractEngine(); // 重新載入拖拉引擎更新可搬移名單
+                initInteractEngine(); 
                 autoSaveToCloud();
             }
         }
@@ -777,11 +812,9 @@
             } 
         }
 
-        // 終極拖拉防護引擎：被綁定 data-locked="true" 的物件將直接被隔離無法拖拽
         function initInteractEngine() {
             if (interactInstance) interactInstance.unset();
 
-            // 核心過濾選取器：只綁定「沒有被鎖定」的 cargo-item
             interactInstance = interact('.cargo-item:not([data-locked="true"])').draggable({
                 inertia: false,
                 autoScroll: true,
