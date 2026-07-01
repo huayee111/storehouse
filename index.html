@@ -360,7 +360,6 @@
             grid.style.width = (wh.width * cellSize) + 'px';
             grid.style.height = (wh.height * cellSize) + 'px';
 
-            // 精確移除舊格子，絕不誤傷貨物
             document.querySelectorAll('.grid-cell-block').forEach(el => el.remove());
 
             const totalCells = wh.width * wh.height;
@@ -406,10 +405,8 @@
                 document.getElementById('wh-w').value = wh.width;
                 document.getElementById('wh-h').value = wh.height;
                 
-                // 【核心修正點】：先調用渲染格子，接著清空與重新放入貨物，避免 DOM 覆蓋
                 renderGrid();
 
-                // 【精確刪除】：只刪除貨物 (cargo-item)，留住背景格子 (grid-cell-block)
                 document.querySelectorAll('#warehouse-grid .cargo-item').forEach(el => el.remove());
                 document.getElementById('cargo-buffer').innerHTML = '';
 
@@ -498,18 +495,55 @@
             });
         }
 
+        // 【智慧更新優化版】：自動偵測重複名稱，直接覆蓋資料不產生分身
         function saveWarehouseSettings() {
-            const name = document.getElementById('wh-name').value;
+            const name = document.getElementById('wh-name').value.trim();
             const w = parseInt(document.getElementById('wh-w').value);
             const h = parseInt(document.getElementById('wh-h').value);
-            const id = 'wh_' + Date.now();
-            warehouses[id] = { name: name, width: w, height: h };
             
+            if (!name) {
+                alert("請輸入倉庫名稱！");
+                return;
+            }
+
+            let targetId = null;
+
+            // 掃描現有倉庫，尋找是否有一模一樣的名字
+            for (let id in warehouses) {
+                if (warehouses[id].name === name) {
+                    targetId = id; 
+                    break;
+                }
+            }
+
             const select = document.getElementById('warehouse-select');
-            const opt = document.createElement('option');
-            opt.value = id; opt.textContent = `${name} (${w}x${h})`;
-            select.appendChild(opt);
-            select.value = id; currentWhId = id;
+
+            if (targetId) {
+                // 有重複名字 -> 直接更新寬高
+                warehouses[targetId].width = w;
+                warehouses[targetId].height = h;
+                
+                const optionToUpdate = select.querySelector(`option[value="${targetId}"]`);
+                if (optionToUpdate) {
+                    optionToUpdate.textContent = `${name} (${w}x${h})`;
+                }
+                currentWhId = targetId;
+                console.log(`▼ 偵測到同名，已更新 [${name}] 的網格尺寸為 ${w}x${h}`);
+            } else {
+                // 完全沒重複 -> 新建專案 ID
+                targetId = 'wh_' + Date.now();
+                warehouses[targetId] = { name: name, width: w, height: h };
+                
+                const opt = document.createElement('option');
+                opt.value = targetId; 
+                opt.textContent = `${name} (${w}x${h})`;
+                select.appendChild(opt);
+                
+                currentWhId = targetId;
+                console.log(`▼ 成功建立全新倉庫專案：[${name}] (${w}x${h})`);
+            }
+            
+            select.value = currentWhId;
             renderGrid();
             autoSaveToCloud();
         }
@@ -522,7 +556,7 @@
                 document.getElementById('wh-w').value = wh.width;
                 document.getElementById('wh-h').value = wh.height;
                 renderGrid();
-                syncFromCloud(); // 切換倉庫時同步該倉庫雲端資料
+                syncFromCloud(); 
             }
         }
 
