@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>公司內部倉儲網格系統 - iOS防禦優化版</title>
+    <title>公司內部倉儲網格系統 - 全端同步流暢版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -11,8 +11,6 @@
             --grid-rows: 30;
             --cell-size: 20px;
         }
-        
-        /* 全域 iOS 系統手勢與文字防禦 */
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; 
             margin: 15px; 
@@ -20,14 +18,10 @@
             display: flex; 
             flex-direction: column; 
             gap: 15px; 
+            user-select: none;
             align-items: flex-start;
-            
-            /* 【iOS 強效防護】：徹底防止 iPhone 長按圈選文字或彈出複製選單 */
             -webkit-touch-callout: none; 
             -webkit-user-select: none;   
-            -khtml-user-select: none;     
-            -moz-user-select: none;      
-            -ms-user-select: none;         
             user-select: none;             
         }
 
@@ -48,146 +42,46 @@
             display: inline-block;
         }
 
-        .wh-tabs-container {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-top: 5px;
-            margin-bottom: 5px;
-        }
+        /* 旋轉動畫防呆 */
+        .wh-tabs-container { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px; margin-bottom: 5px; }
         .wh-tab-btn {
-            padding: 10px 18px;
-            background-color: #e2e8f0;
-            color: #4a5568;
-            border: 1px solid #cbd5e0;
-            border-radius: 20px; 
-            font-weight: bold;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            -webkit-tap-highlight-color: transparent; /* 防止 iOS 點擊反灰 */
+            padding: 10px 18px; background-color: #e2e8f0; color: #4a5568; border: 1px solid #cbd5e0;
+            border-radius: 20px; font-weight: bold; font-size: 14px; cursor: pointer; transition: all 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
         }
-        .wh-tab-btn:hover { background-color: #cbd5e0; }
-        .wh-tab-btn.active {
-            background-color: #2b6cb0; 
-            color: white;
-            border-color: #2b6cb0;
-            box-shadow: 0 4px 6px rgba(43, 108, 176, 0.2);
-        }
+        .wh-tab-btn.active { background-color: #2b6cb0; color: white; border-color: #2b6cb0; }
 
-        .canvas-layout {
-            display: flex;
-            gap: 15px;
-            align-items: flex-start;
-            width: 100%;
-        }
-
+        .canvas-layout { display: flex; gap: 15px; align-items: flex-start; width: 100%; }
         #warehouse-container { 
-            border: 2px solid #333; 
-            background-color: #ffffff; 
-            position: relative; 
-            width: fit-content; 
-            height: fit-content;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            margin-bottom: 5px;
+            border: 2px solid #333; background-color: #ffffff; position: relative; 
+            width: fit-content; height: fit-content; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 5px;
         }
-        
         #warehouse-grid {
-            position: relative;
-            top: 0; left: 0;
-            width: calc(var(--grid-cols) * var(--cell-size));
-            height: calc(var(--grid-rows) * var(--cell-size));
+            position: relative; top: 0; left: 0;
+            width: calc(var(--grid-cols) * var(--cell-size)); height: calc(var(--grid-rows) * var(--cell-size));
         }
-
         #grid-underlay {
-            display: grid;
-            grid-template-columns: repeat(var(--grid-cols), var(--cell-size));
-            grid-template-rows: repeat(var(--grid-rows), var(--cell-size));
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 1;
+            display: grid; grid-template-columns: repeat(var(--grid-cols), var(--cell-size)); grid-template-rows: repeat(var(--grid-rows), var(--cell-size));
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;
         }
-        .grid-cell-block {
-            border-right: 1px solid #e2e8f0;
-            border-bottom: 1px solid #e2e8f0;
-            box-sizing: border-box;
-        }
-        
-        #cargo-layer {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 5;
-            pointer-events: none;
-        }
-        
+        .grid-cell-block { border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; box-sizing: border-box; }
+        #cargo-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
         #cargo-buffer { 
-            min-height: 110px; 
-            background: #fff; 
-            border: 2px dashed #a0aec0; 
-            border-radius: 8px; 
-            padding: 12px; 
-            display: flex; 
-            gap: 15px; 
-            align-items: center; 
-            flex-wrap: wrap; 
-            width: 100%;
-            box-sizing: border-box;
-            position: relative;
+            min-height: 110px; background: #fff; border: 2px dashed #a0aec0; border-radius: 8px; 
+            padding: 12px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; width: 100%; box-sizing: border-box; position: relative;
         }
 
-        .layer-selector-sidebar {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
+        .layer-selector-sidebar { display: flex; flex-direction: column; gap: 10px; }
         .layer-tab-btn {
-            width: 85px;
-            height: 55px;
-            border: 2px solid #cbd5e0;
-            background: #fff;
-            border-radius: 8px;
-            font-weight: bold;
-            font-size: 13px;
-            cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            transition: all 0.15s;
-            -webkit-tap-highlight-color: transparent;
+            width: 85px; height: 55px; border: 2px solid #cbd5e0; background: #fff; border-radius: 8px;
+            font-weight: bold; font-size: 13px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: all 0.15s; -webkit-tap-highlight-color: transparent;
         }
-        .layer-tab-btn.active {
-            background: #805ad5;
-            color: white;
-            border-color: #805ad5;
-            box-shadow: 0 4px 10px rgba(128, 90, 213, 0.3);
-        }
+        .layer-tab-btn.active { background: #805ad5; color: white; border-color: #805ad5; }
 
-        #control-panel { 
-            background: white; 
-            border-radius: 12px; 
-            box-shadow: 0 -2px 15px rgba(0,0,0,0.08); 
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            width: 100%;
-            max-width: 900px; 
-            box-sizing: border-box;
-        }
-
-        .collapsible-header {
-            background-color: #edf2f7; padding: 14px 20px; font-size: 15px; font-weight: bold; color: #2d3748; cursor: pointer;
-            display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; user-select: none;
-            -webkit-tap-highlight-color: transparent;
-        }
-        .collapsible-header::after { content: '▼'; font-size: 12px; transition: transform 0.2s; }
+        #control-panel { background: white; border-radius: 12px; box-shadow: 0 -2px 15px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow: hidden; width: 100%; max-width: 900px; box-sizing: border-box; }
+        .collapsible-header { background-color: #edf2f7; padding: 14px 20px; font-size: 15px; font-weight: bold; color: #2d3748; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; user-select: none; -webkit-tap-highlight-color: transparent; }
+        .collapsible-header::after { content: '▼'; font-size: 12px; }
         .collapsible-header.active::after { content: '▲'; }
         .collapsible-content { max-height: 0; overflow: hidden; transition: max-height 0.2s ease-out; background: #ffffff; }
         .collapsible-body { padding: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
@@ -195,113 +89,44 @@
         .main-cargo-generator { padding: 20px; border-top: 2px solid #e2e8f0; background: #fff; }
         label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 14px; color: #4a5568; }
         
-        input, select, .action-btn { 
-            width: 100%; height: 46px; padding: 10px 12px; margin-bottom: 12px; box-sizing: border-box; 
-            border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; 
-        }
+        input, select, .action-btn { width: 100%; height: 46px; padding: 10px 12px; margin-bottom: 12px; box-sizing: border-box; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; }
         input[type="range"] { height: auto; }
         input[type="color"] { padding: 2px; cursor: pointer; }
-        
-        .action-btn { 
-            background-color: #007bff; color: white; border: none; cursor: pointer; font-weight: bold;
-            display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent;
-        }
-        .action-btn:active { opacity: 0.8; }
+        .action-btn { background-color: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
         .switch-container { display: flex; align-items: center; justify-content: space-between; height: 46px; }
         .switch-container input { width: 22px; height: 22px; margin: 0; }
 
         .color-history { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; margin-top: 5px; }
-        .color-combo-dot { 
-            width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 2px solid #cbd5e0; 
-            display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; user-select: none;
-            -webkit-tap-highlight-color: transparent;
-        }
+        .color-combo-dot { width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 2px solid #cbd5e0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; user-select: none; -webkit-tap-highlight-color: transparent; }
 
-        /* 貨物物件防護樣式 */
+        /* 貨物物件 */
         .cargo-item {
-            position: absolute;
-            box-sizing: border-box;
-            border: 2px solid rgba(0,0,0,0.25);
-            display: flex;
-            flex-direction: column; 
-            align-items: center;
-            justify-content: center;
-            border-radius: 6px;
-            cursor: move;
-            touch-action: none; /* 阻斷手機預設手勢 */
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            pointer-events: auto; 
-            padding: 4px;
-            overflow: hidden;
-            
-            /* 【iOS 局部精準阻斷選取】 */
-            -webkit-touch-callout: none !important;
-            -webkit-user-select: none !important;
-            user-select: none !important;
-            -webkit-tap-highlight-color: transparent !important;
+            position: absolute; box-sizing: border-box; border: 2px solid rgba(0,0,0,0.25);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            border-radius: 6px; cursor: move; touch-action: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 4px; overflow: hidden; -webkit-touch-callout: none !important; -webkit-user-select: none !important; user-select: none !important; -webkit-tap-highlight-color: transparent !important;
         }
         
         .cargo-title {
-            font-size: calc(var(--cell-size) * 0.32);
-            font-weight: bold;
-            line-height: 1.2;
-            max-width: 100%;
-            word-break: break-all;
-            display: -webkit-box;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            text-align: center;
-            pointer-events: none; /* 讓文字不吃任何滑鼠與長按事件，防反藍 */
+            font-size: calc(var(--cell-size) * 0.32); font-weight: bold; line-height: 1.2; max-width: 100%;
+            word-break: break-all; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; text-align: center; pointer-events: none;
         }
-        .cargo-qty { 
-            font-size: calc(var(--cell-size) * 0.26); 
-            font-weight: bold;
-            opacity: 0.9; 
-            margin-top: 3px; 
-            background: rgba(0,0,0,0.15); 
-            padding: 2px 5px; 
-            border-radius: 4px; 
-            white-space: nowrap;
-            pointer-events: none;
-        }
+        .cargo-qty { font-size: calc(var(--cell-size) * 0.26); font-weight: bold; opacity: 0.9; margin-top: 3px; background: rgba(0,0,0,0.15); padding: 2px 5px; border-radius: 4px; white-space: nowrap; pointer-events: none; }
         .cargo-item.is-dragging { opacity: 0.6; z-index: 100; box-shadow: 0 8px 15px rgba(0,0,0,0.2); }
         
-        .cargo-item.underlay-ghost {
-            opacity: 0.15 !important;
-            border: 2px dashed #000000 !important;
-            background-color: #e2e8f0 !important;
-            color: #000000 !important;
-            pointer-events: none !important;
-            z-index: 2 !important;
-            box-shadow: none !important;
-        }
-
-        .cargo-item.is-locked {
-            opacity: 0.55;
-            border: 2px dashed rgba(0,0,0,0.5) !important;
-            cursor: not-allowed !important;
-        }
-        .cargo-item.is-locked::before {
-            content: '🔒';
-            position: absolute;
-            top: 1px; right: 2px;
-            font-size: calc(var(--cell-size) * 0.25);
-        }
+        .cargo-item.underlay-ghost { opacity: 0.15 !important; border: 2px dashed #000000 !important; background-color: #e2e8f0 !important; color: #000000 !important; pointer-events: none !important; z-index: 2 !important; box-shadow: none !important; }
+        .cargo-item.is-locked { opacity: 0.55; border: 2px dashed rgba(0,0,0,0.5) !important; cursor: not-allowed !important; }
+        .cargo-item.is-locked::before { content: '🔒'; position: absolute; top: 1px; right: 2px; font-size: calc(var(--cell-size) * 0.25); }
         
-        #cargo-buffer .cargo-item { 
-            position: relative !important; 
-            transform: none !important; 
-            display: inline-flex !important;
-            margin: 0 !important;
-        }
+        #cargo-buffer .cargo-item { position: relative !important; transform: none !important; display: inline-flex !important; margin: 0 !important; }
 
         #context-menu {
             display: none; position: absolute; background: white; border: 1px solid #cbd5e0;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; border-radius: 8px; overflow: hidden;
-            -webkit-touch-callout: none; user-select: none;
         }
-        #context-menu div { padding: 14px 24px; cursor: pointer; font-size: 15px; font-weight: bold; -webkit-tap-highlight-color: transparent;}
+        #context-menu div { padding: 14px 24px; cursor: pointer; font-size: 15px; font-weight: bold; }
         #context-menu div:hover { background: #edf2f7; }
+        #context-menu .rotate-opt { color: #d69e2e; font-weight: bold; } /* 旋轉選項橘黃色 */
         #context-menu .lock-opt { color: #805ad5; font-weight: bold; }
         #context-menu .enter-opt { color: #28a745; font-weight: bold; border-top: 1px solid #edf2f7; }
         #context-menu .return-opt { color: #007bff; font-weight: bold; border-top: 1px solid #edf2f7; }
@@ -320,7 +145,15 @@
 <body>
 
     <div id="main-area">
-        <h3 id="dynamic-title-heading"><span class="wh-title-highlight" id="title-wh-name">倉庫一</span>網格平面圖 (1格 = 1m²) <span id="sync-status" style="font-size:12px; color:#e67e22; margin-left:10px;">⏳ 系統載入中...</span></h3>
+        <h3 id="dynamic-title-heading">
+            <span class="wh-title-highlight" id="title-wh-name">倉庫一</span>網格平面圖 (1格 = 1m²) 
+            <span id="sync-status" style="font-size:12px; color:#e67e22; margin-left:10px;">⏳ 系統載入中...</span>
+        </h3>
+        
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom: 5px;">
+            <label style="display:inline; font-size:13px; color:#4a5568;" for="auto-sync-toggle">🔄 開啟多端實時同步看圖 (5秒自動刷新)</label>
+            <input type="checkbox" id="auto-sync-toggle" checked onchange="toggleAutoSync(this.checked)" style="width:18px; height:18px; margin:0;">
+        </div>
         
         <div class="wh-tabs-container" id="warehouse-tabs-bar"></div>
 
@@ -330,9 +163,9 @@
             </div>
             
             <div class="layer-selector-sidebar">
-                <div class="layer-tab-btn" id="btn-z3" onclick="switchZLayer(3)"><span>第 3 層</span><span style="font-size:9px;opacity:0.7;">(最上層)</span></div>
+                <div class="layer-tab-btn active" id="btn-z1" onclick="switchZLayer(3)"><span>第 3 層</span><span style="font-size:9px;opacity:0.7;">(最上層)</span></div>
                 <div class="layer-tab-btn" id="btn-z2" onclick="switchZLayer(2)"><span>第 2 層</span><span style="font-size:9px;opacity:0.7;">(中層)</span></div>
-                <div class="layer-tab-btn" id="btn-z1" onclick="switchZLayer(1)"><span>第 1 層</span><span style="font-size:9px;opacity:0.7;">(地面棧板)</span></div>
+                <div class="layer-tab-btn" id="btn-z3" onclick="switchZLayer(1)"><span>第 1 層</span><span style="font-size:9px;opacity:0.7;">(地面棧板)</span></div>
             </div>
         </div>
 
@@ -407,7 +240,7 @@
     <div id="context-menu">
         <div onclick="editSelectedName()">✏️ 變更名稱</div>
         <div onclick="editSelectedQty()">🔢 修改數量</div>
-        <div id="menu-lock-btn" class="lock-opt" onclick="toggleCargoLock()">🔒 鎖定物件</div>
+        <div id="menu-rotate-btn" class="rotate-opt" onclick="rotateCargo90()">🔄 旋轉 90 度</div> <div id="menu-lock-btn" class="lock-opt" onclick="toggleCargoLock()">🔒 鎖定物件</div>
         <div id="menu-enter-btn" class="enter-opt" onclick="enterWarehouseDirect()">📥 放進倉庫</div>
         <div id="menu-return-btn" class="return-opt" onclick="returnToBuffer()">↩️ 放回待放區</div>
         <div class="delete-opt" onclick="deleteSelectedCargo()">❌ 刪除貨物</div>
@@ -420,8 +253,11 @@
         let warehouses = { 'wh1': { name: '倉庫一', width: 30, height: 30 } };
         let currentWhId = 'wh1';
         let currentZLevel = 1; 
-        
-        let colorHistory = [
+        let autoSyncTimer = null;
+        let isDraggingActive = false; // 防範拖曳中途被自動整理洗掉
+
+        // 【修正點】：配對色盤改由內建 localStorage 作強效記憶
+        let colorHistory = JSON.parse(localStorage.getItem('wh_color_memory')) || [
             {bg: '#ffc107', text: '#000000'},
             {bg: '#28a745', text: '#ffffff'},
             {bg: '#007bff', text: '#ffffff'},
@@ -439,34 +275,44 @@
             renderColorHistory();
             initInteractEngine();
             syncFromCloud(); 
+            toggleAutoSync(true); // 預設啟動實時多端看圖
 
             document.addEventListener('click', () => {
                 document.getElementById('context-menu').style.display = 'none';
             });
             
-            // 【iOS特規】：防止整個網頁雙擊時畫面放大縮小放大干擾
             document.addEventListener('touchstart', function (event) {
-                if (event.touches.length > 1) {
-                    event.preventDefault();
-                }
+                if (event.touches.length > 1) event.preventDefault();
             }, { passive: false });
         };
 
-        function toggleAccordion(header) {
-            header.classList.toggle("active");
-            const content = header.nextElementSibling;
-            if (content.style.maxHeight) {
-                content.style.maxHeight = null;
-            } else {
-                content.style.maxHeight = content.scrollHeight + "px";
+        // 【新增功能】：定時輪詢多端同步
+        function toggleAutoSync(enabled) {
+            if (autoSyncTimer) clearInterval(autoSyncTimer);
+            if (enabled) {
+                autoSyncTimer = setInterval(() => {
+                    // 只有在大家都沒有在動手拖方塊的時候，才可以背景靜默抓取更新，防止卡頓
+                    if (!isDraggingActive && !document.querySelector('.is-dragging')) {
+                        syncFromCloudSilent();
+                    }
+                }, 5000); // 5 秒鐘自動抓取一次最新變動
             }
+        }
+
+        // 背景安靜抓取，不干擾使用者打字
+        function syncFromCloudSilent() {
+            fetch(GAS_URL)
+            .then(res => res.json())
+            .then(data => {
+                if(data && data.warehouses) warehouses = data.warehouses;
+                globalCargoCache = data && Array.isArray(data.cargoItems) ? data.cargoItems : [];
+                renderCurrentWarehouseCargoes();
+            }).catch(e => console.log("靜默同步微延遲"));
         }
 
         function switchZLayer(layerNum) {
             currentZLevel = parseInt(layerNum);
-            document.querySelectorAll('.layer-tab-btn').forEach((btn) => {
-                btn.classList.remove('active');
-            });
+            document.querySelectorAll('.layer-tab-btn').forEach((btn) => { btn.classList.remove('active'); });
             const activeBtn = document.getElementById(`btn-z${currentZLevel}`);
             if (activeBtn) activeBtn.classList.add('active');
             renderCurrentWarehouseCargoes();
@@ -499,7 +345,6 @@
         function renderGrid() {
             const wh = warehouses[currentWhId] || { name: '倉庫一', width: 30, height: 30 };
             const grid = document.getElementById('warehouse-grid');
-            
             document.documentElement.style.setProperty('--grid-cols', wh.width);
             document.documentElement.style.setProperty('--grid-rows', wh.height);
             grid.style.width = (wh.width * cellSize) + 'px';
@@ -520,7 +365,6 @@
 
             underlay = document.createElement('div');
             underlay.id = 'grid-underlay';
-            
             const totalCells = wh.width * wh.height;
             const fragment = document.createDocumentFragment();
             for (let i = 0; i < totalCells; i++) {
@@ -537,22 +381,10 @@
             document.getElementById('sync-status').style.color = "#6c757d";
 
             fetch(GAS_URL)
-            .then(res => {
-                if (!res.ok) throw new Error("網絡不通");
-                return res.json();
-            })
+            .then(res => { if (!res.ok) throw new Error("網絡不通"); return res.json(); })
             .then(data => {
-                if(data && data.warehouses && Object.keys(data.warehouses).length > 0) {
-                    warehouses = data.warehouses;
-                }
-                if (data && Array.isArray(data.colorHistory) && data.colorHistory.length > 0) {
-                    colorHistory = data.colorHistory;
-                }
-                renderColorHistory();
-
-                if (!warehouses[currentWhId]) {
-                    currentWhId = Object.keys(warehouses)[0];
-                }
+                if(data && data.warehouses && Object.keys(data.warehouses).length > 0) warehouses = data.warehouses;
+                if (!warehouses[currentWhId]) currentWhId = Object.keys(warehouses)[0];
                 
                 switchWarehouseSelect(currentWhId, false);
                 globalCargoCache = data && Array.isArray(data.cargoItems) ? data.cargoItems : [];
@@ -562,8 +394,7 @@
                 document.getElementById('sync-status').style.color = "#28a745";
             })
             .catch(err => {
-                console.warn("維持本地模式:", err);
-                document.getElementById('sync-status').textContent = "⚠️ 雲端連線受阻，目前處於單機操作模式";
+                document.getElementById('sync-status').textContent = "⚠️ 獨立單機操作模式運作中";
                 document.getElementById('sync-status').style.color = "#e67e22";
                 renderGrid(); 
             });
@@ -582,21 +413,17 @@
                 select.innerHTML = '';
                 for (let id in warehouses) {
                     const opt = document.createElement('option');
-                    opt.value = id;
-                    opt.textContent = `${warehouses[id].name} (${warehouses[id].width}x${warehouses[id].height})`;
+                    opt.value = id; opt.textContent = `${warehouses[id].name} (${warehouses[id].width}x${warehouses[id].height})`;
                     select.appendChild(opt);
                 }
                 select.value = currentWhId;
                 refreshWarehouseTabs();
-                if (triggerRender) {
-                    renderCurrentWarehouseCargoes();
-                }
+                if (triggerRender) renderCurrentWarehouseCargoes();
             }
         }
 
         function renderCurrentWarehouseCargoes() {
             renderGrid();
-            
             const layer = document.getElementById('cargo-layer');
             if (layer) layer.innerHTML = '';
             document.getElementById('cargo-buffer').innerHTML = '';
@@ -610,15 +437,12 @@
                     const pixelX = parseFloat(itemData.m_x || 0) * cellSize;
                     const pixelY = parseFloat(itemData.m_y || 0) * cellSize;
                     cargo.style.transform = `translate(${pixelX}px, ${pixelY}px)`;
-                    cargo.setAttribute('data-x', pixelX);
-                    cargo.setAttribute('data-y', pixelY);
-                    cargo.setAttribute('data-m-x', itemData.m_x || 0);
-                    cargo.setAttribute('data-m-y', itemData.m_y || 0);
+                    cargo.setAttribute('data-x', pixelX); cargo.setAttribute('data-y', pixelY);
+                    cargo.setAttribute('data-m-x', itemData.m_x || 0); cargo.setAttribute('data-m-y', itemData.m_y || 0);
 
                     if (cargoZ === currentZLevel) {
                         if (itemData.isLocked === true || itemData.isLocked === "true") {
-                            cargo.classList.add('is-locked');
-                            cargo.setAttribute('data-locked', 'true');
+                            cargo.classList.add('is-locked'); cargo.setAttribute('data-locked', 'true');
                         }
                         document.getElementById('cargo-layer').appendChild(cargo);
                     } 
@@ -629,15 +453,13 @@
                     }
                 } 
                 else if (itemData.warehouseId === `buffer_${currentWhId}_z${currentZLevel}`) {
-                    cargo.removeAttribute('data-locked');
-                    cargo.classList.remove('is-locked');
+                    cargo.removeAttribute('data-locked'); cargo.classList.remove('is-locked');
                     document.getElementById('cargo-buffer').appendChild(cargo);
                 }
             });
             initInteractEngine();
         }
 
-        // 【強效防震儲存】：抽取最即時 DOM 狀態快照，完美過濾重複快取
         function autoSaveToCloud() {
             document.getElementById('sync-status').textContent = "⏳ 正在自動儲存至雲端...";
             document.getElementById('sync-status').style.color = "#6c757d";
@@ -645,14 +467,9 @@
             const cargoItemsToUpload = globalCargoCache.filter(item => {
                 const isCurrentWh = item.warehouseId === currentWhId;
                 const isCurrentBuffer = item.warehouseId === `buffer_${currentWhId}_z${currentZLevel}`;
-                const itemZ = parseInt(item.z_level || 1);
-                
-                if (isCurrentBuffer) return false;
-                if (isCurrentWh && itemZ === currentZLevel) return false;
-                return true;
+                return !isCurrentBuffer && !(isCurrentWh && parseInt(item.z_level || 1) === currentZLevel);
             });
             
-            // 地圖上的當前物件
             document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)').forEach(item => {
                 cargoItemsToUpload.push({
                     id: item.getAttribute('data-id'),
@@ -670,7 +487,6 @@
                 });
             });
 
-            // 待放置區的物件
             document.querySelectorAll('#cargo-buffer .cargo-item').forEach(item => {
                 cargoItemsToUpload.push({
                     id: item.getAttribute('data-id'),
@@ -678,34 +494,65 @@
                     qty: item.getAttribute('data-qty'),
                     w_m: item.getAttribute('data-w-m'),
                     h_m: item.getAttribute('data-h-m'),
-                    m_x: "0",
-                    m_y: "0",
+                    m_x: "0", m_y: "0",
                     bg: item.style.backgroundColor,
                     text: item.style.color,
                     warehouseId: `buffer_${currentWhId}_z${currentZLevel}`,
-                    z_level: currentZLevel,
-                    isLocked: false
+                    z_level: currentZLevel, isLocked: false
                 });
             });
 
             globalCargoCache = cargoItemsToUpload;
-            const payload = { warehouses: warehouses, cargoItems: cargoItemsToUpload, colorHistory: colorHistory };
-
             fetch(GAS_URL, {
-                method: "POST",
-                mode: "no-cors", 
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            })
-            .then(() => {
+                method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ warehouses: warehouses, cargoItems: cargoItemsToUpload })
+            }).then(() => {
                 document.getElementById('sync-status').textContent = "✅ 雲端儲存成功！";
                 document.getElementById('sync-status').style.color = "#28a745";
-            })
-            .catch(err => {
-                console.error("儲存錯誤:", err);
-                document.getElementById('sync-status').textContent = "❌ 雲端儲存失敗";
-                document.getElementById('sync-status').style.color = "#dc3545";
             });
+        }
+
+        // 【新增功能】：精準 90 度物理換算旋轉，文字正面不受影響
+        function rotateCargo90() {
+            if (rightClickedElement) {
+                const isLocked = rightClickedElement.getAttribute('data-locked') === 'true';
+                if (isLocked) return; // 鎖定狀態下無法旋轉
+
+                // 抓取原本的真實公尺尺寸
+                const currentWM = parseFloat(rightClickedElement.getAttribute('data-w-m'));
+                const currentHM = parseFloat(rightClickedElement.getAttribute('data-h-m'));
+
+                // 【核心對調】：將真實米數進行寬高交換，達成完全正向的 90 度翻轉！
+                const newWM = currentHM;
+                const newHM = currentWM;
+
+                rightClickedElement.setAttribute('data-w-m', newWM);
+                rightClickedElement.setAttribute('data-h-m', newHM);
+
+                // 更新前端畫面的像素大小
+                rightClickedElement.style.width = (newWM * cellSize) + 'px';
+                rightClickedElement.style.height = (newHM * cellSize) + 'px';
+
+                // 重新修正碰撞防止飛出倉庫
+                if (rightClickedElement.parentElement.id === 'cargo-layer') {
+                    let lx = parseFloat(rightClickedElement.getAttribute('data-x')) || 0;
+                    let ly = parseFloat(rightClickedElement.getAttribute('data-y')) || 0;
+                    const wh = warehouses[currentWhId];
+                    const maxW = (wh.width * cellSize) - rightClickedElement.offsetWidth;
+                    const maxH = (wh.height * cellSize) - rightClickedElement.offsetHeight;
+                    if (lx > maxW) lx = Math.max(0, Math.round(maxW / cellSize) * cellSize);
+                    if (ly > maxH) ly = Math.max(0, Math.round(maxH / cellSize) * cellSize);
+                    
+                    rightClickedElement.style.transform = `translate(${lx}px, ${ly}px)`;
+                    rightClickedElement.setAttribute('data-x', lx);
+                    rightClickedElement.setAttribute('data-y', ly);
+                    rightClickedElement.setAttribute('data-m-x', lx / cellSize);
+                    rightClickedElement.setAttribute('data-m-y', ly / cellSize);
+                }
+
+                rightClickedElement = null;
+                autoSaveToCloud();
+            }
         }
 
         function saveWarehouseSettings() {
@@ -718,11 +565,6 @@
             autoSaveToCloud();
         }
 
-        function switchWarehouse() {
-            const val = document.getElementById('warehouse-select').value;
-            switchWarehouseSelect(val, true);
-        }
-
         function triggerCreateCargo() {
             const bg = document.getElementById('cargo-color').value;
             const text = document.getElementById('text-color').value;
@@ -730,6 +572,8 @@
             if (!exists) {
                 colorHistory.unshift({bg: bg, text: text});
                 if (colorHistory.length > 10) colorHistory.pop();
+                // 儲存至本地永不丟失庫
+                localStorage.setItem('wh_color_memory', JSON.stringify(colorHistory));
                 renderColorHistory();
             }
             createNewCargo();
@@ -741,14 +585,8 @@
             container.innerHTML = '';
             colorHistory.forEach(color => {
                 const dot = document.createElement('div');
-                dot.className = 'color-combo-dot';
-                dot.style.backgroundColor = color.bg;
-                dot.style.color = color.text;
-                dot.textContent = "Abc";
-                dot.onclick = () => { 
-                    document.getElementById('cargo-color').value = color.bg; 
-                    document.getElementById('text-color').value = color.text; 
-                };
+                dot.className = 'color-combo-dot'; dot.style.backgroundColor = color.bg; dot.style.color = color.text; dot.textContent = "Abc";
+                dot.onclick = () => { document.getElementById('cargo-color').value = color.bg; document.getElementById('text-color').value = color.text; };
                 container.appendChild(dot);
             });
         }
@@ -761,7 +599,7 @@
             const bgColor = document.getElementById('cargo-color').value;
             const textColor = document.getElementById('text-color').value;
 
-            const itemData = { id: 'item_' + Date.now(), name: name, qty: qty, w_m: w, h_m: h, bg: bgColor, text: textColor, warehouseId: 'buffer_' + currentWhId, isLocked: false };
+            const itemData = { id: 'item_' + Date.now(), name: name, qty: qty, w_m: w, h_m: h, bg: bgColor, text: textColor, warehouseId: `buffer_${currentWhId}_z${currentZLevel}`, z_level: currentZLevel, isLocked: false };
             const cargo = reCreateCargoNode(itemData);
             document.getElementById('cargo-buffer').appendChild(cargo);
             globalCargoCache.push(itemData);
@@ -788,38 +626,32 @@
             cargo.setAttribute('data-locked', itemData.isLocked ? 'true' : 'false');
 
             cargo.addEventListener('click', (e) => {
-                e.stopPropagation();
-                rightClickedElement = cargo;
-                editSelectedQty();
+                e.stopPropagation(); rightClickedElement = cargo; editSelectedQty();
             });
 
             cargo.addEventListener('contextmenu', (e) => {
-                e.preventDefault(); e.stopPropagation();
-                rightClickedElement = cargo;
+                e.preventDefault(); e.stopPropagation(); rightClickedElement = cargo;
                 
                 const menu = document.getElementById('context-menu');
                 const enterBtn = document.getElementById('menu-enter-btn');
                 const returnBtn = document.getElementById('menu-return-btn');
                 const lockBtn = document.getElementById('menu-lock-btn');
+                const rotateBtn = document.getElementById('menu-rotate-btn');
                 
                 const isLocked = cargo.getAttribute('data-locked') === 'true';
                 lockBtn.textContent = isLocked ? "🔓 解除鎖定" : "🔒 鎖定物件";
 
                 if (cargo.parentElement.id === 'cargo-buffer') {
                     enterBtn.style.display = isLocked ? 'none' : 'block';
-                    returnBtn.style.display = 'none';
-                    lockBtn.style.display = 'none';
+                    returnBtn.style.display = 'none'; lockBtn.style.display = 'none'; rotateBtn.style.display = 'none';
                 } else {
                     enterBtn.style.display = 'none';
                     returnBtn.style.display = isLocked ? 'none' : 'block';
+                    rotateBtn.style.display = isLocked ? 'none' : 'block'; // 鎖定時隱藏旋轉
                     lockBtn.style.display = 'block';
                 }
-                
-                menu.style.display = 'block'; 
-                menu.style.left = e.pageX + 'px'; 
-                menu.style.top = e.pageY + 'px';
+                menu.style.display = 'block'; menu.style.left = e.pageX + 'px'; menu.style.top = e.pageY + 'px';
             });
-
             return cargo;
         }
 
@@ -842,18 +674,11 @@
                 if (newQty !== null && newQty.trim() !== "") {
                     const parsedQty = parseInt(newQty) || 0;
                     rightClickedElement.setAttribute('data-qty', parsedQty);
-                    
                     let qtySpan = rightClickedElement.querySelector('.cargo-qty');
                     if (parsedQty > 0) {
-                        if (!qtySpan) {
-                            qtySpan = document.createElement('span');
-                            qtySpan.className = 'cargo-qty';
-                            rightClickedElement.appendChild(qtySpan);
-                        }
+                        if (!qtySpan) { qtySpan = document.createElement('span'); qtySpan.className = 'cargo-qty'; rightClickedElement.appendChild(qtySpan); }
                         qtySpan.textContent = `${parsedQty} 件`;
-                    } else {
-                        if (qtySpan) qtySpan.remove();
-                    }
+                    } else { if (qtySpan) qtySpan.remove(); }
                     autoSaveToCloud();
                 }
             }
@@ -862,16 +687,11 @@
         function toggleCargoLock() {
             if (rightClickedElement) {
                 const isLocked = rightClickedElement.getAttribute('data-locked') === 'true';
-                if (isLocked) {
-                    rightClickedElement.setAttribute('data-locked', 'false');
-                    rightClickedElement.classList.remove('is-locked');
-                } else {
-                    rightClickedElement.setAttribute('data-locked', 'true');
-                    rightClickedElement.classList.add('is-locked');
-                }
+                rightClickedElement.setAttribute('data-locked', isLocked ? 'false' : 'true');
+                if (isLocked) rightClickedElement.classList.remove('is-locked');
+                else rightClickedElement.classList.add('is-locked');
                 rightClickedElement = null;
-                initInteractEngine(); 
-                autoSaveToCloud();
+                initInteractEngine(); autoSaveToCloud();
             }
         }
 
@@ -879,118 +699,81 @@
             if (rightClickedElement) {
                 const w_m = parseFloat(rightClickedElement.getAttribute('data-w-m'));
                 const h_m = parseFloat(rightClickedElement.getAttribute('data-h-m'));
-                
                 rightClickedElement.style.width = (w_m * cellSize) + 'px';
                 rightClickedElement.style.height = (h_m * cellSize) + 'px';
-
                 document.getElementById('cargo-layer').appendChild(rightClickedElement);
                 rightClickedElement.style.transform = `translate(0px, 0px)`;
-                rightClickedElement.setAttribute('data-x', 0);
-                rightClickedElement.setAttribute('data-y', 0);
-                rightClickedElement.setAttribute('data-m-x', 0);
-                rightClickedElement.setAttribute('data-m-y', 0);
-                rightClickedElement = null;
-                autoSaveToCloud();
+                rightClickedElement.setAttribute('data-x', 0); rightClickedElement.setAttribute('data-y', 0);
+                rightClickedElement.setAttribute('data-m-x', 0); rightClickedElement.setAttribute('data-m-y', 0);
+                rightClickedElement = null; autoSaveToCloud();
             }
         }
 
         function returnToBuffer() {
             if (rightClickedElement) {
                 document.getElementById('cargo-buffer').appendChild(rightClickedElement);
-                rightClickedElement.removeAttribute('data-x');
-                rightClickedElement.removeAttribute('data-y');
-                rightClickedElement.removeAttribute('data-m-x');
-                rightClickedElement.removeAttribute('data-m-y');
-                rightClickedElement.removeAttribute('data-locked');
-                rightClickedElement.classList.remove('is-locked');
-                rightClickedElement = null;
-                initInteractEngine();
-                autoSaveToCloud();
+                rightClickedElement.removeAttribute('data-x'); rightClickedElement.removeAttribute('data-y');
+                rightClickedElement.removeAttribute('data-m-x'); rightClickedElement.removeAttribute('data-m-y');
+                rightClickedElement.removeAttribute('data-locked'); rightClickedElement.classList.remove('is-locked');
+                rightClickedElement = null; initInteractEngine(); autoSaveToCloud();
             }
         }
 
         function deleteSelectedCargo() { 
             if(rightClickedElement) { 
                 const targetId = rightClickedElement.getAttribute('data-id');
-                rightClickedElement.remove(); 
-                rightClickedElement = null;
+                rightClickedElement.remove(); rightClickedElement = null;
                 globalCargoCache = globalCargoCache.filter(item => item.id !== targetId);
                 autoSaveToCloud();
             } 
         }
 
-        // 終極流暢防禦引擎：強制加入防異常複製機制
         function initInteractEngine() {
             if (interactInstance) interactInstance.unset();
-
-            interactInstance = interact('.cargo-item:not([data-locked="true"])').draggable({
-                inertia: false,
-                autoScroll: true,
+            interactInstance = interact('.cargo-item:not([data-locked="true"]):not(.underlay-ghost)').draggable({
+                inertia: false, autoScroll: true,
                 listeners: {
-                    start(event) { 
-                        event.target.classList.add('is-dragging'); 
-                    },
+                    start(event) { isDraggingActive = true; event.target.classList.add('is-dragging'); },
                     move(event) {
                         const target = event.target;
-                        
                         if (target.parentElement.id === 'cargo-buffer') {
                             const rect = target.getBoundingClientRect();
                             const gridRect = document.getElementById('warehouse-grid').getBoundingClientRect();
-                            const initX = rect.left - gridRect.left;
-                            const initY = rect.top - gridRect.top;
-                            
+                            const initX = rect.left - gridRect.left; const initY = rect.top - gridRect.top;
                             const w_m = parseFloat(target.getAttribute('data-w-m'));
                             const h_m = parseFloat(target.getAttribute('data-h-m'));
-                            target.style.width = (w_m * cellSize) + 'px';
-                            target.style.height = (h_m * cellSize) + 'px';
-
+                            target.style.width = (w_m * cellSize) + 'px'; target.style.height = (h_m * cellSize) + 'px';
                             document.getElementById('cargo-layer').appendChild(target);
-                            target.setAttribute('data-x', initX);
-                            target.setAttribute('data-y', initY);
+                            target.setAttribute('data-x', initX); target.setAttribute('data-y', initY);
                         }
-
                         let x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
                         let y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
-                        
                         target.style.transform = `translate(${x}px, ${y}px)`;
-                        target.setAttribute('data-x', x);
-                        target.setAttribute('data-y', y);
+                        target.setAttribute('data-x', x); target.setAttribute('data-y', y);
                     },
                     end(event) {
                         const target = event.target;
                         target.classList.remove('is-dragging');
+                        isDraggingActive = false;
                         
                         const rect = target.getBoundingClientRect();
                         const containerRect = document.getElementById('warehouse-container').getBoundingClientRect();
                         
-                        // 清除畫面上可能因 iPhone 長按手勢殘留的任何同 ID 幽靈重複物件
                         const thisId = target.getAttribute('data-id');
                         const duplicates = document.querySelectorAll(`[data-id="${thisId}"]`);
-                        if (duplicates.length > 1) {
-                            for (let i = 1; i < duplicates.length; i++) {
-                                duplicates[i].remove();
-                            }
-                        }
+                        if (duplicates.length > 1) { for (let i = 1; i < duplicates.length; i++) duplicates[i].remove(); }
 
                         if (rect.top > containerRect.bottom || rect.bottom < containerRect.top || rect.left > containerRect.right || rect.right < containerRect.left) {
                             document.getElementById('cargo-buffer').appendChild(target);
-                            target.removeAttribute('data-x');
-                            target.removeAttribute('data-y');
-                            target.removeAttribute('data-m-x');
-                            target.removeAttribute('data-m-y');
-                            target.removeAttribute('data-locked');
-                            target.classList.remove('is-locked');
+                            target.removeAttribute('data-x'); target.removeAttribute('data-y');
+                            target.removeAttribute('data-m-x'); target.removeAttribute('data-m-y');
+                            target.removeAttribute('data-locked'); target.classList.remove('is-locked');
                             target.style.transform = 'none';
                         } 
                         else {
                             const gridRect = document.getElementById('warehouse-grid').getBoundingClientRect();
-                            let localX = rect.left - gridRect.left;
-                            let localY = rect.top - gridRect.top;
-                            
-                            if (isSnapEnabled) {
-                                localX = Math.round(localX / cellSize) * cellSize;
-                                localY = Math.round(localY / cellSize) * cellSize;
-                            }
+                            let localX = rect.left - gridRect.left; let localY = rect.top - gridRect.top;
+                            if (isSnapEnabled) { localX = Math.round(localX / cellSize) * cellSize; localY = Math.round(localY / cellSize) * cellSize; }
                             
                             const wh = warehouses[currentWhId];
                             const maxW = (wh.width * cellSize) - target.offsetWidth;
@@ -1001,10 +784,8 @@
                             const otherItems = document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)');
                             for (let other of otherItems) {
                                 if (other === target) continue;
-                                const oX = parseFloat(other.getAttribute('data-x')) || 0;
-                                const oY = parseFloat(other.getAttribute('data-y')) || 0;
-                                const oW = parseFloat(other.offsetWidth);
-                                const oH = parseFloat(other.offsetHeight);
+                                const oX = parseFloat(other.getAttribute('data-x')) || 0; const oY = parseFloat(other.getAttribute('data-y')) || 0;
+                                const oW = parseFloat(other.offsetWidth); const oH = parseFloat(other.offsetHeight);
                                 
                                 if (localX < oX + oW - 0.5 && localX + target.offsetWidth - 0.5 > oX && localY < oY + oH - 0.5 && localY + target.offsetHeight - 0.5 > oY) {
                                     const dists = [
@@ -1013,27 +794,18 @@
                                         { x: localX, y: oY - target.offsetHeight, d: Math.abs(localY - (oY - target.offsetHeight)) },
                                         { x: localX, y: oY + oH, d: Math.abs(localY - (oY + oH)) }
                                     ];
-                                    dists.sort((a, b) => a.d - b.d);
-                                    let fit = dists[0];
-                                    if (isSnapEnabled) {
-                                        fit.x = Math.round(fit.x / cellSize) * cellSize;
-                                        fit.y = Math.round(fit.y / cellSize) * cellSize;
-                                    }
+                                    dists.sort((a, b) => a.d - b.d); let fit = dists[0];
+                                    if (isSnapEnabled) { fit.x = Math.round(fit.x / cellSize) * cellSize; fit.y = Math.round(fit.y / cellSize) * cellSize; }
                                     localX = fit.x; localY = fit.y;
                                 }
                             }
                             
                             document.getElementById('cargo-layer').appendChild(target);
                             target.style.transform = `translate(${localX}px, ${localY}px)`;
-                            target.setAttribute('data-x', localX);
-                            target.setAttribute('data-y', localY);
-                            
-                            const metricX = Math.round((localX / cellSize) * 10) / 10;
-                            const metricY = Math.round((localY / cellSize) * 10) / 10;
-                            target.setAttribute('data-m-x', metricX);
-                            target.setAttribute('data-m-y', metricY);
+                            target.setAttribute('data-x', localX); target.setAttribute('data-y', localY);
+                            target.setAttribute('data-m-x', Math.round((localX / cellSize) * 10) / 10);
+                            target.setAttribute('data-m-y', Math.round((localY / cellSize) * 10) / 10);
                         }
-                        
                         autoSaveToCloud();
                     }
                 }
