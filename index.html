@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>公司內部倉儲網格系統 - 最終通車版</title>
+    <title>公司內部倉儲網格系統 - 行動優化版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -12,14 +12,15 @@
             --cell-size: 40px;
         }
         body { 
-            font-family: Arial, sans-serif; 
-            margin: 20px; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; 
+            margin: 15px; 
             background-color: #f4f6f9; 
             display: flex; 
             flex-direction: column; 
-            gap: 20px; 
+            gap: 15px; 
         }
 
+        /* 上方主畫布 */
         #main-area { 
             display: flex; 
             flex-direction: column; 
@@ -29,34 +30,35 @@
         }
         #warehouse-container { 
             border: 2px solid #333; 
-            background-color: #e2e8f0; 
+            background-color: #ffffff; 
             overflow: auto; 
             position: relative; 
             width: fit-content; 
             max-width: 100%;
-            height: 500px; 
+            height: 450px; 
             border-radius: 8px;
         }
         #warehouse-grid {
             display: grid;
             grid-template-columns: repeat(var(--grid-cols), var(--cell-size));
             grid-template-rows: repeat(var(--grid-rows), var(--cell-size));
-            background-image: 
-                linear-gradient(to right, #ccc 1px, transparent 1px),
-                linear-gradient(to bottom, #ccc 1px, transparent 1px);
-            background-size: var(--cell-size) var(--cell-size);
             position: absolute;
             top: 0; left: 0;
-            min-width: 100px;
-            min-height: 100px;
+        }
+        
+        .grid-cell-block {
+            border-right: 1px solid #eeeeee;
+            border-bottom: 1px solid #eeeeee;
+            box-sizing: border-box;
+            pointer-events: none; 
         }
         
         #cargo-buffer { 
-            min-height: 80px; 
+            min-height: 90px; 
             background: #fff; 
-            border: 2px dashed #999; 
+            border: 2px dashed #a0aec0; 
             border-radius: 8px; 
-            padding: 10px; 
+            padding: 12px; 
             display: flex; 
             gap: 15px; 
             align-items: center; 
@@ -65,36 +67,100 @@
             box-sizing: border-box;
         }
 
+        /* 下方多功能控制台（手機 RWD 優化） */
         #control-panel { 
             background: white; 
-            padding: 20px; 
-            border-radius: 8px; 
-            box-shadow: 0 -4px 10px rgba(0,0,0,0.05); 
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
-            gap: 20px;
+            border-radius: 12px; 
+            box-shadow: 0 -2px 15px rgba(0,0,0,0.08); 
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
-        .control-group { 
-            padding: 10px;
-            border-right: 1px solid #eee; 
-        }
-        .control-group:last-child { border-right: none; }
-        
-        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; color: #555; }
-        input, select, button { width: 100%; padding: 8px; margin-bottom: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
-        button { background-color: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; }
-        button:hover { background-color: #0056b3; }
-        
-        .switch-container { display: flex; align-items: center; justify-content: space-between; }
-        .switch-container input { width: auto; margin: 0; }
 
-        .color-history { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px; }
+        /* 可折疊面板結構 */
+        .collapsible-header {
+            background-color: #edf2f7;
+            padding: 14px 20px;
+            font-size: 15px;
+            font-weight: bold;
+            color: #2d3748;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e2e8f0;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .collapsible-header::after {
+            content: '▼';
+            font-size: 12px;
+            transition: transform 0.2s;
+        }
+        .collapsible-header.active::after {
+            content: '▲';
+        }
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.2s ease-out;
+            background: #ffffff;
+        }
+        .collapsible-body {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        /* 生成貨物主控區（符合手機 44px 肥手指友善外觀） */
+        .main-cargo-generator {
+            padding: 20px;
+            border-top: 2px solid #e2e8f0;
+            background: #fff;
+        }
+        
+        label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 14px; color: #4a5568; }
+        
+        /* 手機大元件核心樣式 */
+        input, select, .action-btn { 
+            width: 100%; 
+            height: 46px; /* 放大高度，手機極度好點選 */
+            padding: 10px 12px; 
+            margin-bottom: 12px; 
+            box-sizing: border-box; 
+            border: 1px solid #cbd5e0; 
+            border-radius: 6px; 
+            font-size: 15px; /* 防止 iOS 自動放大網頁 */
+        }
+        input[type="range"] { height: auto; }
+        input[type="color"] { padding: 2px; cursor: pointer; }
+        
+        .action-btn { 
+            background-color: #007bff; 
+            color: white; 
+            border: none; 
+            cursor: pointer; 
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .action-btn:active { opacity: 0.8; }
+        
+        .switch-container { display: flex; align-items: center; justify-content: space-between; height: 46px; }
+        .switch-container input { width: 22px; height: 22px; margin: 0; }
+
+        /* 記憶色盤加大 */
+        .color-history { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; margin-top: 5px; }
         .color-combo-dot { 
-            width: 35px; height: 35px; border-radius: 6px; cursor: pointer; border: 2px solid #ccc; 
-            display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold;
+            width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 2px solid #cbd5e0; 
+            display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold;
             user-select: none;
         }
 
+        /* 貨物物件視覺優化 */
         .cargo-item {
             position: absolute;
             box-sizing: border-box;
@@ -103,28 +169,34 @@
             flex-direction: column; 
             align-items: center;
             justify-content: center;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: bold;
             text-align: center;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: move;
             touch-action: none;
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             user-select: none;
             z-index: 10;
         }
-        .cargo-qty { font-size: 10px; opacity: 0.85; margin-top: 2px; background: rgba(0,0,0,0.1); padding: 1px 4px; border-radius: 3px; }
-        .cargo-item.is-dragging { opacity: 0.7; z-index: 100; }
+        .cargo-qty { font-size: 10px; opacity: 0.9; margin-top: 3px; background: rgba(0,0,0,0.15); padding: 2px 5px; border-radius: 4px; }
+        .cargo-item.is-dragging { opacity: 0.6; z-index: 100; box-shadow: 0 8px 15px rgba(0,0,0,0.2); }
         #cargo-buffer .cargo-item { position: relative !important; transform: none !important; top: auto !important; left: auto !important; }
 
         #context-menu {
-            display: none; position: absolute; background: white; border: 1px solid #ccc;
-            box-shadow: 2px 2px 10px rgba(0,0,0,0.2); z-index: 1000; border-radius: 4px; overflow: hidden;
+            display: none; position: absolute; background: white; border: 1px solid #cbd5e0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; border-radius: 8px; overflow: hidden;
         }
-        #context-menu div { padding: 10px 20px; cursor: pointer; font-size: 14px; font-weight: bold; }
-        #context-menu div:hover { background: #ffc107; color: black; }
-        #context-menu .delete-opt { color: #dc3545; }
-        #context-menu .delete-opt:hover { background: #dc3545; color: white; }
+        #context-menu div { padding: 14px 24px; cursor: pointer; font-size: 15px; font-weight: bold; }
+        #context-menu div:hover { background: #edf2f7; }
+        #context-menu .delete-opt { color: #e53e3e; border-top: 1px solid #edf2f7; }
+
+        /* RWD 手機版面重排配置 */
+        @media (max-width: 600px) {
+            .mobile-row { display: flex; flex-direction: column; gap: 0; }
+            .mobile-flex-2 { display: flex; gap: 8px; }
+            .collapsible-body { grid-template-columns: 1fr; padding: 15px; }
+        }
     </style>
 </head>
 <body>
@@ -140,62 +212,70 @@
     </div>
 
     <div id="control-panel">
-        <div class="control-group">
-            <h3>⚙️ 視角與模式</h3>
-            <label>網格比例尺 (目前格寬: <span id="scale-val">40</span>px)</label>
-            <input type="range" id="grid-scale" min="20" max="80" value="40" oninput="changeScale(this.value)">
-            
-            <div class="switch-container">
-                <label for="snap-toggle">自動吸附對齊網格</label>
-                <input type="checkbox" id="snap-toggle" checked onchange="toggleSnap(this.checked)">
+        
+        <div class="collapsible-header" onclick="toggleAccordion(this)">🛠️進階系統設定 (點擊展開/收折)</div>
+        <div class="collapsible-content">
+            <div class="collapsible-body">
+                <div>
+                    <label>網格比例尺 (目前格寬: <span id="scale-val">40</span>px)</label>
+                    <input type="range" id="grid-scale" min="20" max="80" value="40" oninput="changeScale(this.value)" style="margin-bottom:20px;">
+                    
+                    <div class="switch-container">
+                        <label for="snap-toggle">自動吸附對齊網格</label>
+                        <input type="checkbox" id="snap-toggle" checked onchange="toggleSnap(this.checked)">
+                    </div>
+                    <button class="action-btn" onclick="syncFromCloud()" style="background-color: #4a5568; margin-top: 10px;">🔄 手動刷新雲端資料</button>
+                </div>
+                <div>
+                    <label>選擇切換倉庫</label>
+                    <select id="warehouse-select" onchange="switchWarehouse()">
+                        <option value="wh1">倉庫一 (30x30)</option>
+                    </select>
+                    <label>新增/修改有名稱</label>
+                    <input type="text" id="wh-name" value="倉庫一">
+                    <div style="display:flex; gap:8px;">
+                        <input type="number" id="wh-w" value="30" placeholder="寬">
+                        <input type="number" id="wh-h" value="30" placeholder="高">
+                    </div>
+                    <button class="action-btn" onclick="saveWarehouseSettings()">💾 儲存/新建當前倉庫</button>
+                </div>
             </div>
-            <button onclick="syncFromCloud()" style="background-color: #6c757d; margin-top: 10px;">🔄 手動刷新雲端資料</button>
         </div>
 
-        <div class="control-group">
-            <h3>🏢 倉庫專案管理</h3>
-            <label>選擇倉庫</label>
-            <select id="warehouse-select" onchange="switchWarehouse()">
-                <option value="wh1">倉庫一 (30x30)</option>
-            </select>
-            <input type="text" id="wh-name" value="倉庫一">
-            <div style="display:flex; gap:5px;">
-                <input type="number" id="wh-w" value="30" placeholder="寬">
-                <input type="number" id="wh-h" value="30" placeholder="高">
-            </div>
-            <button onclick="saveWarehouseSettings()">儲存/新建倉庫</button>
-        </div>
-
-        <div class="control-group" style="grid-column: span 2;">
-            <h3>📦 生成新貨物 (棧板)</h3>
-            <div style="display: flex; gap: 10px;">
-                <div style="flex: 1;">
-                    <label>貨物名稱</label>
+        <div class="main-cargo-generator">
+            <h3>📦 生成新貨物 (棧板設定)</h3>
+            <div class="mobile-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
+                <div>
+                    <label>貨物商品名稱</label>
                     <input type="text" id="cargo-name" value="棧板A">
-                    <label>初始產品數量</label>
+                    
+                    <label>初始存貨數量</label>
                     <input type="number" id="cargo-qty" value="10">
                 </div>
-                <div style="flex: 1;">
-                    <label>尺寸 寬 x 高 (米，支援小數點)</label>
-                    <div style="display:flex; gap:5px;">
+                <div>
+                    <label>真實尺寸 寬 x 高 (米，支援小數點)</label>
+                    <div class="mobile-flex-2">
                         <input type="number" id="cargo-w" step="0.1" value="2" placeholder="寬(m)">
                         <input type="number" id="cargo-h" step="0.1" value="2" placeholder="高(m)">
                     </div>
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px;">
-                        <div>
-                            <label>方塊背景</label>
+                    
+                    <div class="mobile-flex-2" style="margin-bottom: 5px;">
+                        <div style="flex: 1;">
+                            <label>方塊背景色</label>
                             <input type="color" id="cargo-color" value="#ffc107">
                         </div>
-                        <div>
-                            <label>文字字體</label>
+                        <div style="flex: 1;">
+                            <label>文字字體色</label>
                             <input type="color" id="text-color" value="#000000">
                         </div>
                     </div>
                 </div>
             </div>
-            <label>最近使用雙色配對 (點擊一鍵套用)</label>
+            
+            <label style="margin-top: 10px;">最近使用雙色配對 (肥手指尺寸，一鍵秒套用)</label>
             <div class="color-history" id="color-history-container"></div>
-            <button onclick="triggerCreateCargo()" style="background-color: #28a745; margin-top: 5px;">生成貨物</button>
+            
+            <button class="action-btn" onclick="triggerCreateCargo()" style="background-color: #28a745; height: 50px; font-size: 16px; margin-bottom:0;">➕ 立即生成貨物物件</button>
         </div>
     </div>
 
@@ -205,7 +285,6 @@
     </div>
 
     <script>
-        // 已更新為最新部署的 exec 網址
         const GAS_URL = "https://script.google.com/macros/s/AKfycbx-sEY_rLOfnDHPl9YMBzIC3TBUUYuwQUeCP0rQABU_x2bYfOqW_7gS8vB2eY5Mm2hN/exec";
 
         let warehouses = { 'wh1': { name: '倉庫一', width: 30, height: 30 } };
@@ -232,6 +311,17 @@
                 document.getElementById('context-menu').style.display = 'none';
             });
         };
+
+        // 開關摺疊控制台邏輯
+        function toggleAccordion(header) {
+            header.classList.toggle("active");
+            const content = header.nextElementSibling;
+            if (content.style.maxHeight) {
+                content.style.maxHeight = null;
+            } else {
+                content.style.maxHeight = content.scrollHeight + "px";
+            }
+        }
 
         function changeScale(val) {
             cellSize = parseInt(val);
@@ -265,10 +355,22 @@
         function renderGrid() {
             const wh = warehouses[currentWhId] || { name: '倉庫一', width: 30, height: 30 };
             const grid = document.getElementById('warehouse-grid');
+            
             document.documentElement.style.setProperty('--grid-cols', wh.width);
             document.documentElement.style.setProperty('--grid-rows', wh.height);
             grid.style.width = (wh.width * cellSize) + 'px';
             grid.style.height = (wh.height * cellSize) + 'px';
+
+            document.querySelectorAll('.grid-cell-block').forEach(el => el.remove());
+
+            const totalCells = wh.width * wh.height;
+            const fragment = document.createDocumentFragment();
+            for (let i = 0; i < totalCells; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'grid-cell-block';
+                fragment.appendChild(cell);
+            }
+            grid.insertBefore(fragment, grid.firstChild);
         }
 
         function syncFromCloud() {
@@ -281,7 +383,6 @@
                 return res.json();
             })
             .then(data => {
-                // 安全防護：確保拿到的資料有包含 warehouses 欄位
                 if(data && data.warehouses && Object.keys(data.warehouses).length > 0) {
                     warehouses = data.warehouses;
                 }
@@ -307,7 +408,7 @@
                 
                 renderGrid();
 
-                document.getElementById('warehouse-grid').innerHTML = '';
+                document.querySelectorAll('#warehouse-grid .cargo-item').forEach(el => el.remove());
                 document.getElementById('cargo-buffer').innerHTML = '';
 
                 if(data && Array.isArray(data.cargoItems)) {
@@ -481,6 +582,7 @@
             cargo.setAttribute('data-name', itemData.name || '未命名');
             cargo.setAttribute('data-id', itemData.id);
 
+            // 手機點擊/電腦點擊修改數量
             cargo.addEventListener('click', (e) => {
                 e.stopPropagation();
                 if(cargo.parentElement.id === 'warehouse-grid') {
