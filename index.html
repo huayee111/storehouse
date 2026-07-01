@@ -1,46 +1,131 @@
-// 【自動儲存】將當前的倉庫與所有貨物狀態存入瀏覽器
-function autoSaveToLocal() {
-    const cargoItems = [];
-    
-    // 撈取目前所有在網格裡的貨物資訊
-    document.querySelectorAll('#warehouse-grid .cargo-item').forEach(item => {
-        cargoItems.push({
-            id: item.getAttribute('data-id'),
-            name: item.getAttribute('data-name'),
-            qty: item.getAttribute('data-qty'),
-            w_m: item.getAttribute('data-w-m'),
-            h_m: item.getAttribute('data-h-m'),
-            m_x: item.getAttribute('data-m-x'),
-            m_y: item.getAttribute('data-m-y'),
-            bg: item.style.backgroundColor,
-            text: item.style.color,
-            warehouseId: currentWhId // 屬於哪一個倉庫
-        });
-    });
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>公司內部倉儲網格系統 - 雲端同步版</title>
+    <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
+    <style>
+        :root {
+            --grid-cols: 30;
+            --grid-rows: 30;
+            --cell-size: 40px;
+        }
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background-color: #f4f6f9; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 20px; 
+        }
 
-    // 撈取還在緩衝區沒放進去的貨物
-    const bufferItems = [];
-    document.querySelectorAll('#cargo-buffer .cargo-item').forEach(item => {
-        bufferItems.push({
-            id: item.getAttribute('data-id'),
-            name: item.getAttribute('data-name'),
-            qty: item.getAttribute('data-qty'),
-            w_m: item.getAttribute('data-w-m'),
-            h_m: item.getAttribute('data-h-m'),
-            bg: item.style.backgroundColor,
-            text: item.style.color
-        });
-    });
+        #main-area { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 10px; 
+            width: fit-content; 
+            max-width: 100%;
+        }
+        #warehouse-container { 
+            border: 2px solid #333; 
+            background-color: #e2e8f0; 
+            overflow: auto; 
+            position: relative; 
+            width: fit-content; 
+            max-width: 100%;
+            height: 500px; 
+            border-radius: 8px;
+        }
+        #warehouse-grid {
+            display: grid;
+            grid-template-columns: repeat(var(--grid-cols), var(--cell-size));
+            grid-template-rows: repeat(var(--grid-rows), var(--cell-size));
+            background-image: 
+                linear-gradient(to right, #ccc 1px, transparent 1px),
+                linear-gradient(to bottom, #ccc 1px, transparent 1px);
+            background-size: var(--cell-size) var(--cell-size);
+            position: absolute;
+            top: 0; left: 0;
+        }
+        
+        #cargo-buffer { 
+            min-height: 80px; 
+            background: #fff; 
+            border: 2px dashed #999; 
+            border-radius: 8px; 
+            padding: 10px; 
+            display: flex; 
+            gap: 15px; 
+            align-items: center; 
+            flex-wrap: wrap; 
+            width: 100%;
+            box-sizing: border-box;
+        }
 
-    const saveData = {
-        warehouses: warehouses,
-        currentWhId: currentWhId,
-        colorHistory: colorHistory,
-        cargoItems: cargoItems,
-        bufferItems: bufferItems
-    };
+        #control-panel { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.05); 
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
+            gap: 20px;
+        }
+        .control-group { 
+            padding: 10px;
+            border-right: 1px solid #eee; 
+        }
+        .control-group:last-child { border-right: none; }
+        
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; color: #555; }
+        input, select, button { width: 100%; padding: 8px; margin-bottom: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        button { background-color: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: #0056b3; }
+        
+        .switch-container { display: flex; align-items: center; justify-content: space-between; }
+        .switch-container input { width: auto; margin: 0; }
 
-    // 存入瀏覽器 LocalStorage
-    localStorage.setItem('warehouse_wms_data', JSON.stringify(saveData));
-    console.log('▼ 系統已自動儲存至本地瀏覽器');
-}
+        .color-history { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px; }
+        .color-combo-dot { 
+            width: 35px; height: 35px; border-radius: 6px; cursor: pointer; border: 2px solid #ccc; 
+            display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold;
+            user-select: none;
+        }
+
+        .cargo-item {
+            position: absolute;
+            box-sizing: border-box;
+            border: 2px solid rgba(0,0,0,0.25);
+            display: flex;
+            flex-direction: column; 
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+            text-align: center;
+            border-radius: 4px;
+            cursor: move;
+            touch-action: none;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.15);
+            user-select: none;
+            z-index: 10;
+        }
+        .cargo-qty { font-size: 10px; opacity: 0.85; margin-top: 2px; background: rgba(0,0,0,0.1); padding: 1px 4px; border-radius: 3px; }
+        .cargo-item.is-dragging { opacity: 0.7; z-index: 100; }
+        #cargo-buffer .cargo-item { position: relative !important; transform: none !important; top: auto !important; left: auto !important; }
+
+        #context-menu {
+            display: none; position: absolute; background: white; border: 1px solid #ccc;
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.2); z-index: 1000; border-radius: 4px; overflow: hidden;
+        }
+        #context-menu div { padding: 10px 20px; cursor: pointer; font-size: 14px; font-weight: bold; }
+        #context-menu div:hover { background: #ffc107; color: black; }
+        #context-menu .delete-opt { color: #dc3545; }
+        #context-menu .delete-opt:hover { background: #dc3545; color: white; }
+    </style>
+</head>
+<body>
+
+    <div id="main-area">
+        <h3>當前倉庫網格平面圖 (
