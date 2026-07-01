@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>公司內部倉儲網格系統 - 全功能校正完美版</title>
+    <title>公司內部倉儲網格系統 - 選單分流優化版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -28,7 +28,6 @@
             width: 100%; 
         }
         
-        /* 外框：完美貼合內部網格實際大小，超出最大限制時才出滾動條 */
         #warehouse-container { 
             border: 2px solid #333; 
             background-color: #ffffff; 
@@ -42,7 +41,6 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         }
         
-        /* 網格主畫布 */
         #warehouse-grid {
             position: relative;
             top: 0; left: 0;
@@ -50,7 +48,6 @@
             height: calc(var(--grid-rows) * var(--cell-size));
         }
 
-        /* 實體格子線底層 */
         #grid-underlay {
             display: grid;
             grid-template-columns: repeat(var(--grid-cols), var(--cell-size));
@@ -68,7 +65,6 @@
             box-sizing: border-box;
         }
         
-        /* 貨物放置層 */
         #cargo-layer {
             position: absolute;
             top: 0; left: 0;
@@ -85,7 +81,7 @@
             border-radius: 8px; 
             padding: 12px; 
             display: flex; 
-            gap: 15px;  
+            gap: 15px; 
             align-items: center; 
             flex-wrap: wrap; 
             width: 100%;
@@ -152,7 +148,6 @@
             user-select: none;
         }
 
-        /* 貨物物件視覺樣式 */
         .cargo-item {
             position: absolute;
             box-sizing: border-box;
@@ -168,12 +163,12 @@
             cursor: move;
             touch-action: none;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            user-select: none;
             pointer-events: auto; 
         }
         .cargo-qty { font-size: 10px; opacity: 0.9; margin-top: 3px; background: rgba(0,0,0,0.15); padding: 2px 5px; border-radius: 4px; }
         .cargo-item.is-dragging { opacity: 0.6; z-index: 100; box-shadow: 0 8px 15px rgba(0,0,0,0.2); }
         
-        /* 當貨物留在待放置區時的流暢水平排隊 */
         #cargo-buffer .cargo-item { 
             position: relative !important; 
             transform: none !important; 
@@ -183,14 +178,14 @@
             margin: 0 !important;
         }
 
-        /* 右鍵選單面板優化 */
         #context-menu {
             display: none; position: absolute; background: white; border: 1px solid #cbd5e0;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; border-radius: 8px; overflow: hidden;
         }
         #context-menu div { padding: 14px 24px; cursor: pointer; font-size: 15px; font-weight: bold; }
         #context-menu div:hover { background: #edf2f7; }
-        #context-menu .return-opt { color: #007bff; border-top: 1px solid #edf2f7; }
+        #context-menu .enter-opt { color: #28a745; font-weight: bold; border-top: 1px solid #edf2f7; }
+        #context-menu .return-opt { color: #007bff; font-weight: bold; border-top: 1px solid #edf2f7; }
         #context-menu .delete-opt { color: #e53e3e; border-top: 1px solid #edf2f7; }
 
         @media (max-width: 600px) {
@@ -208,7 +203,7 @@
             <div id="warehouse-grid"></div>
         </div>
 
-        <h3>貨物待放置區 (可將商品拖回此處或拉入上方倉庫)</h3>
+        <h3>貨物待放置區 (可點擊/右鍵選單快速切換位置)</h3>
         <div id="cargo-buffer"></div>
     </div>
 
@@ -279,7 +274,8 @@
 
     <div id="context-menu">
         <div onclick="editSelectedQty()">✏️ 修改數量</div>
-        <div class="return-opt" onclick="returnToBuffer()">↩️ 放回待放區</div>
+        <div id="menu-enter-btn" class="enter-opt" onclick="enterWarehouseDirect()">📥 放進倉庫</div>
+        <div id="menu-return-btn" class="return-opt" onclick="returnToBuffer()">↩️ 放回待放區</div>
         <div class="delete-opt" onclick="deleteSelectedCargo()">❌ 刪除貨物</div>
     </div>
 
@@ -321,15 +317,11 @@
             }
         }
 
-        // 縮放比例尺核心邏輯（只縮放外框與內容像素，不影響設定值）
         function changeScale(val) {
             cellSize = parseInt(val);
             document.getElementById('scale-val').textContent = cellSize;
-            
-            // 1. 重繪基礎格線底座
             renderGrid();
             
-            // 2. 對當前倉庫內的所有物件重新依米數進行像素縮放
             document.querySelectorAll('#cargo-layer .cargo-item').forEach(item => {
                 const w_m = parseFloat(item.getAttribute('data-w-m'));
                 const h_m = parseFloat(item.getAttribute('data-h-m'));
@@ -359,9 +351,7 @@
             
             document.documentElement.style.setProperty('--grid-cols', wh.width);
             document.documentElement.style.setProperty('--grid-rows', wh.height);
-            document.documentElement.style.setProperty('--cell-size', cellSize + 'px');
             
-            // 物理撐開網格畫布大小，讓外框跟著縮放
             grid.style.width = (wh.width * cellSize) + 'px';
             grid.style.height = (wh.height * cellSize) + 'px';
 
@@ -613,25 +603,39 @@
             cargo.setAttribute('data-name', itemData.name || '未命名');
             cargo.setAttribute('data-id', itemData.id);
 
-            // 雙擊/點擊直覺修改數量
+            // 點擊直接開啟修改數量
             cargo.addEventListener('click', (e) => {
                 e.stopPropagation();
                 rightClickedElement = cargo;
                 editSelectedQty();
             });
 
-            // 右鍵彈出功能選單
+            // 【核心修正：右鍵選單分流】
             cargo.addEventListener('contextmenu', (e) => {
                 e.preventDefault(); e.stopPropagation();
                 rightClickedElement = cargo;
+                
                 const menu = document.getElementById('context-menu');
-                menu.style.display = 'block'; menu.style.left = e.pageX + 'px'; menu.style.top = e.pageY + 'px';
+                const enterBtn = document.getElementById('menu-enter-btn');
+                const returnBtn = document.getElementById('menu-return-btn');
+                
+                // 判斷目前人在哪裡，動態過濾選單按鈕
+                if (cargo.parentElement.id === 'cargo-buffer') {
+                    enterBtn.style.display = 'block';  // 在待放區 -> 出現「放進倉庫」
+                    returnBtn.style.display = 'none';   // 隱藏放回待放區
+                } else {
+                    enterBtn.style.display = 'none';   // 在倉庫內 -> 隱藏放進倉庫
+                    returnBtn.style.display = 'block';  // 出現「放回待放區」
+                }
+                
+                menu.style.display = 'block'; 
+                menu.style.left = e.pageX + 'px'; 
+                menu.style.top = e.pageY + 'px';
             });
 
             return cargo;
         }
 
-        // 修改數量核心功能
         function editSelectedQty() { 
             if(rightClickedElement) {
                 const oldQty = rightClickedElement.getAttribute('data-qty');
@@ -644,7 +648,21 @@
             }
         }
 
-        // 右鍵一鍵放回待放區功能
+        // 【新增功能】：一鍵從待放區直接塞進倉庫預設左上角座標(0,0)
+        function enterWarehouseDirect() {
+            if (rightClickedElement) {
+                document.getElementById('cargo-layer').appendChild(rightClickedElement);
+                rightClickedElement.style.transform = `translate(0px, 0px)`;
+                rightClickedElement.setAttribute('data-x', 0);
+                rightClickedElement.setAttribute('data-y', 0);
+                rightClickedElement.setAttribute('data-m-x', 0);
+                rightClickedElement.setAttribute('data-m-y', 0);
+                rightClickedElement = null;
+                autoSaveToCloud();
+            }
+        }
+
+        // 一鍵從倉庫歸還至緩衝區
         function returnToBuffer() {
             if (rightClickedElement) {
                 document.getElementById('cargo-buffer').appendChild(rightClickedElement);
@@ -666,7 +684,7 @@
             } 
         }
 
-        // 拖拉流暢手動翻修：採用點對點釋放判斷，不污染拖拉中座標
+        // 拖拉優化：完全釋放拖曳卡頓感
         function initInteractEngine() {
             if (interactInstance) interactInstance.unset();
 
@@ -679,8 +697,6 @@
                     },
                     move(event) {
                         const target = event.target;
-                        
-                        // 讀取目前的累計物理位移（排除父容器節點切換干擾）
                         let x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
                         let y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
                         
@@ -692,13 +708,11 @@
                         const target = event.target;
                         target.classList.remove('is-dragging');
                         
-                        // 【黃金判斷點】：放開手時，精確比對落點幾何範圍
                         const rect = target.getBoundingClientRect();
                         const containerRect = document.getElementById('warehouse-container').getBoundingClientRect();
-                        const bufferRect = document.getElementById('cargo-buffer').getBoundingClientRect();
                         
-                        // 狀況一：落點落在下方待放區 $\rightarrow$ 精準收回
-                        if (rect.top >= bufferRect.top && rect.bottom <= bufferRect.bottom) {
+                        // 判定點：如果放手位置脫離了上方倉庫外框的垂直範圍，直接判定退回待放區
+                        if (rect.top > containerRect.bottom || rect.bottom < containerRect.top) {
                             document.getElementById('cargo-buffer').appendChild(target);
                             target.removeAttribute('data-x');
                             target.removeAttribute('data-y');
@@ -706,26 +720,24 @@
                             target.removeAttribute('data-m-y');
                             target.style.transform = 'none';
                         } 
-                        // 狀況二：落點落在上方倉庫內 $\rightarrow$ 進行網格計算
+                        // 否則，在倉庫內吸附與定位
                         else {
                             const gridRect = document.getElementById('warehouse-grid').getBoundingClientRect();
                             let localX = rect.left - gridRect.left;
                             let localY = rect.top - gridRect.top;
                             
-                            // 吸附對齊計算
                             if (isSnapEnabled) {
                                 localX = Math.round(localX / cellSize) * cellSize;
                                 localY = Math.round(localY / cellSize) * cellSize;
                             }
                             
-                            // 限制邊界防拖出倉庫外
                             const wh = warehouses[currentWhId];
                             const maxW = (wh.width * cellSize) - target.offsetWidth;
                             const maxH = (wh.height * cellSize) - target.offsetHeight;
                             if (localX < 0) localX = 0; if (localX > maxW) localX = maxW;
                             if (localY < 0) localY = 0; if (localY > maxH) localY = maxH;
                             
-                            // 防止重疊靠攏演算法
+                            // 防止重疊演算法
                             const otherItems = document.querySelectorAll('#cargo-layer .cargo-item');
                             for (let other of otherItems) {
                                 if (other === target) continue;
@@ -751,7 +763,6 @@
                                 }
                             }
                             
-                            // 重新固定回放置層
                             document.getElementById('cargo-layer').appendChild(target);
                             target.style.transform = `translate(${localX}px, ${localY}px)`;
                             target.setAttribute('data-x', localX);
