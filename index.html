@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>公司內部倉儲網格系統 - 行動優化版</title>
+    <title>公司內部倉儲網格系統 - 手感回歸完美版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -20,7 +20,6 @@
             gap: 15px; 
         }
 
-        /* 上方主畫布 */
         #main-area { 
             display: flex; 
             flex-direction: column; 
@@ -38,19 +37,37 @@
             height: 450px; 
             border-radius: 8px;
         }
+        
+        /* 網格主容器 */
         #warehouse-grid {
+            position: absolute;
+            top: 0; left: 0;
+        }
+
+        /* 獨立底層：專門放格子的容器，確保絕對不會被貨物渲染影響 */
+        #grid-underlay {
             display: grid;
             grid-template-columns: repeat(var(--grid-cols), var(--cell-size));
             grid-template-rows: repeat(var(--grid-rows), var(--cell-size));
             position: absolute;
             top: 0; left: 0;
+            pointer-events: none;
+            z-index: 1;
         }
-        
         .grid-cell-block {
             border-right: 1px solid #eeeeee;
             border-bottom: 1px solid #eeeeee;
             box-sizing: border-box;
-            pointer-events: none; 
+        }
+        
+        /* 貨物放置層 */
+        #cargo-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+            pointer-events: none; /* 讓容器本身不擋住拖拉，但子元件開啟 */
         }
         
         #cargo-buffer { 
@@ -67,7 +84,6 @@
             box-sizing: border-box;
         }
 
-        /* 下方多功能控制台（手機 RWD 優化） */
         #control-panel { 
             background: white; 
             border-radius: 12px; 
@@ -77,7 +93,6 @@
             overflow: hidden;
         }
 
-        /* 可折疊面板結構 */
         .collapsible-header {
             background-color: #edf2f7;
             padding: 14px 20px;
@@ -90,39 +105,15 @@
             align-items: center;
             border-bottom: 1px solid #e2e8f0;
             user-select: none;
-            -webkit-tap-highlight-color: transparent;
         }
-        .collapsible-header::after {
-            content: '▼';
-            font-size: 12px;
-            transition: transform 0.2s;
-        }
-        .collapsible-header.active::after {
-            content: '▲';
-        }
-        .collapsible-content {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.2s ease-out;
-            background: #ffffff;
-        }
-        .collapsible-body {
-            padding: 20px;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 15px;
-        }
+        .collapsible-header::after { content: '▼'; font-size: 12px; transition: transform 0.2s; }
+        .collapsible-header.active::after { content: '▲'; }
+        .collapsible-content { max-height: 0; overflow: hidden; transition: max-height 0.2s ease-out; background: #ffffff; }
+        .collapsible-body { padding: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
 
-        /* 生成貨物主控區（符合手機 44px 肥手指友善外觀） */
-        .main-cargo-generator {
-            padding: 20px;
-            border-top: 2px solid #e2e8f0;
-            background: #fff;
-        }
-        
+        .main-cargo-generator { padding: 20px; border-top: 2px solid #e2e8f0; background: #fff; }
         label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 14px; color: #4a5568; }
         
-        /* 手機大元件核心樣式 */
         input, select, .action-btn { 
             width: 100%; 
             height: 46px; 
@@ -137,22 +128,14 @@
         input[type="color"] { padding: 2px; cursor: pointer; }
         
         .action-btn { 
-            background-color: #007bff; 
-            color: white; 
-            border: none; 
-            cursor: pointer; 
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            -webkit-tap-highlight-color: transparent;
+            background-color: #007bff; color: white; border: none; cursor: pointer; font-weight: bold;
+            display: flex; align-items: center; justify-content: center;
         }
         .action-btn:active { opacity: 0.8; }
         
         .switch-container { display: flex; align-items: center; justify-content: space-between; height: 46px; }
         .switch-container input { width: 22px; height: 22px; margin: 0; }
 
-        /* 記憶色盤加大 */
         .color-history { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; margin-top: 5px; }
         .color-combo-dot { 
             width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 2px solid #cbd5e0; 
@@ -160,7 +143,6 @@
             user-select: none;
         }
 
-        /* 貨物物件視覺優化 */
         .cargo-item {
             position: absolute;
             box-sizing: border-box;
@@ -177,11 +159,20 @@
             touch-action: none;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             user-select: none;
-            z-index: 10;
+            pointer-events: auto; /* 開啟貨物自身的滑族事件 */
         }
         .cargo-qty { font-size: 10px; opacity: 0.9; margin-top: 3px; background: rgba(0,0,0,0.15); padding: 2px 5px; border-radius: 4px; }
         .cargo-item.is-dragging { opacity: 0.6; z-index: 100; box-shadow: 0 8px 15px rgba(0,0,0,0.2); }
-        #cargo-buffer .cargo-item { position: relative !important; transform: none !important; top: auto !important; left: auto !important; }
+        
+        /* 當貨物在待放置區時的清爽排列 */
+        #cargo-buffer .cargo-item { 
+            position: relative !important; 
+            transform: none !important; 
+            top: auto !important; 
+            left: auto !important; 
+            display: inline-flex !important;
+            margin: 0 !important;
+        }
 
         #context-menu {
             display: none; position: absolute; background: white; border: 1px solid #cbd5e0;
@@ -191,7 +182,6 @@
         #context-menu div:hover { background: #edf2f7; }
         #context-menu .delete-opt { color: #e53e3e; border-top: 1px solid #edf2f7; }
 
-        /* RWD 手機版面重排配置 */
         @media (max-width: 600px) {
             .mobile-row { display: flex; flex-direction: column; gap: 0; }
             .mobile-flex-2 { display: flex; gap: 8px; }
@@ -207,12 +197,11 @@
             <div id="warehouse-grid"></div>
         </div>
 
-        <h3>貨物待放置區</h3>
+        <h3>貨物待放置區 (可將商品拖回此處或拉入上方倉庫)</h3>
         <div id="cargo-buffer"></div>
     </div>
 
     <div id="control-panel">
-        
         <div class="collapsible-header" onclick="toggleAccordion(this)">🛠️進階系統設定 (點擊展開/收折)</div>
         <div class="collapsible-content">
             <div class="collapsible-body">
@@ -231,7 +220,7 @@
                     <select id="warehouse-select" onchange="switchWarehouse()">
                         <option value="wh1">倉庫一 (30x30)</option>
                     </select>
-                    <label>新增/修改有名稱</label>
+                    <label>新增/修改名稱</label>
                     <input type="text" id="wh-name" value="倉庫一">
                     <div style="display:flex; gap:8px;">
                         <input type="number" id="wh-w" value="30" placeholder="寬">
@@ -248,7 +237,6 @@
                 <div>
                     <label>貨物商品名稱</label>
                     <input type="text" id="cargo-name" value="棧板A">
-                    
                     <label>初始存貨數量</label>
                     <input type="number" id="cargo-qty" value="10">
                 </div>
@@ -258,7 +246,6 @@
                         <input type="number" id="cargo-w" step="0.1" value="2" placeholder="寬(m)">
                         <input type="number" id="cargo-h" step="0.1" value="2" placeholder="高(m)">
                     </div>
-                    
                     <div class="mobile-flex-2" style="margin-bottom: 5px;">
                         <div style="flex: 1;">
                             <label>方塊背景色</label>
@@ -272,7 +259,7 @@
                 </div>
             </div>
             
-            <label style="margin-top: 10px;">最近使用雙色配對 (肥手指尺寸，一鍵秒套用)</label>
+            <label style="margin-top: 10px;">最近使用雙色配對 (一鍵秒套用)</label>
             <div class="color-history" id="color-history-container"></div>
             
             <button class="action-btn" onclick="triggerCreateCargo()" style="background-color: #28a745; height: 50px; font-size: 16px; margin-bottom:0;">➕ 立即生成貨物物件</button>
@@ -331,8 +318,8 @@
             document.querySelectorAll('#warehouse-grid .cargo-item').forEach(item => {
                 const w_m = parseFloat(item.getAttribute('data-w-m'));
                 const h_m = parseFloat(item.getAttribute('data-h-m'));
-                const m_x = parseFloat(item.getAttribute('data-m-x'));
-                const m_y = parseFloat(item.getAttribute('data-m-y'));
+                const m_x = parseFloat(item.getAttribute('data-m-x')) || 0;
+                const m_y = parseFloat(item.getAttribute('data-m-y')) || 0;
 
                 item.style.width = (w_m * cellSize) + 'px';
                 item.style.height = (h_m * cellSize) + 'px';
@@ -351,17 +338,33 @@
             initInteractEngine();
         }
 
+        // 【終極校正】實體化鋪底格子線，與物件完全分離
         function renderGrid() {
             const wh = warehouses[currentWhId] || { name: '倉庫一', width: 30, height: 30 };
             const grid = document.getElementById('warehouse-grid');
             
             document.documentElement.style.setProperty('--grid-cols', wh.width);
             document.documentElement.style.setProperty('--grid-rows', wh.height);
+            
+            // 設定總畫布寬高
             grid.style.width = (wh.width * cellSize) + 'px';
             grid.style.height = (wh.height * cellSize) + 'px';
 
-            document.querySelectorAll('.grid-cell-block').forEach(el => el.remove());
+            // 移除舊的底層與舊的放置層
+            let underlay = document.getElementById('grid-underlay');
+            if (underlay) underlay.remove();
+            
+            let layer = document.getElementById('cargo-layer');
+            if (!layer) {
+                layer = document.createElement('div');
+                layer.id = 'cargo-layer';
+                grid.appendChild(layer);
+            }
 
+            // 新增一個乾淨的底座層鋪格子線
+            underlay = document.createElement('div');
+            underlay.id = 'grid-underlay';
+            
             const totalCells = wh.width * wh.height;
             const fragment = document.createDocumentFragment();
             for (let i = 0; i < totalCells; i++) {
@@ -369,7 +372,8 @@
                 cell.className = 'grid-cell-block';
                 fragment.appendChild(cell);
             }
-            grid.insertBefore(fragment, grid.firstChild);
+            underlay.appendChild(fragment);
+            grid.insertBefore(underlay, layer);
         }
 
         function syncFromCloud() {
@@ -407,7 +411,9 @@
                 
                 renderGrid();
 
-                document.querySelectorAll('#warehouse-grid .cargo-item').forEach(el => el.remove());
+                // 只清除放置層裡面的貨物，不影響背景格子
+                const layer = document.getElementById('cargo-layer');
+                if (layer) layer.innerHTML = '';
                 document.getElementById('cargo-buffer').innerHTML = '';
 
                 if(data && Array.isArray(data.cargoItems)) {
@@ -423,7 +429,7 @@
                             cargo.setAttribute('data-y', pixelY);
                             cargo.setAttribute('data-m-x', itemData.m_x || 0);
                             cargo.setAttribute('data-m-y', itemData.m_y || 0);
-                            document.getElementById('warehouse-grid').appendChild(cargo);
+                            document.getElementById('cargo-layer').appendChild(cargo);
                         } else if (itemData.warehouseId === 'buffer') {
                             document.getElementById('cargo-buffer').appendChild(cargo);
                         }
@@ -433,8 +439,8 @@
                 document.getElementById('sync-status').style.color = "#28a745";
             })
             .catch(err => {
-                console.warn("維持本地防護模式運作:", err);
-                document.getElementById('sync-status').textContent = "⚠️ 雲端連線受阻 (CORS/全新空白)，目前處於單機操作模式";
+                console.warn("維持本地模式:", err);
+                document.getElementById('sync-status').textContent = "⚠️ 雲端同步失敗，已切換至本地獨立運作模式";
                 document.getElementById('sync-status').style.color = "#e67e22";
                 renderGrid(); 
             });
@@ -446,7 +452,7 @@
 
             const cargoItems = [];
             
-            document.querySelectorAll('#warehouse-grid .cargo-item').forEach(item => {
+            document.querySelectorAll('#cargo-layer .cargo-item').forEach(item => {
                 cargoItems.push({
                     id: item.getAttribute('data-id'),
                     name: item.getAttribute('data-name'),
@@ -489,60 +495,36 @@
                 document.getElementById('sync-status').style.color = "#28a745";
             })
             .catch(err => {
-                console.error("雲端儲存錯誤:", err);
+                console.error("儲存錯誤:", err);
                 document.getElementById('sync-status').textContent = "❌ 雲端儲存失敗";
                 document.getElementById('sync-status').style.color = "#dc3545";
             });
         }
 
-        // 【智慧更新優化版】：自動偵測重複名稱，直接覆蓋資料不產生分身
         function saveWarehouseSettings() {
             const name = document.getElementById('wh-name').value.trim();
             const w = parseInt(document.getElementById('wh-w').value);
             const h = parseInt(document.getElementById('wh-h').value);
             
-            if (!name) {
-                alert("請輸入倉庫名稱！");
-                return;
-            }
-
+            if (!name) { alert("請輸入倉庫名稱！"); return; }
             let targetId = null;
-
-            // 掃描現有倉庫，尋找是否有一模一樣的名字
             for (let id in warehouses) {
-                if (warehouses[id].name === name) {
-                    targetId = id; 
-                    break;
-                }
+                if (warehouses[id].name === name) { targetId = id; break; }
             }
-
             const select = document.getElementById('warehouse-select');
-
             if (targetId) {
-                // 有重複名字 -> 直接更新寬高
-                warehouses[targetId].width = w;
-                warehouses[targetId].height = h;
-                
+                warehouses[targetId].width = w; warehouses[targetId].height = h;
                 const optionToUpdate = select.querySelector(`option[value="${targetId}"]`);
-                if (optionToUpdate) {
-                    optionToUpdate.textContent = `${name} (${w}x${h})`;
-                }
+                if (optionToUpdate) optionToUpdate.textContent = `${name} (${w}x${h})`;
                 currentWhId = targetId;
-                console.log(`▼ 偵測到同名，已更新 [${name}] 的網格尺寸為 ${w}x${h}`);
             } else {
-                // 完全沒重複 -> 新建專案 ID
                 targetId = 'wh_' + Date.now();
                 warehouses[targetId] = { name: name, width: w, height: h };
-                
                 const opt = document.createElement('option');
-                opt.value = targetId; 
-                opt.textContent = `${name} (${w}x${h})`;
+                opt.value = targetId; opt.textContent = `${name} (${w}x${h})`;
                 select.appendChild(opt);
-                
                 currentWhId = targetId;
-                console.log(`▼ 成功建立全新倉庫專案：[${name}] (${w}x${h})`);
             }
-            
             select.value = currentWhId;
             renderGrid();
             autoSaveToCloud();
@@ -621,7 +603,7 @@
 
             cargo.addEventListener('click', (e) => {
                 e.stopPropagation();
-                if(cargo.parentElement.id === 'warehouse-grid') {
+                if(cargo.parentElement.id === 'cargo-layer') {
                     const newQty = prompt("請輸入新的貨物數量：", cargo.getAttribute('data-qty'));
                     if (newQty !== null) {
                         cargo.setAttribute('data-qty', newQty);
@@ -675,75 +657,94 @@
                     start(event) { event.target.classList.add('is-dragging'); },
                     move(event) {
                         const target = event.target;
-                        if (target.parentElement.id === 'cargo-buffer') {
-                            const bufferRect = target.getBoundingClientRect();
-                            const gridRect = document.getElementById('warehouse-grid').getBoundingClientRect();
-                            const initX = bufferRect.left - gridRect.left;
-                            const initY = bufferRect.top - gridRect.top;
-                            target.setAttribute('data-x', initX);
-                            target.setAttribute('data-y', initY);
-                            document.getElementById('warehouse-grid').appendChild(target);
+                        
+                        // 【關鍵手感回歸】：動態偵測滑鼠落點，隨時在網格層與緩衝區自由移入移出
+                        const rect = target.getBoundingClientRect();
+                        const bufferRect = document.getElementById('cargo-buffer').getBoundingClientRect();
+                        
+                        // 1. 如果移入下方待放置區範圍內
+                        if (rect.top >= bufferRect.top && rect.bottom <= bufferRect.bottom && rect.left >= bufferRect.left && rect.right <= bufferRect.right) {
+                            if (target.parentElement.id !== 'cargo-buffer') {
+                                document.getElementById('cargo-buffer').appendChild(target);
+                                target.removeAttribute('data-x');
+                                target.removeAttribute('data-y');
+                                target.style.transform = 'none';
+                            }
+                        } else {
+                            // 2. 如果移入上方倉庫網格
+                            if (target.parentElement.id !== 'cargo-layer') {
+                                const gridRect = document.getElementById('warehouse-grid').getBoundingClientRect();
+                                const initX = rect.left - gridRect.left;
+                                const initY = rect.top - gridRect.top;
+                                target.setAttribute('data-x', initX);
+                                target.setAttribute('data-y', initY);
+                                document.getElementById('cargo-layer').appendChild(target);
+                            }
                         }
 
-                        let x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
-                        let y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
-                        target.style.transform = `translate(${x}px, ${y}px)`;
-                        target.setAttribute('data-x', x);
-                        target.setAttribute('data-y', y);
+                        if (target.parentElement.id === 'cargo-layer') {
+                            let x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
+                            let y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
+                            target.style.transform = `translate(${x}px, ${y}px)`;
+                            target.setAttribute('data-x', x);
+                            target.setAttribute('data-y', y);
+                        }
                     },
                     end(event) {
                         const target = event.target;
                         target.classList.remove('is-dragging');
                         
-                        let x = parseFloat(target.getAttribute('data-x')) || 0;
-                        let y = parseFloat(target.getAttribute('data-y')) || 0;
-                        const w = parseFloat(target.offsetWidth);
-                        const h = parseFloat(target.offsetHeight);
+                        if (target.parentElement.id === 'cargo-layer') {
+                            let x = parseFloat(target.getAttribute('data-x')) || 0;
+                            let y = parseFloat(target.getAttribute('data-y')) || 0;
+                            const w = parseFloat(target.offsetWidth);
+                            const h = parseFloat(target.offsetHeight);
 
-                        const otherItems = document.querySelectorAll('#warehouse-grid .cargo-item');
-                        
-                        for (let other of otherItems) {
-                            if (other === target) continue;
+                            const otherItems = document.querySelectorAll('#cargo-layer .cargo-item');
+                            
+                            for (let other of otherItems) {
+                                if (other === target) continue;
 
-                            const oX = parseFloat(other.getAttribute('data-x')) || 0;
-                            const oY = parseFloat(other.getAttribute('data-y')) || 0;
-                            const oW = parseFloat(other.offsetWidth);
-                            const oH = parseFloat(other.offsetHeight);
+                                const oX = parseFloat(other.getAttribute('data-x')) || 0;
+                                const oY = parseFloat(other.getAttribute('data-y')) || 0;
+                                const oW = parseFloat(other.offsetWidth);
+                                const oH = parseFloat(other.offsetHeight);
 
-                            if (x < oX + oW - 0.5 && x + w - 0.5 > oX && y < oY + oH - 0.5 && y + h - 0.5 > oY) {
-                                const pushLeft = (oX - w);
-                                const pushRight = (oX + oW);
-                                const pushTop = (oY - h);
-                                const pushBottom = (oY + oH);
+                                if (x < oX + oW - 0.5 && x + w - 0.5 > oX && y < oY + oH - 0.5 && y + h - 0.5 > oY) {
+                                    const pushLeft = (oX - w);
+                                    const pushRight = (oX + oW);
+                                    const pushTop = (oY - h);
+                                    const pushBottom = (oY + oH);
 
-                                const dists = [
-                                    { x: pushLeft, y: y, d: Math.abs(x - pushLeft) },
-                                    { x: pushRight, y: y, d: Math.abs(x - pushRight) },
-                                    { x: x, y: pushTop, d: Math.abs(y - pushTop) },
-                                    { x: x, y: pushBottom, d: Math.abs(y - pushBottom) }
-                                ];
-                                
-                                dists.sort((a, b) => a.d - b.d);
-                                let bestFit = dists[0];
+                                    const dists = [
+                                        { x: pushLeft, y: y, d: Math.abs(x - pushLeft) },
+                                        { x: pushRight, y: y, d: Math.abs(x - pushRight) },
+                                        { x: x, y: pushTop, d: Math.abs(y - pushTop) },
+                                        { x: x, y: pushBottom, d: Math.abs(y - pushBottom) }
+                                    ];
+                                    
+                                    dists.sort((a, b) => a.d - b.d);
+                                    let bestFit = dists[0];
 
-                                if (isSnapEnabled) {
-                                    bestFit.x = Math.round(bestFit.x / cellSize) * cellSize;
-                                    bestFit.y = Math.round(bestFit.y / cellSize) * cellSize;
+                                    if (isSnapEnabled) {
+                                        bestFit.x = Math.round(bestFit.x / cellSize) * cellSize;
+                                        bestFit.y = Math.round(bestFit.y / cellSize) * cellSize;
+                                    }
+
+                                    x = bestFit.x;
+                                    y = bestFit.y;
+                                    
+                                    target.style.transform = `translate(${x}px, ${y}px)`;
+                                    target.setAttribute('data-x', x);
+                                    target.setAttribute('data-y', y);
                                 }
-
-                                x = bestFit.x;
-                                y = bestFit.y;
-                                
-                                target.style.transform = `translate(${x}px, ${y}px)`;
-                                target.setAttribute('data-x', x);
-                                target.setAttribute('data-y', y);
                             }
-                        }
 
-                        const metricX = Math.round((x / cellSize) * 10) / 10;
-                        const metricY = Math.round((y / cellSize) * 10) / 10;
-                        target.setAttribute('data-m-x', metricX);
-                        target.setAttribute('data-m-y', metricY);
+                            const metricX = Math.round((x / cellSize) * 10) / 10;
+                            const metricY = Math.round((y / cellSize) * 10) / 10;
+                            target.setAttribute('data-m-x', metricX);
+                            target.setAttribute('data-m-y', metricY);
+                        }
 
                         autoSaveToCloud();
                     }
