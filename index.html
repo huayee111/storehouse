@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>公司內部倉儲網格系統 - 外框同步縮放版</title>
+    <title>公司內部倉儲網格系統 - 全功能校正完美版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -18,6 +18,7 @@
             display: flex; 
             flex-direction: column; 
             gap: 15px; 
+            user-select: none;
         }
 
         #main-area { 
@@ -27,33 +28,37 @@
             width: 100%; 
         }
         
-        /* 【外框核心優化】：改為 fit-content，讓黑邊外框完美貼合內部網格，且限高防爆 */
+        /* 外框：完美貼合內部網格實際大小，超出最大限制時才出滾動條 */
         #warehouse-container { 
             border: 2px solid #333; 
             background-color: #ffffff; 
-            overflow: auto; /* 超出最大限制時，在黑框內產生滾動條 */
+            overflow: auto; 
             position: relative; 
             width: fit-content; 
             height: fit-content;
             max-width: 100%; 
-            max-height: 550px; /* 固定大視窗上限，防止畫面拉太長 */
+            max-height: 500px; 
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         }
         
-        /* 網格主容器 */
+        /* 網格主畫布 */
         #warehouse-grid {
-            position: relative; /* 改為 relative 撐開父外框 */
+            position: relative;
             top: 0; left: 0;
+            width: calc(var(--grid-cols) * var(--cell-size));
+            height: calc(var(--grid-rows) * var(--cell-size));
         }
 
-        /* 獨立底層格子線 */
+        /* 實體格子線底層 */
         #grid-underlay {
             display: grid;
             grid-template-columns: repeat(var(--grid-cols), var(--cell-size));
             grid-template-rows: repeat(var(--grid-rows), var(--cell-size));
             position: absolute;
             top: 0; left: 0;
+            width: 100%;
+            height: 100%;
             pointer-events: none;
             z-index: 1;
         }
@@ -80,11 +85,12 @@
             border-radius: 8px; 
             padding: 12px; 
             display: flex; 
-            gap: 15px; 
+            gap: 15px;  
             align-items: center; 
             flex-wrap: wrap; 
             width: 100%;
             box-sizing: border-box;
+            position: relative;
         }
 
         #control-panel { 
@@ -146,6 +152,7 @@
             user-select: none;
         }
 
+        /* 貨物物件視覺樣式 */
         .cargo-item {
             position: absolute;
             box-sizing: border-box;
@@ -161,12 +168,12 @@
             cursor: move;
             touch-action: none;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            user-select: none;
             pointer-events: auto; 
         }
         .cargo-qty { font-size: 10px; opacity: 0.9; margin-top: 3px; background: rgba(0,0,0,0.15); padding: 2px 5px; border-radius: 4px; }
         .cargo-item.is-dragging { opacity: 0.6; z-index: 100; box-shadow: 0 8px 15px rgba(0,0,0,0.2); }
         
+        /* 當貨物留在待放置區時的流暢水平排隊 */
         #cargo-buffer .cargo-item { 
             position: relative !important; 
             transform: none !important; 
@@ -176,12 +183,14 @@
             margin: 0 !important;
         }
 
+        /* 右鍵選單面板優化 */
         #context-menu {
             display: none; position: absolute; background: white; border: 1px solid #cbd5e0;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; border-radius: 8px; overflow: hidden;
         }
         #context-menu div { padding: 14px 24px; cursor: pointer; font-size: 15px; font-weight: bold; }
         #context-menu div:hover { background: #edf2f7; }
+        #context-menu .return-opt { color: #007bff; border-top: 1px solid #edf2f7; }
         #context-menu .delete-opt { color: #e53e3e; border-top: 1px solid #edf2f7; }
 
         @media (max-width: 600px) {
@@ -222,7 +231,7 @@
                     <select id="warehouse-select" onchange="switchWarehouse()">
                         <option value="wh1">倉庫一 (30x30)</option>
                     </select>
-                    <label>新增/修改名稱</label>
+                    <label>新增/修改倉庫名稱</label>
                     <input type="text" id="wh-name" value="倉庫一">
                     <div style="display:flex; gap:8px;">
                         <input type="number" id="wh-w" value="30" placeholder="寬">
@@ -270,6 +279,7 @@
 
     <div id="context-menu">
         <div onclick="editSelectedQty()">✏️ 修改數量</div>
+        <div class="return-opt" onclick="returnToBuffer()">↩️ 放回待放區</div>
         <div class="delete-opt" onclick="deleteSelectedCargo()">❌ 刪除貨物</div>
     </div>
 
@@ -311,11 +321,15 @@
             }
         }
 
+        // 縮放比例尺核心邏輯（只縮放外框與內容像素，不影響設定值）
         function changeScale(val) {
             cellSize = parseInt(val);
             document.getElementById('scale-val').textContent = cellSize;
+            
+            // 1. 重繪基礎格線底座
             renderGrid();
             
+            // 2. 對當前倉庫內的所有物件重新依米數進行像素縮放
             document.querySelectorAll('#cargo-layer .cargo-item').forEach(item => {
                 const w_m = parseFloat(item.getAttribute('data-w-m'));
                 const h_m = parseFloat(item.getAttribute('data-h-m'));
@@ -345,8 +359,9 @@
             
             document.documentElement.style.setProperty('--grid-cols', wh.width);
             document.documentElement.style.setProperty('--grid-rows', wh.height);
+            document.documentElement.style.setProperty('--cell-size', cellSize + 'px');
             
-            // 隨比例尺即時縮放網格畫布本身
+            // 物理撐開網格畫布大小，讓外框跟著縮放
             grid.style.width = (wh.width * cellSize) + 'px';
             grid.style.height = (wh.height * cellSize) + 'px';
 
@@ -437,7 +452,7 @@
             })
             .catch(err => {
                 console.warn("維持本地模式:", err);
-                document.getElementById('sync-status').textContent = "⚠️ 雲端連線受阻 (CORS/全新空白)，目前處於單機操作模式";
+                document.getElementById('sync-status').textContent = "⚠️ 雲端連線受阻，目前處於單機操作模式";
                 document.getElementById('sync-status').style.color = "#e67e22";
                 renderGrid(); 
             });
@@ -598,18 +613,14 @@
             cargo.setAttribute('data-name', itemData.name || '未命名');
             cargo.setAttribute('data-id', itemData.id);
 
+            // 雙擊/點擊直覺修改數量
             cargo.addEventListener('click', (e) => {
                 e.stopPropagation();
-                if(cargo.parentElement.id === 'cargo-layer') {
-                    const newQty = prompt("請輸入新的貨物數量：", cargo.getAttribute('data-qty'));
-                    if (newQty !== null) {
-                        cargo.setAttribute('data-qty', newQty);
-                        cargo.querySelector('.cargo-qty').textContent = `${newQty} 件`;
-                        autoSaveToCloud();
-                    }
-                }
+                rightClickedElement = cargo;
+                editSelectedQty();
             });
 
+            // 右鍵彈出功能選單
             cargo.addEventListener('contextmenu', (e) => {
                 e.preventDefault(); e.stopPropagation();
                 rightClickedElement = cargo;
@@ -620,7 +631,33 @@
             return cargo;
         }
 
-        function editSelectedQty() { if(rightClickedElement) rightClickedElement.click(); }
+        // 修改數量核心功能
+        function editSelectedQty() { 
+            if(rightClickedElement) {
+                const oldQty = rightClickedElement.getAttribute('data-qty');
+                const newQty = prompt("請輸入新的貨物數量：", oldQty);
+                if (newQty !== null && newQty.trim() !== "") {
+                    rightClickedElement.setAttribute('data-qty', newQty);
+                    rightClickedElement.querySelector('.cargo-qty').textContent = `${newQty} 件`;
+                    autoSaveToCloud();
+                }
+            }
+        }
+
+        // 右鍵一鍵放回待放區功能
+        function returnToBuffer() {
+            if (rightClickedElement) {
+                document.getElementById('cargo-buffer').appendChild(rightClickedElement);
+                rightClickedElement.removeAttribute('data-x');
+                rightClickedElement.removeAttribute('data-y');
+                rightClickedElement.removeAttribute('data-m-x');
+                rightClickedElement.removeAttribute('data-m-y');
+                rightClickedElement.style.transform = 'none';
+                rightClickedElement = null;
+                autoSaveToCloud();
+            }
+        }
+
         function deleteSelectedCargo() { 
             if(rightClickedElement) { 
                 rightClickedElement.remove(); 
@@ -629,118 +666,103 @@
             } 
         }
 
+        // 拖拉流暢手動翻修：採用點對點釋放判斷，不污染拖拉中座標
         function initInteractEngine() {
             if (interactInstance) interactInstance.unset();
 
-            let dragModifiers = [
-                interact.modifiers.restrictRect({ restriction: '#main-area', endOnly: false })
-            ];
-
-            if (isSnapEnabled) {
-                dragModifiers.push(
-                    interact.modifiers.snap({
-                        targets: [ interact.snappers.grid({ x: cellSize, y: cellSize }) ],
-                        range: Infinity,
-                        relativePoints: [ { x: 0, y: 0 } ]
-                    })
-                );
-            }
-
             interactInstance = interact('.cargo-item').draggable({
                 inertia: false,
-                modifiers: dragModifiers,
                 autoScroll: true,
                 listeners: {
-                    start(event) { event.target.classList.add('is-dragging'); },
+                    start(event) { 
+                        event.target.classList.add('is-dragging'); 
+                    },
                     move(event) {
                         const target = event.target;
-                        const rect = target.getBoundingClientRect();
-                        const bufferRect = document.getElementById('cargo-buffer').getBoundingClientRect();
                         
-                        if (rect.top >= bufferRect.top && rect.bottom <= bufferRect.bottom && rect.left >= bufferRect.left && rect.right <= bufferRect.right) {
-                            if (target.parentElement.id !== 'cargo-buffer') {
-                                document.getElementById('cargo-buffer').appendChild(target);
-                                target.removeAttribute('data-x');
-                                target.removeAttribute('data-y');
-                                target.removeAttribute('data-m-x');
-                                target.removeAttribute('data-m-y');
-                                target.style.transform = 'none';
-                            }
-                        } else {
-                            if (target.parentElement.id !== 'cargo-layer') {
-                                const gridRect = document.getElementById('warehouse-grid').getBoundingClientRect();
-                                const initX = rect.left - gridRect.left;
-                                const initY = rect.top - gridRect.top;
-                                target.setAttribute('data-x', initX);
-                                target.setAttribute('data-y', initY);
-                                document.getElementById('cargo-layer').appendChild(target);
-                            }
-                        }
-
-                        if (target.parentElement.id === 'cargo-layer') {
-                            let x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
-                            let y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
-                            target.style.transform = `translate(${x}px, ${y}px)`;
-                            target.setAttribute('data-x', x);
-                            target.setAttribute('data-y', y);
-                        }
+                        // 讀取目前的累計物理位移（排除父容器節點切換干擾）
+                        let x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
+                        let y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
+                        
+                        target.style.transform = `translate(${x}px, ${y}px)`;
+                        target.setAttribute('data-x', x);
+                        target.setAttribute('data-y', y);
                     },
                     end(event) {
                         const target = event.target;
                         target.classList.remove('is-dragging');
                         
-                        if (target.parentElement.id === 'cargo-layer') {
-                            let x = parseFloat(target.getAttribute('data-x')) || 0;
-                            let y = parseFloat(target.getAttribute('data-y')) || 0;
-                            const w = parseFloat(target.offsetWidth);
-                            const h = parseFloat(target.offsetHeight);
-
-                            const otherItems = document.querySelectorAll('#cargo-layer .cargo-item');
+                        // 【黃金判斷點】：放開手時，精確比對落點幾何範圍
+                        const rect = target.getBoundingClientRect();
+                        const containerRect = document.getElementById('warehouse-container').getBoundingClientRect();
+                        const bufferRect = document.getElementById('cargo-buffer').getBoundingClientRect();
+                        
+                        // 狀況一：落點落在下方待放區 $\rightarrow$ 精準收回
+                        if (rect.top >= bufferRect.top && rect.bottom <= bufferRect.bottom) {
+                            document.getElementById('cargo-buffer').appendChild(target);
+                            target.removeAttribute('data-x');
+                            target.removeAttribute('data-y');
+                            target.removeAttribute('data-m-x');
+                            target.removeAttribute('data-m-y');
+                            target.style.transform = 'none';
+                        } 
+                        // 狀況二：落點落在上方倉庫內 $\rightarrow$ 進行網格計算
+                        else {
+                            const gridRect = document.getElementById('warehouse-grid').getBoundingClientRect();
+                            let localX = rect.left - gridRect.left;
+                            let localY = rect.top - gridRect.top;
                             
+                            // 吸附對齊計算
+                            if (isSnapEnabled) {
+                                localX = Math.round(localX / cellSize) * cellSize;
+                                localY = Math.round(localY / cellSize) * cellSize;
+                            }
+                            
+                            // 限制邊界防拖出倉庫外
+                            const wh = warehouses[currentWhId];
+                            const maxW = (wh.width * cellSize) - target.offsetWidth;
+                            const maxH = (wh.height * cellSize) - target.offsetHeight;
+                            if (localX < 0) localX = 0; if (localX > maxW) localX = maxW;
+                            if (localY < 0) localY = 0; if (localY > maxH) localY = maxH;
+                            
+                            // 防止重疊靠攏演算法
+                            const otherItems = document.querySelectorAll('#cargo-layer .cargo-item');
                             for (let other of otherItems) {
                                 if (other === target) continue;
-
                                 const oX = parseFloat(other.getAttribute('data-x')) || 0;
                                 const oY = parseFloat(other.getAttribute('data-y')) || 0;
                                 const oW = parseFloat(other.offsetWidth);
                                 const oH = parseFloat(other.offsetHeight);
-
-                                if (x < oX + oW - 0.5 && x + w - 0.5 > oX && y < oY + oH - 0.5 && y + h - 0.5 > oY) {
-                                    const pushLeft = (oX - w);
-                                    const pushRight = (oX + oW);
-                                    const pushTop = (oY - h);
-                                    const pushBottom = (oY + oH);
-
+                                
+                                if (localX < oX + oW - 0.5 && localX + target.offsetWidth - 0.5 > oX && localY < oY + oH - 0.5 && localY + target.offsetHeight - 0.5 > oY) {
                                     const dists = [
-                                        { x: pushLeft, y: y, d: Math.abs(x - pushLeft) },
-                                        { x: pushRight, y: y, d: Math.abs(x - pushRight) },
-                                        { x: x, y: pushTop, d: Math.abs(y - pushTop) },
-                                        { x: x, y: pushBottom, d: Math.abs(y - pushBottom) }
+                                        { x: oX - target.offsetWidth, y: localY, d: Math.abs(localX - (oX - target.offsetWidth)) },
+                                        { x: oX + oW, y: localY, d: Math.abs(localX - (oX + oW)) },
+                                        { x: localX, y: oY - target.offsetHeight, d: Math.abs(localY - (oY - target.offsetHeight)) },
+                                        { x: localX, y: oY + oH, d: Math.abs(localY - (oY + oH)) }
                                     ];
-                                    
                                     dists.sort((a, b) => a.d - b.d);
-                                    let bestFit = dists[0];
-
+                                    let fit = dists[0];
                                     if (isSnapEnabled) {
-                                        bestFit.x = Math.round(bestFit.x / cellSize) * cellSize;
-                                        bestFit.y = Math.round(bestFit.y / cellSize) * cellSize;
+                                        fit.x = Math.round(fit.x / cellSize) * cellSize;
+                                        fit.y = Math.round(fit.y / cellSize) * cellSize;
                                     }
-
-                                    x = bestFit.x;
-                                    y = bestFit.y;
-                                    
-                                    target.style.transform = `translate(${x}px, ${y}px)`;
-                                    target.setAttribute('data-x', x);
-                                    target.setAttribute('data-y', y);
+                                    localX = fit.x; localY = fit.y;
                                 }
                             }
-
-                            const metricX = Math.round((x / cellSize) * 10) / 10;
-                            const metricY = Math.round((y / cellSize) * 10) / 10;
+                            
+                            // 重新固定回放置層
+                            document.getElementById('cargo-layer').appendChild(target);
+                            target.style.transform = `translate(${localX}px, ${localY}px)`;
+                            target.setAttribute('data-x', localX);
+                            target.setAttribute('data-y', localY);
+                            
+                            const metricX = Math.round((localX / cellSize) * 10) / 10;
+                            const metricY = Math.round((localY / cellSize) * 10) / 10;
                             target.setAttribute('data-m-x', metricX);
                             target.setAttribute('data-m-y', metricY);
                         }
-
+                        
                         autoSaveToCloud();
                     }
                 }
