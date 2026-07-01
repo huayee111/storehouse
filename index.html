@@ -42,7 +42,6 @@
             display: inline-block;
         }
 
-        /* 旋轉動畫防呆 */
         .wh-tabs-container { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px; margin-bottom: 5px; }
         .wh-tab-btn {
             padding: 10px 18px; background-color: #e2e8f0; color: #4a5568; border: 1px solid #cbd5e0;
@@ -99,12 +98,13 @@
         .color-history { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; margin-top: 5px; }
         .color-combo-dot { width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 2px solid #cbd5e0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; user-select: none; -webkit-tap-highlight-color: transparent; }
 
-        /* 貨物物件 */
+        /* 貨物物件 - 確保啟用滑鼠事件 pointer-events: auto */
         .cargo-item {
             position: absolute; box-sizing: border-box; border: 2px solid rgba(0,0,0,0.25);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             border-radius: 6px; cursor: move; touch-action: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            padding: 4px; overflow: hidden; -webkit-touch-callout: none !important; -webkit-user-select: none !important; user-select: none !important; -webkit-tap-highlight-color: transparent !important;
+            padding: 4px; overflow: hidden; pointer-events: auto !important;
+            -webkit-touch-callout: none !important; -webkit-user-select: none !important; user-select: none !important; -webkit-tap-highlight-color: transparent !important;
         }
         
         .cargo-title {
@@ -126,7 +126,7 @@
         }
         #context-menu div { padding: 14px 24px; cursor: pointer; font-size: 15px; font-weight: bold; }
         #context-menu div:hover { background: #edf2f7; }
-        #context-menu .rotate-opt { color: #d69e2e; font-weight: bold; } /* 旋轉選項橘黃色 */
+        #context-menu .rotate-opt { color: #d69e2e; font-weight: bold; }
         #context-menu .lock-opt { color: #805ad5; font-weight: bold; }
         #context-menu .enter-opt { color: #28a745; font-weight: bold; border-top: 1px solid #edf2f7; }
         #context-menu .return-opt { color: #007bff; font-weight: bold; border-top: 1px solid #edf2f7; }
@@ -240,7 +240,8 @@
     <div id="context-menu">
         <div onclick="editSelectedName()">✏️ 變更名稱</div>
         <div onclick="editSelectedQty()">🔢 修改數量</div>
-        <div id="menu-rotate-btn" class="rotate-opt" onclick="rotateCargo90()">🔄 旋轉 90 度</div> <div id="menu-lock-btn" class="lock-opt" onclick="toggleCargoLock()">🔒 鎖定物件</div>
+        <div id="menu-rotate-btn" class="rotate-opt" onclick="rotateCargo90()">🔄 旋轉 90 度</div>
+        <div id="menu-lock-btn" class="lock-opt" onclick="toggleCargoLock()">🔒 鎖定物件</div>
         <div id="menu-enter-btn" class="enter-opt" onclick="enterWarehouseDirect()">📥 放進倉庫</div>
         <div id="menu-return-btn" class="return-opt" onclick="returnToBuffer()">↩️ 放回待放區</div>
         <div class="delete-opt" onclick="deleteSelectedCargo()">❌ 刪除貨物</div>
@@ -254,9 +255,8 @@
         let currentWhId = 'wh1';
         let currentZLevel = 1; 
         let autoSyncTimer = null;
-        let isDraggingActive = false; // 防範拖曳中途被自動整理洗掉
+        let isDraggingActive = false;
 
-        // 【修正點】：配對色盤改由內建 localStorage 作強效記憶
         let colorHistory = JSON.parse(localStorage.getItem('wh_color_memory')) || [
             {bg: '#ffc107', text: '#000000'},
             {bg: '#28a745', text: '#ffffff'},
@@ -275,7 +275,7 @@
             renderColorHistory();
             initInteractEngine();
             syncFromCloud(); 
-            toggleAutoSync(true); // 預設啟動實時多端看圖
+            toggleAutoSync(true);
 
             document.addEventListener('click', () => {
                 document.getElementById('context-menu').style.display = 'none';
@@ -286,20 +286,24 @@
             }, { passive: false });
         };
 
-        // 【新增功能】：定時輪詢多端同步
+        function toggleAccordion(header) {
+            header.classList.toggle("active");
+            const content = header.nextElementSibling;
+            if (content.style.maxHeight) { content.style.maxHeight = null; } 
+            else { content.style.maxHeight = content.scrollHeight + "px"; }
+        }
+
         function toggleAutoSync(enabled) {
             if (autoSyncTimer) clearInterval(autoSyncTimer);
             if (enabled) {
                 autoSyncTimer = setInterval(() => {
-                    // 只有在大家都沒有在動手拖方塊的時候，才可以背景靜默抓取更新，防止卡頓
                     if (!isDraggingActive && !document.querySelector('.is-dragging')) {
                         syncFromCloudSilent();
                     }
-                }, 5000); // 5 秒鐘自動抓取一次最新變動
+                }, 5000);
             }
         }
 
-        // 背景安靜抓取，不干擾使用者打字
         function syncFromCloudSilent() {
             fetch(GAS_URL)
             .then(res => res.json())
@@ -307,7 +311,7 @@
                 if(data && data.warehouses) warehouses = data.warehouses;
                 globalCargoCache = data && Array.isArray(data.cargoItems) ? data.cargoItems : [];
                 renderCurrentWarehouseCargoes();
-            }).catch(e => console.log("靜默同步微延遲"));
+            }).catch(e => console.log("同步延遲"));
         }
 
         function switchZLayer(layerNum) {
@@ -512,28 +516,23 @@
             });
         }
 
-        // 【新增功能】：精準 90 度物理換算旋轉，文字正面不受影響
         function rotateCargo90() {
             if (rightClickedElement) {
                 const isLocked = rightClickedElement.getAttribute('data-locked') === 'true';
-                if (isLocked) return; // 鎖定狀態下無法旋轉
+                if (isLocked) return;
 
-                // 抓取原本的真實公尺尺寸
                 const currentWM = parseFloat(rightClickedElement.getAttribute('data-w-m'));
                 const currentHM = parseFloat(rightClickedElement.getAttribute('data-h-m'));
 
-                // 【核心對調】：將真實米數進行寬高交換，達成完全正向的 90 度翻轉！
                 const newWM = currentHM;
                 const newHM = currentWM;
 
                 rightClickedElement.setAttribute('data-w-m', newWM);
                 rightClickedElement.setAttribute('data-h-m', newHM);
 
-                // 更新前端畫面的像素大小
                 rightClickedElement.style.width = (newWM * cellSize) + 'px';
                 rightClickedElement.style.height = (newHM * cellSize) + 'px';
 
-                // 重新修正碰撞防止飛出倉庫
                 if (rightClickedElement.parentElement.id === 'cargo-layer') {
                     let lx = parseFloat(rightClickedElement.getAttribute('data-x')) || 0;
                     let ly = parseFloat(rightClickedElement.getAttribute('data-y')) || 0;
@@ -572,7 +571,6 @@
             if (!exists) {
                 colorHistory.unshift({bg: bg, text: text});
                 if (colorHistory.length > 10) colorHistory.pop();
-                // 儲存至本地永不丟失庫
                 localStorage.setItem('wh_color_memory', JSON.stringify(colorHistory));
                 renderColorHistory();
             }
@@ -625,12 +623,18 @@
             cargo.setAttribute('data-id', itemData.id);
             cargo.setAttribute('data-locked', itemData.isLocked ? 'true' : 'false');
 
+            // 監聽單擊 (修改數量)
             cargo.addEventListener('click', (e) => {
-                e.stopPropagation(); rightClickedElement = cargo; editSelectedQty();
+                e.stopPropagation(); 
+                rightClickedElement = cargo; 
+                editSelectedQty();
             });
 
+            // 監聽右鍵選單 (手機長按或電腦右鍵)
             cargo.addEventListener('contextmenu', (e) => {
-                e.preventDefault(); e.stopPropagation(); rightClickedElement = cargo;
+                e.preventDefault(); 
+                e.stopPropagation(); 
+                rightClickedElement = cargo;
                 
                 const menu = document.getElementById('context-menu');
                 const enterBtn = document.getElementById('menu-enter-btn');
@@ -647,7 +651,7 @@
                 } else {
                     enterBtn.style.display = 'none';
                     returnBtn.style.display = isLocked ? 'none' : 'block';
-                    rotateBtn.style.display = isLocked ? 'none' : 'block'; // 鎖定時隱藏旋轉
+                    rotateBtn.style.display = isLocked ? 'none' : 'block';
                     lockBtn.style.display = 'block';
                 }
                 menu.style.display = 'block'; menu.style.left = e.pageX + 'px'; menu.style.top = e.pageY + 'px';
@@ -728,14 +732,26 @@
             } 
         }
 
+        // 【修正點】：綁定所有的 .cargo-item，改由內部監聽去阻斷鎖定的物件
         function initInteractEngine() {
             if (interactInstance) interactInstance.unset();
-            interactInstance = interact('.cargo-item:not([data-locked="true"]):not(.underlay-ghost)').draggable({
+            
+            interactInstance = interact('.cargo-item').draggable({
                 inertia: false, autoScroll: true,
                 listeners: {
-                    start(event) { isDraggingActive = true; event.target.classList.add('is-dragging'); },
+                    start(event) { 
+                        const target = event.target;
+                        // 如果是鎖定或幽靈狀態，直接跳出不執行任何拖曳
+                        if (target.getAttribute('data-locked') === 'true' || target.classList.contains('underlay-ghost')) {
+                            return;
+                        }
+                        isDraggingActive = true; 
+                        target.classList.add('is-dragging'); 
+                    },
                     move(event) {
                         const target = event.target;
+                        if (target.getAttribute('data-locked') === 'true' || target.classList.contains('underlay-ghost')) return;
+
                         if (target.parentElement.id === 'cargo-buffer') {
                             const rect = target.getBoundingClientRect();
                             const gridRect = document.getElementById('warehouse-grid').getBoundingClientRect();
@@ -753,6 +769,8 @@
                     },
                     end(event) {
                         const target = event.target;
+                        if (!isDraggingActive) return; // 沒觸發 start 就不用跑 end
+                        
                         target.classList.remove('is-dragging');
                         isDraggingActive = false;
                         
