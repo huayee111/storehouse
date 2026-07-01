@@ -128,4 +128,155 @@
 <body>
 
     <div id="main-area">
-        <h3>當前倉庫網格平面圖 (
+        <h3>當前倉庫網格平面圖 (1格 = 1m²) <span id="sync-status" style="font-size:12px; color:#28a745; margin-left:10px;"></span></h3>
+        <div id="warehouse-container">
+            <div id="warehouse-grid"></div>
+        </div>
+
+        <h3>貨物待放置區</h3>
+        <div id="cargo-buffer"></div>
+    </div>
+
+    <div id="control-panel">
+        <div class="control-group">
+            <h3>⚙️ 視角與模式</h3>
+            <label>網格比例尺 (目前格寬: <span id="scale-val">40</span>px)</label>
+            <input type="range" id="grid-scale" min="20" max="80" value="40" oninput="changeScale(this.value)">
+            
+            <div class="switch-container">
+                <label for="snap-toggle">自動吸附對齊網格</label>
+                <input type="checkbox" id="snap-toggle" checked onchange="toggleSnap(this.checked)">
+            </div>
+            <button onclick="syncFromCloud()" style="background-color: #6c757d; margin-top: 10px;">🔄 手動刷新雲端資料</button>
+        </div>
+
+        <div class="control-group">
+            <h3>🏢 倉庫專案管理</h3>
+            <label>選擇倉庫</label>
+            <select id="warehouse-select" onchange="switchWarehouse()">
+                <option value="wh1">倉庫一 (30x30)</option>
+            </select>
+            <input type="text" id="wh-name" value="倉庫一">
+            <div style="display:flex; gap:5px;">
+                <input type="number" id="wh-w" value="30" placeholder="寬">
+                <input type="number" id="wh-h" value="30" placeholder="高">
+            </div>
+            <button onclick="saveWarehouseSettings()">儲存/新建倉庫</button>
+        </div>
+
+        <div class="control-group" style="grid-column: span 2;">
+            <h3>📦 生成新貨物 (棧板)</h3>
+            <div style="display: flex; gap: 10px;">
+                <div style="flex: 1;">
+                    <label>貨物名稱</label>
+                    <input type="text" id="cargo-name" value="棧板A">
+                    <label>初始產品數量</label>
+                    <input type="number" id="cargo-qty" value="10">
+                </div>
+                <div style="flex: 1;">
+                    <label>尺寸 寬 x 高 (米，支援小數點)</label>
+                    <div style="display:flex; gap:5px;">
+                        <input type="number" id="cargo-w" step="0.1" value="2" placeholder="寬(m)">
+                        <input type="number" id="cargo-h" step="0.1" value="2" placeholder="高(m)">
+                    </div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px;">
+                        <div>
+                            <label>方塊背景</label>
+                            <input type="color" id="cargo-color" value="#ffc107">
+                        </div>
+                        <div>
+                            <label>文字字體</label>
+                            <input type="color" id="text-color" value="#000000">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <label>最近使用雙色配對 (點擊一鍵套用)</label>
+            <div class="color-history" id="color-history-container"></div>
+            <button onclick="triggerCreateCargo()" style="background-color: #28a745; margin-top: 5px;">生成貨物</button>
+        </div>
+    </div>
+
+    <div id="context-menu">
+        <div onclick="editSelectedQty()">✏️ 修改數量</div>
+        <div class="delete-opt" onclick="deleteSelectedCargo()">❌ 刪除貨物</div>
+    </div>
+
+    <script>
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbx-sEY_rLOfnDHPl9YMBzIC3TBUUYuwQUeCP0rQABU_x2bYfOqW_7gS8vB2eY5Mm2hN/exec";
+
+        let warehouses = { 'wh1': { name: '倉庫一', width: 30, height: 30 } };
+        let currentWhId = 'wh1';
+        let colorHistory = [
+            {bg: '#ffc107', text: '#000000'},
+            {bg: '#28a745', text: '#ffffff'},
+            {bg: '#007bff', text: '#ffffff'},
+            {bg: '#dc3545', text: '#ffffff'}
+        ];
+        
+        let cellSize = 40; 
+        let isSnapEnabled = true;
+        let interactInstance = null;
+        let rightClickedElement = null;
+
+        window.onload = function() {
+            renderGrid();
+            renderColorHistory();
+            initInteractEngine();
+            syncFromCloud(); 
+
+            document.addEventListener('click', () => {
+                document.getElementById('context-menu').style.display = 'none';
+            });
+        };
+
+        function changeScale(val) {
+            cellSize = parseInt(val);
+            document.getElementById('scale-val').textContent = cellSize;
+            document.documentElement.style.setProperty('--cell-size', cellSize + 'px');
+            renderGrid();
+            
+            document.querySelectorAll('#warehouse-grid .cargo-item').forEach(item => {
+                const w_m = parseFloat(item.getAttribute('data-w-m'));
+                const h_m = parseFloat(item.getAttribute('data-h-m'));
+                const m_x = parseFloat(item.getAttribute('data-m-x'));
+                const m_y = parseFloat(item.getAttribute('data-m-y'));
+
+                item.style.width = (w_m * cellSize) + 'px';
+                item.style.height = (h_m * cellSize) + 'px';
+
+                const pixelX = m_x * cellSize;
+                const pixelY = m_y * cellSize;
+                item.style.transform = `translate(${pixelX}px, ${pixelY}px)`;
+                item.setAttribute('data-x', pixelX);
+                item.setAttribute('data-y', pixelY);
+            });
+            initInteractEngine();
+        }
+
+        function toggleSnap(checked) {
+            isSnapEnabled = checked;
+            initInteractEngine();
+        }
+
+        function renderGrid() {
+            const wh = warehouses[currentWhId];
+            const grid = document.getElementById('warehouse-grid');
+            document.documentElement.style.setProperty('--grid-cols', wh.width);
+            document.documentElement.style.setProperty('--grid-rows', wh.height);
+            grid.style.width = (wh.width * cellSize) + 'px';
+            grid.style.height = (wh.height * cellSize) + 'px';
+        }
+
+        function syncFromCloud() {
+            document.getElementById('sync-status').textContent = "⏳ 正在同步雲端資料...";
+            document.getElementById('sync-status').style.color = "#6c757d";
+
+            fetch(GAS_URL)
+            .then(res => res.json())
+            .then(data => {
+                if(data.warehouses && Object.keys(data.warehouses).length > 0) {
+                    warehouses = data.warehouses;
+                }
+                
+                const select = document.getElementById('warehouse
