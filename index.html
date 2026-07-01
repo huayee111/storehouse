@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>公司內部倉儲網格系統 - 倉庫獨立與視覺優化版</title>
+    <title>公司內部倉儲網格系統 - 3D立體分層優化版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
             --grid-cols: 30;
             --grid-rows: 30;
-            --cell-size: 20px; /* 【優化】：預設改為 20px */
+            --cell-size: 20px;
         }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; 
@@ -30,6 +30,14 @@
             max-width: 900px; 
         }
         
+        /* 布局：讓畫布與右側樓層按鈕並排 */
+        .canvas-layout {
+            display: flex;
+            gap: 15px;
+            align-items: flex-start;
+            width: 100%;
+        }
+
         #warehouse-container { 
             border: 2px solid #333; 
             background-color: #ffffff; 
@@ -38,7 +46,6 @@
             height: fit-content;
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            margin-bottom: 5px;
         }
         
         #warehouse-grid {
@@ -89,6 +96,35 @@
             position: relative;
         }
 
+        /* 3D 樓層快速切換側邊欄 */
+        .layer-selector-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .layer-tab-btn {
+            width: 85px;
+            height: 55px;
+            border: 2px solid #cbd5e0;
+            background: #fff;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            transition: all 0.15s;
+        }
+        .layer-tab-btn.active {
+            background: #805ad5;
+            color: white;
+            border-color: #805ad5;
+            box-shadow: 0 4px 10px rgba(128, 90, 213, 0.3);
+        }
+
         #control-panel { 
             background: white; 
             border-radius: 12px; 
@@ -102,17 +138,8 @@
         }
 
         .collapsible-header {
-            background-color: #edf2f7;
-            padding: 14px 20px;
-            font-size: 15px;
-            font-weight: bold;
-            color: #2d3748;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #e2e8f0;
-            user-select: none;
+            background-color: #edf2f7; padding: 14px 20px; font-size: 15px; font-weight: bold; color: #2d3748; cursor: pointer;
+            display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; user-select: none;
         }
         .collapsible-header::after { content: '▼'; font-size: 12px; transition: transform 0.2s; }
         .collapsible-header.active::after { content: '▲'; }
@@ -123,14 +150,8 @@
         label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 14px; color: #4a5568; }
         
         input, select, .action-btn { 
-            width: 100%; 
-            height: 46px; 
-            padding: 10px 12px; 
-            margin-bottom: 12px; 
-            box-sizing: border-box; 
-            border: 1px solid #cbd5e0; 
-            border-radius: 6px; 
-            font-size: 15px; 
+            width: 100%; height: 46px; padding: 10px 12px; margin-bottom: 12px; box-sizing: border-box; 
+            border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; 
         }
         input[type="range"] { height: auto; }
         input[type="color"] { padding: 2px; cursor: pointer; }
@@ -140,17 +161,16 @@
             display: flex; align-items: center; justify-content: center;
         }
         .action-btn:active { opacity: 0.8; }
-        
         .switch-container { display: flex; align-items: center; justify-content: space-between; height: 46px; }
         .switch-container input { width: 22px; height: 22px; margin: 0; }
 
         .color-history { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; margin-top: 5px; }
         .color-combo-dot { 
             width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 2px solid #cbd5e0; 
-            display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold;
-            user-select: none;
+            display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; user-select: none;
         }
 
+        /* 貨物物件 */
         .cargo-item {
             position: absolute;
             box-sizing: border-box;
@@ -166,19 +186,21 @@
             user-select: none;
             pointer-events: auto; 
             transition: opacity 0.2s;
-            padding: 2px;
-            overflow: hidden; /* 防止文字溢出 */
+            padding: 4px;
+            overflow: hidden;
         }
         
-        /* 【核心優化】：利用等比例計算動態縮放字體，完美塞進格子 */
+        /* 【核心優化】：文字強制自動換行，100% 完整顯現，不爆框 */
         .cargo-title {
             font-size: calc(var(--cell-size) * 0.32);
             font-weight: bold;
-            line-height: 1.1;
+            line-height: 1.2;
             max-width: 100%;
-            white-space: nowrap;
+            word-break: break-all; /* 強制字元斷行 */
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
             overflow: hidden;
-            text-overflow: ellipsis;
+            text-align: center;
         }
         .cargo-qty { 
             font-size: calc(var(--cell-size) * 0.26); 
@@ -192,6 +214,18 @@
         }
         .cargo-item.is-dragging { opacity: 0.6; z-index: 100; box-shadow: 0 8px 15px rgba(0,0,0,0.2); }
         
+        /* 底層半透明透視虛線樣式 */
+        .cargo-item.underlay-ghost {
+            opacity: 0.15 !important;
+            border: 2px dashed #000000 !important;
+            background-color: #e2e8f0 !important;
+            color: #000000 !important;
+            pointer-events: none !important; /* 無法被點選或干擾 */
+            z-index: 2 !important;
+            box-shadow: none !important;
+        }
+        .cargo-item.underlay-ghost .cargo-qty { display: none !important; }
+
         .cargo-item.is-locked {
             opacity: 0.55;
             border: 2px dashed rgba(0,0,0,0.5) !important;
@@ -223,6 +257,9 @@
         #context-menu .delete-opt { color: #e53e3e; border-top: 1px solid #edf2f7; }
 
         @media (max-width: 600px) {
+            .canvas-layout { flex-direction: column; }
+            .layer-selector-sidebar { flex-direction: row; width: 100%; }
+            .layer-tab-btn { flex: 1; height: 46px; }
             .mobile-row { display: flex; flex-direction: column; gap: 0; }
             .mobile-flex-2 { display: flex; gap: 8px; }
             .collapsible-body { grid-template-columns: 1fr; padding: 15px; }
@@ -233,11 +270,20 @@
 
     <div id="main-area">
         <h3>當前倉庫網格平面圖 (1格 = 1m²) <span id="sync-status" style="font-size:12px; color:#e67e22; margin-left:10px;">⏳ 系統載入中...</span></h3>
-        <div id="warehouse-container">
-            <div id="warehouse-grid"></div>
+        
+        <div class="canvas-layout">
+            <div id="warehouse-container">
+                <div id="warehouse-grid"></div>
+            </div>
+            
+            <div class="layer-selector-sidebar">
+                <div class="layer-tab-btn active" id="btn-z1" onclick="switchZLayer(1)"><span>第 3 層</span><span style="font-size:9px;opacity:0.7;">(最上層)</span></div>
+                <div class="layer-tab-btn" id="btn-z2" onclick="switchZLayer(2)"><span>第 2 層</span><span style="font-size:9px;opacity:0.7;">(中層)</span></div>
+                <div class="layer-tab-btn" id="btn-z3" onclick="switchZLayer(3)"><span>第 1 層</span><span style="font-size:9px;opacity:0.7;">(地面棧板)</span></div>
+            </div>
         </div>
 
-        <h3>貨物待放置區 (每個倉庫獨立不相容)</h3>
+        <h3>貨物待放置區 (每個倉庫、每個樓層獨立分流)</h3>
         <div id="cargo-buffer"></div>
     </div>
 
@@ -278,8 +324,7 @@
                     <label>貨物商品名稱</label>
                     <input type="text" id="cargo-name" value="棧板A">
                     <label>初始存貨數量</label>
-                    <input type="number" id="cargo-qty" value="10">
-                </div>
+                    <input type="number" id="cargo-qty" value="0"> </div>
                 <div>
                     <label>真實尺寸 寬 x 高 (米，支援小數點)</label>
                     <div class="mobile-flex-2">
@@ -299,7 +344,7 @@
                 </div>
             </div>
             
-            <label style="margin-top: 10px;">最近使用雙色配對 (一鍵秒套用)</label>
+            <label style="margin-top: 10px;">最近使用雙色配對 (永久記憶)</label>
             <div class="color-history" id="color-history-container"></div>
             
             <button class="action-btn" onclick="triggerCreateCargo()" style="background-color: #28a745; height: 50px; font-size: 16px; margin-bottom:0;">➕ 立即生成貨物物件</button>
@@ -321,6 +366,8 @@
         let globalCargoCache = [];
         let warehouses = { 'wh1': { name: '倉庫一', width: 30, height: 30 } };
         let currentWhId = 'wh1';
+        let currentZLevel = 1; // 預設第1層 (地面)
+        
         let colorHistory = [
             {bg: '#ffc107', text: '#000000'},
             {bg: '#28a745', text: '#ffffff'},
@@ -328,13 +375,12 @@
             {bg: '#dc3545', text: '#ffffff'}
         ];
         
-        let cellSize = 20; /* 預設改為 20 */
+        let cellSize = 20; 
         let isSnapEnabled = true;
         let interactInstance = null;
         let rightClickedElement = null;
 
         window.onload = function() {
-            document.documentElement.style.setProperty('--cell-size', '20px');
             renderGrid();
             renderColorHistory();
             initInteractEngine();
@@ -355,30 +401,24 @@
             }
         }
 
+        // 【新增 Z 軸切換】：點擊樓層按鈕時分流渲染
+        function switchZLayer(layerNum) {
+            currentZLevel = parseInt(layerNum);
+            
+            // 介面按鈕亮燈樣式切換
+            document.querySelectorAll('.layer-tab-btn').forEach((btn, idx) => {
+                if ((3 - idx) === currentZLevel) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+            
+            renderCurrentWarehouseCargoes();
+        }
+
         function changeScale(val) {
             cellSize = parseInt(val);
             document.getElementById('scale-val').textContent = cellSize;
             document.documentElement.style.setProperty('--cell-size', cellSize + 'px');
-            renderGrid();
-            
-            document.querySelectorAll('.cargo-item').forEach(item => {
-                const w_m = parseFloat(item.getAttribute('data-w-m'));
-                const h_m = parseFloat(item.getAttribute('data-h-m'));
-                
-                item.style.width = (w_m * cellSize) + 'px';
-                item.style.height = (h_m * cellSize) + 'px';
-
-                if (item.parentElement.id === 'cargo-layer') {
-                    const m_x = parseFloat(item.getAttribute('data-m-x')) || 0;
-                    const m_y = parseFloat(item.getAttribute('data-m-y')) || 0;
-                    const pixelX = m_x * cellSize;
-                    const pixelY = m_y * cellSize;
-                    item.style.transform = `translate(${pixelX}px, ${pixelY}px)`;
-                    item.setAttribute('data-x', pixelX);
-                    item.setAttribute('data-y', pixelY);
-                }
-            });
-            initInteractEngine();
+            renderCurrentWarehouseCargoes();
         }
 
         function toggleSnap(checked) {
@@ -392,7 +432,6 @@
             
             document.documentElement.style.setProperty('--grid-cols', wh.width);
             document.documentElement.style.setProperty('--grid-rows', wh.height);
-            
             grid.style.width = (wh.width * cellSize) + 'px';
             grid.style.height = (wh.height * cellSize) + 'px';
 
@@ -436,8 +475,6 @@
                 if(data && data.warehouses && Object.keys(data.warehouses).length > 0) {
                     warehouses = data.warehouses;
                 }
-                
-                // 【優化】：如果雲端有記錄歷史顏色，載入進來
                 if (data && Array.isArray(data.colorHistory) && data.colorHistory.length > 0) {
                     colorHistory = data.colorHistory;
                 }
@@ -476,6 +513,7 @@
             });
         }
 
+        // 【分流與透視渲染引擎】：結合 Z 軸判斷與半透明鬼影
         function renderCurrentWarehouseCargoes() {
             renderGrid();
             
@@ -486,7 +524,9 @@
             globalCargoCache.forEach(itemData => {
                 if (!itemData.name) return;
                 const cargo = reCreateCargoNode(itemData);
+                const cargoZ = parseInt(itemData.z_level || 1);
                 
+                // 狀況一：屬於當前選定倉庫
                 if (itemData.warehouseId === currentWhId) {
                     const pixelX = parseFloat(itemData.m_x || 0) * cellSize;
                     const pixelY = parseFloat(itemData.m_y || 0) * cellSize;
@@ -495,15 +535,25 @@
                     cargo.setAttribute('data-y', pixelY);
                     cargo.setAttribute('data-m-x', itemData.m_x || 0);
                     cargo.setAttribute('data-m-y', itemData.m_y || 0);
-                    
-                    if (itemData.isLocked === true || itemData.isLocked === "true") {
-                        cargo.classList.add('is-locked');
-                        cargo.setAttribute('data-locked', 'true');
+
+                    // 1. 如果樓層正好是當前操作層
+                    if (cargoZ === currentZLevel) {
+                        if (itemData.isLocked === true || itemData.isLocked === "true") {
+                            cargo.classList.add('is-locked');
+                            cargo.setAttribute('data-locked', 'true');
+                        }
+                        document.getElementById('cargo-layer').appendChild(cargo);
+                    } 
+                    // 2. 如果該物件在「目前樓層的下方」 -> 渲染成半透明灰色透視框，防止懸空！
+                    else if (cargoZ < currentZLevel) {
+                        cargo.classList.add('underlay-ghost');
+                        // 加上提示文字，滑鼠移過去就知道底下壓了什麼
+                        cargo.title = `下方 ${cargoZ} 層墊底商品: ${itemData.name}`;
+                        document.getElementById('cargo-layer').appendChild(cargo);
                     }
-                    document.getElementById('cargo-layer').appendChild(cargo);
                 } 
-                // 【核心優化】：待放置區也過濾符合當前 warehouseId 的物件，實現倉庫間獨立
-                else if (itemData.warehouseId === 'buffer_' + currentWhId) {
+                // 狀況二：屬於當前倉庫、當前樓層的待放置緩衝區
+                else if (itemData.warehouseId === `buffer_${currentWhId}_z${currentZLevel}`) {
                     cargo.removeAttribute('data-locked');
                     cargo.classList.remove('is-locked');
                     document.getElementById('cargo-buffer').appendChild(cargo);
@@ -516,12 +566,19 @@
             document.getElementById('sync-status').textContent = "⏳ 正在自動儲存至雲端...";
             document.getElementById('sync-status').style.color = "#6c757d";
 
-            // 過濾掉非當前倉庫內、也非當前倉庫待放置區的快取資料（保留其他倉庫的）
-            const cargoItemsToUpload = globalCargoCache.filter(item => 
-                item.warehouseId !== currentWhId && item.warehouseId !== ('buffer_' + currentWhId)
-            );
+            // 過濾並保留「其他倉庫」以及「目前倉庫其他樓層」的舊快取資料
+            const cargoItemsToUpload = globalCargoCache.filter(item => {
+                const isCurrentWh = item.warehouseId === currentWhId;
+                const isCurrentBuffer = item.warehouseId === `buffer_${currentWhId}_z${currentZLevel}`;
+                const itemZ = parseInt(item.z_level || 1);
+                
+                if (isCurrentBuffer) return false;
+                if (isCurrentWh && itemZ === currentZLevel) return false;
+                return true;
+            });
             
-            document.querySelectorAll('#cargo-layer .cargo-item').forEach(item => {
+            // 塞入當前畫布操作層貨物
+            document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)').forEach(item => {
                 cargoItemsToUpload.push({
                     id: item.getAttribute('data-id'),
                     name: item.getAttribute('data-name'),
@@ -533,10 +590,12 @@
                     bg: item.style.backgroundColor,
                     text: item.style.color,
                     warehouseId: currentWhId,
+                    z_level: currentZLevel, // 綁定當前樓層
                     isLocked: item.getAttribute('data-locked') === 'true'
                 });
             });
 
+            // 塞入當前樓層待放區貨物
             document.querySelectorAll('#cargo-buffer .cargo-item').forEach(item => {
                 cargoItemsToUpload.push({
                     id: item.getAttribute('data-id'),
@@ -548,13 +607,13 @@
                     m_y: "0",
                     bg: item.style.backgroundColor,
                     text: item.style.color,
-                    warehouseId: 'buffer_' + currentWhId, // 依附當前倉庫 ID
+                    warehouseId: `buffer_${currentWhId}_z${currentZLevel}`,
+                    z_level: currentZLevel,
                     isLocked: false
                 });
             });
 
             globalCargoCache = cargoItemsToUpload;
-            // 【優化】：將 colorHistory 傳送上雲端
             const payload = { warehouses: warehouses, cargoItems: cargoItemsToUpload, colorHistory: colorHistory };
 
             fetch(GAS_URL, {
@@ -624,7 +683,7 @@
                 renderColorHistory();
             }
             createNewCargo();
-            autoSaveToCloud(); // 這裡會自動同步將配對儲存至雲端
+            autoSaveToCloud();
         }
 
         function renderColorHistory() {
@@ -652,7 +711,7 @@
             const bgColor = document.getElementById('cargo-color').value;
             const textColor = document.getElementById('text-color').value;
 
-            const itemData = { id: 'item_' + Date.now(), name: name, qty: qty, w_m: w, h_m: h, bg: bgColor, text: textColor, warehouseId: 'buffer_' + currentWhId, isLocked: false };
+            const itemData = { id: 'item_' + Date.now(), name: name, qty: qty, w_m: w, h_m: h, bg: bgColor, text: textColor, warehouseId: `buffer_${currentWhId}_z${currentZLevel}`, z_level: currentZLevel, isLocked: false };
             const cargo = reCreateCargoNode(itemData);
             document.getElementById('cargo-buffer').appendChild(cargo);
             globalCargoCache.push(itemData);
@@ -662,7 +721,6 @@
             const cargo = document.createElement('div');
             cargo.className = 'cargo-item';
             
-            // 【核心優化】：判定件數是否為 0，若是則完全隱藏件數標籤
             const qtyInt = parseInt(itemData.qty) || 0;
             const qtyHtml = qtyInt > 0 ? `<span class="cargo-qty">${qtyInt} 件</span>` : '';
             cargo.innerHTML = `<span class="cargo-title">${itemData.name}</span>${qtyHtml}`;
@@ -730,12 +788,11 @@
         function editSelectedQty() { 
             if(rightClickedElement) {
                 const oldQty = rightClickedElement.getAttribute('data-qty');
-                const newQty = prompt("請輸入新的貨物數量（輸入 0 將隱藏件數標籤）：", oldQty);
+                const newQty = prompt("請輸入新的貨物數量：", oldQty);
                 if (newQty !== null && newQty.trim() !== "") {
                     const parsedQty = parseInt(newQty) || 0;
                     rightClickedElement.setAttribute('data-qty', parsedQty);
                     
-                    // 動態更新件數顯示與否
                     let qtySpan = rightClickedElement.querySelector('.cargo-qty');
                     if (parsedQty > 0) {
                         if (!qtySpan) {
@@ -815,7 +872,8 @@
         function initInteractEngine() {
             if (interactInstance) interactInstance.unset();
 
-            interactInstance = interact('.cargo-item:not([data-locked="true"])').draggable({
+            // 確保被鎖定或是下層的半透明鬼影物件完全無法被拖移
+            interactInstance = interact('.cargo-item:not([data-locked="true"]):not(.underlay-ghost)').draggable({
                 inertia: false,
                 autoScroll: true,
                 listeners: {
@@ -881,7 +939,8 @@
                             if (localX < 0) localX = 0; if (localX > maxW) localX = maxW;
                             if (localY < 0) localY = 0; if (localY > maxH) localY = maxH;
                             
-                            const otherItems = document.querySelectorAll('#cargo-layer .cargo-item');
+                            // 碰撞演算只計算「當前樓層的非鬼影物件」
+                            const otherItems = document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)');
                             for (let other of otherItems) {
                                 if (other === target) continue;
                                 const oX = parseFloat(other.getAttribute('data-x')) || 0;
