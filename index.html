@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>公司內部倉儲網格系統 - 電腦行動雙優化版</title>
+    <title>公司內部倉儲網格系統 - 無捲軸鎖定優化版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -19,7 +19,7 @@
             flex-direction: column; 
             gap: 15px; 
             user-select: none;
-            align-items: flex-start; /* 確保整體元件靠左對齊，視覺更整齊 */
+            align-items: flex-start;
         }
 
         #main-area { 
@@ -27,19 +27,16 @@
             flex-direction: column; 
             gap: 10px; 
             width: 100%; 
-            max-width: 900px; /* 控制大標題與緩衝區的視覺上限 */
+            max-width: 900px; 
         }
         
-        /* 外框：完美貼合內部網格設定的實際大小，不多留白邊 */
+        /* 【核心修正】：徹底移除了 max-height 與 overflow，不論放大縮小，外框絕對不出現拉桿 */
         #warehouse-container { 
             border: 2px solid #333; 
             background-color: #ffffff; 
-            overflow: auto; 
             position: relative; 
             width: fit-content; 
             height: fit-content;
-            max-width: 100%; 
-            max-height: 500px; 
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
             margin-bottom: 5px;
@@ -93,7 +90,6 @@
             position: relative;
         }
 
-        /* 【核心優化點】：限制控制台最大寬度為 900px，在電腦大螢幕看時收束美化，不再無限拉寬 */
         #control-panel { 
             background: white; 
             border-radius: 12px; 
@@ -173,9 +169,23 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             user-select: none;
             pointer-events: auto; 
+            transition: opacity 0.2s;
         }
         .cargo-qty { font-size: 10px; opacity: 0.9; margin-top: 3px; background: rgba(0,0,0,0.15); padding: 2px 5px; border-radius: 4px; }
         .cargo-item.is-dragging { opacity: 0.6; z-index: 100; box-shadow: 0 8px 15px rgba(0,0,0,0.2); }
+        
+        /* 鎖定狀態下的視覺樣式 */
+        .cargo-item.is-locked {
+            opacity: 0.55;
+            border: 2px dashed rgba(0,0,0,0.5) !important;
+            cursor: not-allowed !important;
+        }
+        .cargo-item.is-locked::before {
+            content: '🔒 ';
+            position: absolute;
+            top: 2px; right: 4px;
+            font-size: 10px;
+        }
         
         #cargo-buffer .cargo-item { 
             position: relative !important; 
@@ -190,6 +200,7 @@
         }
         #context-menu div { padding: 14px 24px; cursor: pointer; font-size: 15px; font-weight: bold; }
         #context-menu div:hover { background: #edf2f7; }
+        #context-menu .lock-opt { color: #805ad5; font-weight: bold; }
         #context-menu .enter-opt { color: #28a745; font-weight: bold; border-top: 1px solid #edf2f7; }
         #context-menu .return-opt { color: #007bff; font-weight: bold; border-top: 1px solid #edf2f7; }
         #context-menu .delete-opt { color: #e53e3e; border-top: 1px solid #edf2f7; }
@@ -279,7 +290,9 @@
     </div>
 
     <div id="context-menu">
-        <div onclick="editSelectedQty()">✏️ 修改數量</div>
+        <div onclick="editSelectedName()">✏️ 變更名稱</div>
+        <div onclick="editSelectedQty()">🔢 修改數量</div>
+        <div id="menu-lock-btn" class="lock-opt" onclick="toggleCargoLock()">🔒 鎖定物件</div>
         <div id="menu-enter-btn" class="enter-opt" onclick="enterWarehouseDirect()">📥 放進倉庫</div>
         <div id="menu-return-btn" class="return-opt" onclick="returnToBuffer()">↩️ 放回待放區</div>
         <div class="delete-opt" onclick="deleteSelectedCargo()">❌ 刪除貨物</div>
@@ -458,12 +471,23 @@
                     cargo.setAttribute('data-y', pixelY);
                     cargo.setAttribute('data-m-x', itemData.m_x || 0);
                     cargo.setAttribute('data-m-y', itemData.m_y || 0);
+                    
+                    // 恢復鎖定狀態
+                    if (itemData.isLocked === true || itemData.isLocked === "true") {
+                        cargo.classList.add('is-locked');
+                        cargo.setAttribute('data-locked', 'true');
+                    }
+                    
                     document.getElementById('cargo-layer').appendChild(cargo);
                 } 
                 else if (itemData.warehouseId === 'buffer') {
+                    // 緩衝區物件不應該被鎖定
+                    cargo.removeAttribute('data-locked');
+                    cargo.classList.remove('is-locked');
                     document.getElementById('cargo-buffer').appendChild(cargo);
                 }
             });
+            initInteractEngine();
         }
 
         function autoSaveToCloud() {
@@ -485,7 +509,8 @@
                     m_y: item.getAttribute('data-m-y') || "0",
                     bg: item.style.backgroundColor,
                     text: item.style.color,
-                    warehouseId: currentWhId
+                    warehouseId: currentWhId,
+                    isLocked: item.getAttribute('data-locked') === 'true'
                 });
             });
 
@@ -500,7 +525,8 @@
                     m_y: "0",
                     bg: item.style.backgroundColor,
                     text: item.style.color,
-                    warehouseId: 'buffer'
+                    warehouseId: 'buffer',
+                    isLocked: false
                 });
             });
 
@@ -549,7 +575,7 @@
                 currentWhId = targetId;
             }
             select.value = currentWhId;
-            renderGrid();
+            renderCurrentWarehouseCargoes();
             autoSaveToCloud();
         }
 
@@ -602,7 +628,7 @@
             const bgColor = document.getElementById('cargo-color').value;
             const textColor = document.getElementById('text-color').value;
 
-            const itemData = { id: 'item_' + Date.now(), name: name, qty: qty, w_m: w, h_m: h, bg: bgColor, text: textColor, warehouseId: 'buffer' };
+            const itemData = { id: 'item_' + Date.now(), name: name, qty: qty, w_m: w, h_m: h, bg: bgColor, text: textColor, warehouseId: 'buffer', isLocked: false };
             const cargo = reCreateCargoNode(itemData);
             document.getElementById('cargo-buffer').appendChild(cargo);
             globalCargoCache.push(itemData);
@@ -623,13 +649,16 @@
             cargo.setAttribute('data-qty', itemData.qty || 0);
             cargo.setAttribute('data-name', itemData.name || '未命名');
             cargo.setAttribute('data-id', itemData.id);
+            cargo.setAttribute('data-locked', itemData.isLocked ? 'true' : 'false');
 
+            // 點擊直接開啟修改數量
             cargo.addEventListener('click', (e) => {
                 e.stopPropagation();
                 rightClickedElement = cargo;
                 editSelectedQty();
             });
 
+            // 右鍵彈出選單（加入分流與鎖定狀態判斷）
             cargo.addEventListener('contextmenu', (e) => {
                 e.preventDefault(); e.stopPropagation();
                 rightClickedElement = cargo;
@@ -637,13 +666,21 @@
                 const menu = document.getElementById('context-menu');
                 const enterBtn = document.getElementById('menu-enter-btn');
                 const returnBtn = document.getElementById('menu-return-btn');
+                const lockBtn = document.getElementById('menu-lock-btn');
                 
+                const isLocked = cargo.getAttribute('data-locked') === 'true';
+                lockBtn.textContent = isLocked ? "🔓 解除鎖定" : "🔒 鎖定物件";
+
                 if (cargo.parentElement.id === 'cargo-buffer') {
-                    enterBtn.style.display = 'block';
+                    // 在緩衝區：可以進倉庫，但不能使用鎖定與放回緩衝功能
+                    enterBtn.style.display = isLocked ? 'none' : 'block';
                     returnBtn.style.display = 'none';
+                    lockBtn.style.display = 'none';
                 } else {
+                    // 在倉庫內：無法進倉庫，依鎖定狀態決定是否隱藏功能
                     enterBtn.style.display = 'none';
-                    returnBtn.style.display = 'block';
+                    returnBtn.style.display = isLocked ? 'none' : 'block';
+                    lockBtn.style.display = 'block';
                 }
                 
                 menu.style.display = 'block'; 
@@ -652,6 +689,19 @@
             });
 
             return cargo;
+        }
+
+        // 【新增功能】：修改商品名稱
+        function editSelectedName() {
+            if(rightClickedElement) {
+                const oldName = rightClickedElement.getAttribute('data-name');
+                const newName = prompt("請輸入新的貨物商品名稱：", oldName);
+                if (newName !== null && newName.trim() !== "") {
+                    rightClickedElement.setAttribute('data-name', newName.trim());
+                    rightClickedElement.querySelector('.cargo-title').textContent = newName.trim();
+                    autoSaveToCloud();
+                }
+            }
         }
 
         function editSelectedQty() { 
@@ -663,6 +713,23 @@
                     rightClickedElement.querySelector('.cargo-qty').textContent = `${newQty} 件`;
                     autoSaveToCloud();
                 }
+            }
+        }
+
+        // 【新增功能】：切換鎖定狀態
+        function toggleCargoLock() {
+            if (rightClickedElement) {
+                const isLocked = rightClickedElement.getAttribute('data-locked') === 'true';
+                if (isLocked) {
+                    rightClickedElement.setAttribute('data-locked', 'false');
+                    rightClickedElement.classList.remove('is-locked');
+                } else {
+                    rightClickedElement.setAttribute('data-locked', 'true');
+                    rightClickedElement.classList.add('is-locked');
+                }
+                rightClickedElement = null;
+                initInteractEngine(); // 重新載入拖拉引擎更新可搬移名單
+                autoSaveToCloud();
             }
         }
 
@@ -692,8 +759,10 @@
                 rightClickedElement.removeAttribute('data-y');
                 rightClickedElement.removeAttribute('data-m-x');
                 rightClickedElement.removeAttribute('data-m-y');
-                rightClickedElement.style.transform = 'none';
+                rightClickedElement.removeAttribute('data-locked');
+                rightClickedElement.classList.remove('is-locked');
                 rightClickedElement = null;
+                initInteractEngine();
                 autoSaveToCloud();
             }
         }
@@ -708,10 +777,12 @@
             } 
         }
 
+        // 終極拖拉防護引擎：被綁定 data-locked="true" 的物件將直接被隔離無法拖拽
         function initInteractEngine() {
             if (interactInstance) interactInstance.unset();
 
-            interactInstance = interact('.cargo-item').draggable({
+            // 核心過濾選取器：只綁定「沒有被鎖定」的 cargo-item
+            interactInstance = interact('.cargo-item:not([data-locked="true"])').draggable({
                 inertia: false,
                 autoScroll: true,
                 listeners: {
@@ -757,6 +828,8 @@
                             target.removeAttribute('data-y');
                             target.removeAttribute('data-m-x');
                             target.removeAttribute('data-m-y');
+                            target.removeAttribute('data-locked');
+                            target.classList.remove('is-locked');
                             target.style.transform = 'none';
                         } 
                         else {
