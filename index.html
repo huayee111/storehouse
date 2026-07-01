@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>公司內部倉儲網格系統 - 3D立體分層優化版</title>
+    <title>公司內部倉儲網格系統 - 直覺分頁優化版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -30,7 +30,45 @@
             max-width: 900px; 
         }
         
-        /* 布局：讓畫布與右側樓層按鈕並排 */
+        /* 標題色彩優化 */
+        .wh-title-highlight {
+            color: #1a365d; /* 質感寶石藍 */
+            background-color: #e2e8f0;
+            padding: 2px 8px;
+            border-radius: 6px;
+            margin-right: 5px;
+            display: inline-block;
+        }
+
+        /* 倉庫快捷分頁切換區 */
+        .wh-tabs-container {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 5px;
+            margin-bottom: 5px;
+        }
+        .wh-tab-btn {
+            padding: 10px 18px;
+            background-color: #e2e8f0;
+            color: #4a5568;
+            border: 1px solid #cbd5e0;
+            border-radius: 20px; /* 圓角膠囊感，極度好點 */
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .wh-tab-btn:hover {
+            background-color: #cbd5e0;
+        }
+        .wh-tab-btn.active {
+            background-color: #2b6cb0; /* 亮眼湛藍 */
+            color: white;
+            border-color: #2b6cb0;
+            box-shadow: 0 4px 6px rgba(43, 108, 176, 0.2);
+        }
+
         .canvas-layout {
             display: flex;
             gap: 15px;
@@ -96,7 +134,6 @@
             position: relative;
         }
 
-        /* 3D 樓層快速切換側邊欄 */
         .layer-selector-sidebar {
             display: flex;
             flex-direction: column;
@@ -170,7 +207,6 @@
             display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; user-select: none;
         }
 
-        /* 貨物物件 */
         .cargo-item {
             position: absolute;
             box-sizing: border-box;
@@ -185,18 +221,16 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             user-select: none;
             pointer-events: auto; 
-            transition: opacity 0.2s;
             padding: 4px;
             overflow: hidden;
         }
         
-        /* 【核心優化】：文字強制自動換行，100% 完整顯現，不爆框 */
         .cargo-title {
             font-size: calc(var(--cell-size) * 0.32);
             font-weight: bold;
             line-height: 1.2;
             max-width: 100%;
-            word-break: break-all; /* 強制字元斷行 */
+            word-break: break-all;
             display: -webkit-box;
             -webkit-box-orient: vertical;
             overflow: hidden;
@@ -206,21 +240,20 @@
             font-size: calc(var(--cell-size) * 0.26); 
             font-weight: bold;
             opacity: 0.9; 
-            margin-top: 2px; 
+            margin-top: 3px; 
             background: rgba(0,0,0,0.15); 
-            padding: 1px 4px; 
+            padding: 2px 5px; 
             border-radius: 4px; 
             white-space: nowrap;
         }
         .cargo-item.is-dragging { opacity: 0.6; z-index: 100; box-shadow: 0 8px 15px rgba(0,0,0,0.2); }
         
-        /* 底層半透明透視虛線樣式 */
         .cargo-item.underlay-ghost {
             opacity: 0.15 !important;
             border: 2px dashed #000000 !important;
             background-color: #e2e8f0 !important;
             color: #000000 !important;
-            pointer-events: none !important; /* 無法被點選或干擾 */
+            pointer-events: none !important;
             z-index: 2 !important;
             box-shadow: none !important;
         }
@@ -269,17 +302,19 @@
 <body>
 
     <div id="main-area">
-        <h3>當前倉庫網格平面圖 (1格 = 1m²) <span id="sync-status" style="font-size:12px; color:#e67e22; margin-left:10px;">⏳ 系統載入中...</span></h3>
+        <h3 id="dynamic-title-heading"><span class="wh-title-highlight" id="title-wh-name">倉庫一</span>網格平面圖 (1格 = 1m²) <span id="sync-status" style="font-size:12px; color:#e67e22; margin-left:10px;">⏳ 系統載入中...</span></h3>
         
+        <div class="wh-tabs-container" id="warehouse-tabs-bar"></div>
+
         <div class="canvas-layout">
             <div id="warehouse-container">
                 <div id="warehouse-grid"></div>
             </div>
             
             <div class="layer-selector-sidebar">
-                <div class="layer-tab-btn active" id="btn-z1" onclick="switchZLayer(1)"><span>第 3 層</span><span style="font-size:9px;opacity:0.7;">(最上層)</span></div>
+                <div class="layer-tab-btn" id="btn-z3" onclick="switchZLayer(3)"><span>第 3 層</span><span style="font-size:9px;opacity:0.7;">(最上層)</span></div>
                 <div class="layer-tab-btn" id="btn-z2" onclick="switchZLayer(2)"><span>第 2 層</span><span style="font-size:9px;opacity:0.7;">(中層)</span></div>
-                <div class="layer-tab-btn" id="btn-z3" onclick="switchZLayer(3)"><span>第 1 層</span><span style="font-size:9px;opacity:0.7;">(地面棧板)</span></div>
+                <div class="layer-tab-btn" id="btn-z1" onclick="switchZLayer(1)"><span>第 1 層</span><span style="font-size:9px;opacity:0.7;">(地面棧板)</span></div>
             </div>
         </div>
 
@@ -302,10 +337,9 @@
                     <button class="action-btn" onclick="syncFromCloud()" style="background-color: #4a5568; margin-top: 10px;">🔄 手動刷新雲端資料</button>
                 </div>
                 <div>
-                    <label>選擇切換倉庫</label>
-                    <select id="warehouse-select" onchange="switchWarehouse()">
-                        <option value="wh1">倉庫一 (30x30)</option>
-                    </select>
+                    <label>當前操作倉庫設定（亦可從上方分頁一切換）</label>
+                    <select id="warehouse-select" onchange="switchWarehouseSelect(this.value)" style="margin-bottom: 12px;"></select>
+                    
                     <label>新增/修改倉庫名稱</label>
                     <input type="text" id="wh-name" value="倉庫一">
                     <div style="display:flex; gap:8px;">
@@ -324,7 +358,8 @@
                     <label>貨物商品名稱</label>
                     <input type="text" id="cargo-name" value="棧板A">
                     <label>初始存貨數量</label>
-                    <input type="number" id="cargo-qty" value="0"> </div>
+                    <input type="number" id="cargo-qty" value="0">
+                </div>
                 <div>
                     <label>真實尺寸 寬 x 高 (米，支援小數點)</label>
                     <div class="mobile-flex-2">
@@ -366,7 +401,7 @@
         let globalCargoCache = [];
         let warehouses = { 'wh1': { name: '倉庫一', width: 30, height: 30 } };
         let currentWhId = 'wh1';
-        let currentZLevel = 1; // 預設第1層 (地面)
+        let currentZLevel = 1; // 1代表第1層，2代表第2層，3代表第3層
         
         let colorHistory = [
             {bg: '#ffc107', text: '#000000'},
@@ -381,7 +416,8 @@
         let rightClickedElement = null;
 
         window.onload = function() {
-            renderGrid();
+            document.documentElement.style.setProperty('--cell-size', '20px');
+            switchZLayer(1); // 預設初始化在第1層
             renderColorHistory();
             initInteractEngine();
             syncFromCloud(); 
@@ -391,27 +427,34 @@
             });
         };
 
-        function toggleAccordion(header) {
-            header.classList.toggle("active");
-            const content = header.nextElementSibling;
-            if (content.style.maxHeight) {
-                content.style.maxHeight = null;
-            } else {
-                content.style.maxHeight = content.scrollHeight + "px";
-            }
-        }
-
-        // 【新增 Z 軸切換】：點擊樓層按鈕時分流渲染
+        // 完美校正樓層對應邏輯
         function switchZLayer(layerNum) {
             currentZLevel = parseInt(layerNum);
             
-            // 介面按鈕亮燈樣式切換
-            document.querySelectorAll('.layer-tab-btn').forEach((btn, idx) => {
-                if ((3 - idx) === currentZLevel) btn.classList.add('active');
-                else btn.classList.remove('active');
+            document.querySelectorAll('.layer-tab-btn').forEach((btn) => {
+                btn.classList.remove('active');
             });
+            // 點第1層就亮 id="btn-z1" 的按鈕，以此類推
+            const activeBtn = document.getElementById(`btn-z${currentZLevel}`);
+            if (activeBtn) activeBtn.classList.add('active');
             
             renderCurrentWarehouseCargoes();
+        }
+
+        // 重新繪製平面圖下方分頁標籤鈕（Tabs）
+        function refreshWarehouseTabs() {
+            const tabsBar = document.getElementById('warehouse-tabs-bar');
+            tabsBar.innerHTML = '';
+
+            for (let id in warehouses) {
+                const btn = document.createElement('button');
+                btn.className = `wh-tab-btn ${id === currentWhId ? 'active' : ''}`;
+                btn.textContent = warehouses[id].name;
+                btn.onclick = () => {
+                    switchWarehouseSelect(id);
+                };
+                tabsBar.appendChild(btn);
+            }
         }
 
         function changeScale(val) {
@@ -432,6 +475,7 @@
             
             document.documentElement.style.setProperty('--grid-cols', wh.width);
             document.documentElement.style.setProperty('--grid-rows', wh.height);
+            
             grid.style.width = (wh.width * cellSize) + 'px';
             grid.style.height = (wh.height * cellSize) + 'px';
 
@@ -480,24 +524,12 @@
                 }
                 renderColorHistory();
 
-                const select = document.getElementById('warehouse-select');
-                select.innerHTML = '';
-                for (let id in warehouses) {
-                    const opt = document.createElement('option');
-                    opt.value = id;
-                    opt.textContent = `${warehouses[id].name} (${warehouses[id].width}x${warehouses[id].height})`;
-                    select.appendChild(opt);
-                }
-                
                 if (!warehouses[currentWhId]) {
                     currentWhId = Object.keys(warehouses)[0];
                 }
-                select.value = currentWhId;
                 
-                const wh = warehouses[currentWhId];
-                document.getElementById('wh-name').value = wh.name;
-                document.getElementById('wh-w').value = wh.width;
-                document.getElementById('wh-h').value = wh.height;
+                // 更新下拉選單及大標題名稱
+                switchWarehouseSelect(currentWhId, false);
                 
                 globalCargoCache = data && Array.isArray(data.cargoItems) ? data.cargoItems : [];
                 renderCurrentWarehouseCargoes();
@@ -513,7 +545,40 @@
             });
         }
 
-        // 【分流與透視渲染引擎】：結合 Z 軸判斷與半透明鬼影
+        // 抽離出來的專用切換調度函式
+        function switchWarehouseSelect(whId, triggerRender = true) {
+            currentWhId = whId;
+            const wh = warehouses[currentWhId];
+            if(wh) {
+                // 1. 即時變更最上方寶石藍的大標題名字
+                document.getElementById('title-wh-name').textContent = wh.name;
+                
+                // 2. 更新系統設定區內部的輸入框
+                document.getElementById('wh-name').value = wh.name;
+                document.getElementById('wh-w').value = wh.width;
+                document.getElementById('wh-h').value = wh.height;
+                
+                // 3. 重繪同步進階設定區的下拉選單
+                const select = document.getElementById('warehouse-select');
+                select.innerHTML = '';
+                for (let id in warehouses) {
+                    const opt = document.createElement('option');
+                    opt.value = id;
+                    opt.textContent = `${warehouses[id].name} (${warehouses[id].width}x${warehouses[id].height})`;
+                    select.appendChild(opt);
+                }
+                select.value = currentWhId;
+                
+                // 4. 更新平面圖下方的分頁選取狀態
+                refreshWarehouseTabs();
+                
+                // 5. 刷新畫布
+                if (triggerRender) {
+                    renderCurrentWarehouseCargoes();
+                }
+            }
+        }
+
         function renderCurrentWarehouseCargoes() {
             renderGrid();
             
@@ -526,7 +591,6 @@
                 const cargo = reCreateCargoNode(itemData);
                 const cargoZ = parseInt(itemData.z_level || 1);
                 
-                // 狀況一：屬於當前選定倉庫
                 if (itemData.warehouseId === currentWhId) {
                     const pixelX = parseFloat(itemData.m_x || 0) * cellSize;
                     const pixelY = parseFloat(itemData.m_y || 0) * cellSize;
@@ -536,7 +600,6 @@
                     cargo.setAttribute('data-m-x', itemData.m_x || 0);
                     cargo.setAttribute('data-m-y', itemData.m_y || 0);
 
-                    // 1. 如果樓層正好是當前操作層
                     if (cargoZ === currentZLevel) {
                         if (itemData.isLocked === true || itemData.isLocked === "true") {
                             cargo.classList.add('is-locked');
@@ -544,15 +607,12 @@
                         }
                         document.getElementById('cargo-layer').appendChild(cargo);
                     } 
-                    // 2. 如果該物件在「目前樓層的下方」 -> 渲染成半透明灰色透視框，防止懸空！
                     else if (cargoZ < currentZLevel) {
                         cargo.classList.add('underlay-ghost');
-                        // 加上提示文字，滑鼠移過去就知道底下壓了什麼
                         cargo.title = `下方 ${cargoZ} 層墊底商品: ${itemData.name}`;
                         document.getElementById('cargo-layer').appendChild(cargo);
                     }
                 } 
-                // 狀況二：屬於當前倉庫、當前樓層的待放置緩衝區
                 else if (itemData.warehouseId === `buffer_${currentWhId}_z${currentZLevel}`) {
                     cargo.removeAttribute('data-locked');
                     cargo.classList.remove('is-locked');
@@ -566,7 +626,6 @@
             document.getElementById('sync-status').textContent = "⏳ 正在自動儲存至雲端...";
             document.getElementById('sync-status').style.color = "#6c757d";
 
-            // 過濾並保留「其他倉庫」以及「目前倉庫其他樓層」的舊快取資料
             const cargoItemsToUpload = globalCargoCache.filter(item => {
                 const isCurrentWh = item.warehouseId === currentWhId;
                 const isCurrentBuffer = item.warehouseId === `buffer_${currentWhId}_z${currentZLevel}`;
@@ -577,7 +636,6 @@
                 return true;
             });
             
-            // 塞入當前畫布操作層貨物
             document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)').forEach(item => {
                 cargoItemsToUpload.push({
                     id: item.getAttribute('data-id'),
@@ -590,12 +648,11 @@
                     bg: item.style.backgroundColor,
                     text: item.style.color,
                     warehouseId: currentWhId,
-                    z_level: currentZLevel, // 綁定當前樓層
+                    z_level: currentZLevel,
                     isLocked: item.getAttribute('data-locked') === 'true'
                 });
             });
 
-            // 塞入當前樓層待放區貨物
             document.querySelectorAll('#cargo-buffer .cargo-item').forEach(item => {
                 cargoItemsToUpload.push({
                     id: item.getAttribute('data-id'),
@@ -637,40 +694,16 @@
             const name = document.getElementById('wh-name').value.trim();
             const w = parseInt(document.getElementById('wh-w').value);
             const h = parseInt(document.getElementById('wh-h').value);
+            const id = 'wh_' + Date.now();
+            warehouses[id] = { name: name, width: w, height: h };
             
-            if (!name) { alert("請輸入倉庫名稱！"); return; }
-            let targetId = null;
-            for (let id in warehouses) {
-                if (warehouses[id].name === name) { targetId = id; break; }
-            }
-            const select = document.getElementById('warehouse-select');
-            if (targetId) {
-                warehouses[targetId].width = w; warehouses[targetId].height = h;
-                const optionToUpdate = select.querySelector(`option[value="${targetId}"]`);
-                if (optionToUpdate) optionToUpdate.textContent = `${name} (${w}x${h})`;
-                currentWhId = targetId;
-            } else {
-                targetId = 'wh_' + Date.now();
-                warehouses[targetId] = { name: name, width: w, height: h };
-                const opt = document.createElement('option');
-                opt.value = targetId; opt.textContent = `${name} (${w}x${h})`;
-                select.appendChild(opt);
-                currentWhId = targetId;
-            }
-            select.value = currentWhId;
-            renderCurrentWarehouseCargoes();
+            switchWarehouseSelect(id, true);
             autoSaveToCloud();
         }
 
         function switchWarehouse() {
-            currentWhId = document.getElementById('warehouse-select').value;
-            const wh = warehouses[currentWhId];
-            if(wh) {
-                document.getElementById('wh-name').value = wh.name;
-                document.getElementById('wh-w').value = wh.width;
-                document.getElementById('wh-h').value = wh.height;
-                renderCurrentWarehouseCargoes();
-            }
+            const val = document.getElementById('warehouse-select').value;
+            switchWarehouseSelect(val, true);
         }
 
         function triggerCreateCargo() {
@@ -872,7 +905,6 @@
         function initInteractEngine() {
             if (interactInstance) interactInstance.unset();
 
-            // 確保被鎖定或是下層的半透明鬼影物件完全無法被拖移
             interactInstance = interact('.cargo-item:not([data-locked="true"]):not(.underlay-ghost)').draggable({
                 inertia: false,
                 autoScroll: true,
@@ -939,7 +971,6 @@
                             if (localX < 0) localX = 0; if (localX > maxW) localX = maxW;
                             if (localY < 0) localY = 0; if (localY > maxH) localY = maxH;
                             
-                            // 碰撞演算只計算「當前樓層的非鬼影物件」
                             const otherItems = document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)');
                             for (let other of otherItems) {
                                 if (other === target) continue;
