@@ -47,6 +47,8 @@
             background-size: var(--cell-size) var(--cell-size);
             position: absolute;
             top: 0; left: 0;
+            min-width: 100px;
+            min-height: 100px;
         }
         
         #cargo-buffer { 
@@ -128,7 +130,7 @@
 <body>
 
     <div id="main-area">
-        <h3>當前倉庫網格平面圖 (1格 = 1m²) <span id="sync-status" style="font-size:12px; color:#28a745; margin-left:10px;"></span></h3>
+        <h3>當前倉庫網格平面圖 (1格 = 1m²) <span id="sync-status" style="font-size:12px; color:#6c757d; margin-left:10px;">⏳ 正在初始化網格...</span></h3>
         <div id="warehouse-container">
             <div id="warehouse-grid"></div>
         </div>
@@ -220,9 +222,12 @@
         let rightClickedElement = null;
 
         window.onload = function() {
+            // 安全機制：不論雲端成不成功，網頁一開都要先把預設網格畫出來！
             renderGrid();
             renderColorHistory();
             initInteractEngine();
+            
+            // 再去讀取雲端
             syncFromCloud(); 
 
             document.addEventListener('click', () => {
@@ -260,7 +265,7 @@
         }
 
         function renderGrid() {
-            const wh = warehouses[currentWhId];
+            const wh = warehouses[currentWhId] || { name: '倉庫一', width: 30, height: 30 };
             const grid = document.getElementById('warehouse-grid');
             document.documentElement.style.setProperty('--grid-cols', wh.width);
             document.documentElement.style.setProperty('--grid-rows', wh.height);
@@ -272,11 +277,345 @@
             document.getElementById('sync-status').textContent = "⏳ 正在同步雲端資料...";
             document.getElementById('sync-status').style.color = "#6c757d";
 
-            fetch(GAS_URL)
+            // 設定超時中斷，防止雲端卡死導致前台畫面出不來
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+            fetch(GAS_URL, { signal: controller.signal })
             .then(res => res.json())
             .then(data => {
-                if(data.warehouses && Object.keys(data.warehouses).length > 0) {
+                clearTimeout(timeoutId);
+                
+                if(data && data.warehouses && Object.keys(data.warehouses).length > 0) {
                     warehouses = data.warehouses;
                 }
                 
-                const select = document.getElementById('warehouse
+                const select = document.getElementById('warehouse-select');
+                select.innerHTML = '';
+                for (let id in warehouses) {
+                    const opt = document.createElement('option');
+                    opt.value = id;
+                    opt.textContent = `${warehouses[id].name} (${warehouses[id].width}x${warehouses[id].height})`;
+                    select.appendChild(opt);
+                }
+                
+                if (!warehouses[currentWhId]) {
+                    currentWhId = Object.keys(warehouses)[0];
+                }
+                select.value = currentWhId;
+                
+                const wh = warehouses[currentWhId];
+                document.getElementById('wh-name').value = wh.name;
+                document.getElementById('wh-w').value = wh.width;
+                document.getElementById('wh-h').value = wh.height;
+                
+                renderGrid();
+
+                document.getElementById('warehouse-grid').innerHTML = '';
+                document.getElementById('cargo-buffer').innerHTML = '';
+
+                if(data && data.cargoItems) {
+                    data.cargoItems.forEach(itemData => {
+                        const cargo = reCreateCargoNode(itemData);
+                        
+                        if (itemData.warehouseId === currentWhId) {
+                            const pixelX = parseFloat(itemData.m_x) * cellSize;
+                            const pixelY = parseFloat(itemData.m_y) * cellSize;
+                            cargo.style.transform = `translate(${pixelX}px, ${pixelY}px)`;
+                            cargo.setAttribute('data-x', pixelX);
+                            cargo.setAttribute('data-y', pixelY);
+                            cargo.setAttribute('data-m-x', itemData.m_x);
+                            cargo.setAttribute('data-m-y', itemData.m_y);
+                            document.getElementById('warehouse-grid').appendChild(cargo);
+                        } else if (itemData.warehouseId === 'buffer') {
+                            document.getElementById('cargo-buffer').appendChild(cargo);
+                        }
+                    });
+                }
+                document.getElementById('sync-status').textContent = "✅ 雲端資料同步完成";
+                document.getElementById('sync-status').style.color = "#28a745";
+            })
+            .catch(err => {
+                clearTimeout(timeoutId);
+                console.warn("雲端讀取未就緒，啟動本地防護模式:", err);
+                document.getElementById('sync-status').textContent = "⚠️ 試算表格模式不相容，已切換至本地獨立運作模式";
+                document.getElementById('sync-status').style.color = "#e67e22";
+                renderGrid(); // 發生錯誤時依然確保網格正常渲染
+            });
+        }
+
+        function autoSaveToCloud() {
+            document.getElementById('sync-status').textContent = "⏳ 正在自動儲存至雲端...";
+            document.getElementById('sync-status').style.color = "#6c757d";
+
+            const cargoItems = [];
+            
+            document.querySelectorAll('#warehouse-grid .cargo-item').forEach(item => {
+                cargoItems.push({
+                    id: item.getAttribute('data-id'),
+                    name: item.getAttribute('data-name'),
+                    qty: item.getAttribute('data-qty'),
+                    w_m: item.getAttribute('data-w-m'),
+                    h_m: item.getAttribute('data-h-m'),
+                    m_x: item.getAttribute('data-m-x') || "0",
+                    m_y: item.getAttribute('data-m-y') || "0",
+                    bg: item.style.backgroundColor,
+                    text: item.style.color,
+                    warehouseId: currentWhId
+                });
+            });
+
+            document.querySelectorAll('#cargo-buffer .cargo-item').forEach(item => {
+                cargoItems.push({
+                    id: item.getAttribute('data-id'),
+                    name: item.getAttribute('data-name'),
+                    qty: item.getAttribute('data-qty'),
+                    w_m: item.getAttribute('data-w-m'),
+                    h_m: item.getAttribute('data-h-m'),
+                    m_x: "0",
+                    m_y: "0",
+                    bg: item.style.backgroundColor,
+                    text: item.style.color,
+                    warehouseId: 'buffer'
+                });
+            });
+
+            const payload = { warehouses: warehouses, cargoItems: cargoItems };
+
+            fetch(GAS_URL, {
+                method: "POST",
+                mode: "no-cors", 
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            })
+            .then(() => {
+                document.getElementById('sync-status').textContent = "✅ 雲端儲存成功！";
+                document.getElementById('sync-status').style.color = "#28a745";
+            })
+            .catch(err => {
+                console.error("雲端儲存錯誤:", err);
+                document.getElementById('sync-status').textContent = "❌ 雲端儲存失敗";
+                document.getElementById('sync-status').style.color = "#dc3545";
+            });
+        }
+
+        function saveWarehouseSettings() {
+            const name = document.getElementById('wh-name').value;
+            const w = parseInt(document.getElementById('wh-w').value);
+            const h = parseInt(document.getElementById('wh-h').value);
+            const id = 'wh_' + Date.now();
+            warehouses[id] = { name: name, width: w, height: h };
+            
+            const select = document.getElementById('warehouse-select');
+            const opt = document.createElement('option');
+            opt.value = id; opt.textContent = `${name} (${w}x${h})`;
+            select.appendChild(opt);
+            select.value = id; currentWhId = id;
+            renderGrid();
+            autoSaveToCloud();
+        }
+
+        function switchWarehouse() {
+            currentWhId = document.getElementById('warehouse-select').value;
+            const wh = warehouses[currentWhId];
+            if(wh) {
+                document.getElementById('wh-name').value = wh.name;
+                document.getElementById('wh-w').value = wh.width;
+                document.getElementById('wh-h').value = wh.height;
+                renderGrid();
+            }
+        }
+
+        function triggerCreateCargo() {
+            const bg = document.getElementById('cargo-color').value;
+            const text = document.getElementById('text-color').value;
+            const exists = colorHistory.some(c => c.bg === bg && c.text === text);
+            if (!exists) {
+                colorHistory.unshift({bg: bg, text: text});
+                if (colorHistory.length > 10) colorHistory.pop();
+                renderColorHistory();
+            }
+            createNewCargo();
+            autoSaveToCloud();
+        }
+
+        function renderColorHistory() {
+            const container = document.getElementById('color-history-container');
+            container.innerHTML = '';
+            colorHistory.forEach(color => {
+                const dot = document.createElement('div');
+                dot.className = 'color-combo-dot';
+                dot.style.backgroundColor = color.bg;
+                dot.style.color = color.text;
+                dot.textContent = "Abc";
+                dot.onclick = () => { 
+                    document.getElementById('cargo-color').value = color.bg; 
+                    document.getElementById('text-color').value = color.text; 
+                };
+                container.appendChild(dot);
+            });
+        }
+
+        function createNewCargo() {
+            const name = document.getElementById('cargo-name').value;
+            const qty = document.getElementById('cargo-qty').value;
+            const w = parseFloat(document.getElementById('cargo-w').value);
+            const h = parseFloat(document.getElementById('cargo-h').value);
+            const bgColor = document.getElementById('cargo-color').value;
+            const textColor = document.getElementById('text-color').value;
+
+            const itemData = { id: 'item_' + Date.now(), name: name, qty: qty, w_m: w, h_m: h, bg: bgColor, text: textColor };
+            const cargo = reCreateCargoNode(itemData);
+            document.getElementById('cargo-buffer').appendChild(cargo);
+        }
+
+        function reCreateCargoNode(itemData) {
+            const cargo = document.createElement('div');
+            cargo.className = 'cargo-item';
+            cargo.innerHTML = `<span class="cargo-title">${itemData.name}</span><span class="cargo-qty">${itemData.qty} 件</span>`;
+            
+            cargo.style.width = (parseFloat(itemData.w_m) * cellSize) + 'px';
+            cargo.style.height = (parseFloat(itemData.h_m) * cellSize) + 'px';
+            cargo.style.backgroundColor = itemData.bg;
+            cargo.style.color = itemData.text;
+            
+            cargo.setAttribute('data-w-m', itemData.w_m);
+            cargo.setAttribute('data-h-m', itemData.h_m);
+            cargo.setAttribute('data-qty', itemData.qty);
+            cargo.setAttribute('data-name', itemData.name);
+            cargo.setAttribute('data-id', itemData.id);
+
+            cargo.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if(cargo.parentElement.id === 'warehouse-grid') {
+                    const newQty = prompt("請輸入新的貨物數量：", cargo.getAttribute('data-qty'));
+                    if (newQty !== null) {
+                        cargo.setAttribute('data-qty', newQty);
+                        cargo.querySelector('.cargo-qty').textContent = `${newQty} 件`;
+                        autoSaveToCloud();
+                    }
+                }
+            });
+
+            cargo.addEventListener('contextmenu', (e) => {
+                e.preventDefault(); e.stopPropagation();
+                rightClickedElement = cargo;
+                const menu = document.getElementById('context-menu');
+                menu.style.display = 'block'; menu.style.left = e.pageX + 'px'; menu.style.top = e.pageY + 'px';
+            });
+
+            return cargo;
+        }
+
+        function editSelectedQty() { if(rightClickedElement) rightClickedElement.click(); }
+        function deleteSelectedCargo() { 
+            if(rightClickedElement) { 
+                rightClickedElement.remove(); 
+                rightClickedElement = null; 
+                autoSaveToCloud();
+            } 
+        }
+
+        function initInteractEngine() {
+            if (interactInstance) interactInstance.unset();
+
+            let dragModifiers = [
+                interact.modifiers.restrictRect({ restriction: '#main-area', endOnly: false })
+            ];
+
+            if (isSnapEnabled) {
+                dragModifiers.push(
+                    interact.modifiers.snap({
+                        targets: [ interact.snappers.grid({ x: cellSize, y: cellSize }) ],
+                        range: Infinity,
+                        relativePoints: [ { x: 0, y: 0 } ]
+                    })
+                );
+            }
+
+            interactInstance = interact('.cargo-item').draggable({
+                inertia: false,
+                modifiers: dragModifiers,
+                autoScroll: true,
+                listeners: {
+                    start(event) { event.target.classList.add('is-dragging'); },
+                    move(event) {
+                        const target = event.target;
+                        if (target.parentElement.id === 'cargo-buffer') {
+                            const bufferRect = target.getBoundingClientRect();
+                            const gridRect = document.getElementById('warehouse-grid').getBoundingClientRect();
+                            const initX = bufferRect.left - gridRect.left;
+                            const initY = bufferRect.top - gridRect.top;
+                            target.setAttribute('data-x', initX);
+                            target.setAttribute('data-y', initY);
+                            document.getElementById('warehouse-grid').appendChild(target);
+                        }
+
+                        let x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
+                        let y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
+                        target.style.transform = `translate(${x}px, ${y}px)`;
+                        target.setAttribute('data-x', x);
+                        target.setAttribute('data-y', y);
+                    },
+                    end(event) {
+                        const target = event.target;
+                        target.classList.remove('is-dragging');
+                        
+                        let x = parseFloat(target.getAttribute('data-x')) || 0;
+                        let y = parseFloat(target.getAttribute('data-y')) || 0;
+                        const w = parseFloat(target.offsetWidth);
+                        const h = parseFloat(target.offsetHeight);
+
+                        const otherItems = document.querySelectorAll('#warehouse-grid .cargo-item');
+                        
+                        for (let other of otherItems) {
+                            if (other === target) continue;
+
+                            const oX = parseFloat(other.getAttribute('data-x')) || 0;
+                            const oY = parseFloat(other.getAttribute('data-y')) || 0;
+                            const oW = parseFloat(other.offsetWidth);
+                            const oH = parseFloat(other.offsetHeight);
+
+                            if (x < oX + oW - 0.5 && x + w - 0.5 > oX && y < oY + oH - 0.5 && y + h - 0.5 > oY) {
+                                const pushLeft = (oX - w);
+                                const pushRight = (oX + oW);
+                                const pushTop = (oY - h);
+                                const pushBottom = (oY + oH);
+
+                                const dists = [
+                                    { x: pushLeft, y: y, d: Math.abs(x - pushLeft) },
+                                    { x: pushRight, y: y, d: Math.abs(x - pushRight) },
+                                    { x: x, y: pushTop, d: Math.abs(y - pushTop) },
+                                    { x: x, y: pushBottom, d: Math.abs(y - pushBottom) }
+                                ];
+                                
+                                dists.sort((a, b) => a.d - b.d);
+                                let bestFit = dists[0];
+
+                                if (isSnapEnabled) {
+                                    bestFit.x = Math.round(bestFit.x / cellSize) * cellSize;
+                                    bestFit.y = Math.round(bestFit.y / cellSize) * cellSize;
+                                }
+
+                                x = bestFit.x;
+                                y = bestFit.y;
+                                
+                                target.style.transform = `translate(${x}px, ${y}px)`;
+                                target.setAttribute('data-x', x);
+                                target.setAttribute('data-y', y);
+                            }
+                        }
+
+                        const metricX = Math.round((x / cellSize) * 10) / 10;
+                        const metricY = Math.round((y / cellSize) * 10) / 10;
+                        target.setAttribute('data-m-x', metricX);
+                        target.setAttribute('data-m-y', metricY);
+
+                        autoSaveToCloud();
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
