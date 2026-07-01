@@ -1,384 +1,46 @@
-<!DOCTYPE html>
-<html lang="zh-Hant">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>公司內部倉儲網格系統 - 進階重疊防護版</title>
-    <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
-    <style>
-        :root {
-            --grid-cols: 30;
-            --grid-rows: 30;
-            --cell-size: 40px; /* 1m = 40px */
-        }
-        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f6f9; display: flex; gap: 20px; }
-        #control-panel { width: 320px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); height: fit-content; }
-        .control-group { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
-        input, select, button { width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; }
-        button { background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        button:hover { background-color: #0056b3; }
-        
-        .switch-container { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-        .switch-container input { width: auto; margin: 0; }
+// 【自動儲存】將當前的倉庫與所有貨物狀態存入瀏覽器
+function autoSaveToLocal() {
+    const cargoItems = [];
+    
+    // 撈取目前所有在網格裡的貨物資訊
+    document.querySelectorAll('#warehouse-grid .cargo-item').forEach(item => {
+        cargoItems.push({
+            id: item.getAttribute('data-id'),
+            name: item.getAttribute('data-name'),
+            qty: item.getAttribute('data-qty'),
+            w_m: item.getAttribute('data-w-m'),
+            h_m: item.getAttribute('data-h-m'),
+            m_x: item.getAttribute('data-m-x'),
+            m_y: item.getAttribute('data-m-y'),
+            bg: item.style.backgroundColor,
+            text: item.style.color,
+            warehouseId: currentWhId // 屬於哪一個倉庫
+        });
+    });
 
-        .color-history { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
-        .color-dot { width: 25px; height: 25px; border-radius: 4px; cursor: pointer; border: 1px solid #ccc; }
+    // 撈取還在緩衝區沒放進去的貨物
+    const bufferItems = [];
+    document.querySelectorAll('#cargo-buffer .cargo-item').forEach(item => {
+        bufferItems.push({
+            id: item.getAttribute('data-id'),
+            name: item.getAttribute('data-name'),
+            qty: item.getAttribute('data-qty'),
+            w_m: item.getAttribute('data-w-m'),
+            h_m: item.getAttribute('data-h-m'),
+            bg: item.style.backgroundColor,
+            text: item.style.color
+        });
+    });
 
-        #main-area { flex-grow: 1; display: flex; flex-direction: column; gap: 10px; }
-        #warehouse-container { border: 2px solid #333; background-color: #e2e8f0; overflow: auto; position: relative; width: 100%; height: 550px; }
-        #warehouse-grid {
-            display: grid;
-            grid-template-columns: repeat(var(--grid-cols), var(--cell-size));
-            grid-template-rows: repeat(var(--grid-rows), var(--cell-size));
-            background-image: 
-                linear-gradient(to right, #ccc 1px, transparent 1px),
-                linear-gradient(to bottom, #ccc 1px, transparent 1px);
-            background-size: var(--cell-size) var(--cell-size);
-            position: absolute;
-            top: 0; left: 0;
-        }
-        
-        #cargo-buffer { min-height: 100px; background: #fff; border: 2px dashed #999; border-radius: 8px; padding: 10px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; position: relative; }
+    const saveData = {
+        warehouses: warehouses,
+        currentWhId: currentWhId,
+        colorHistory: colorHistory,
+        cargoItems: cargoItems,
+        bufferItems: bufferItems
+    };
 
-        /* 貨物物件 */
-        .cargo-item {
-            position: absolute;
-            box-sizing: border-box;
-            border: 2px solid rgba(0,0,0,0.2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            font-weight: bold;
-            text-align: center;
-            border-radius: 4px;
-            cursor: move;
-            touch-action: none;
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.15);
-            user-select: none;
-            z-index: 10;
-            transition: border-color 0.2s;
-        }
-        /* 拖移中虛擬定位效果 */
-        .cargo-item.is-dragging { opacity: 0.8; z-index: 100; }
-        /* 緩衝區時的預設狀態 */
-        #cargo-buffer .cargo-item { position: relative !important; transform: none !important; top: auto !important; left: auto !important; }
-    </style>
-</head>
-<body>
-
-    <div id="control-panel">
-        <h2>倉庫控制台</h2>
-        
-        <div class="control-group">
-            <h3>1. 視角與模式</h3>
-            <label>網格比例尺 (目前格寬: <span id="scale-val">40</span>px)</label>
-            <input type="range" id="grid-scale" min="20" max="80" value="40" oninput="changeScale(this.value)">
-            
-            <div class="switch-container">
-                <label for="snap-toggle">自動吸附對齊網格</label>
-                <input type="checkbox" id="snap-toggle" checked onchange="toggleSnap(this.checked)">
-            </div>
-        </div>
-
-        <div class="control-group">
-            <h3>2. 倉庫專案管理</h3>
-            <label>選擇倉庫</label>
-            <select id="warehouse-select" onchange="switchWarehouse()">
-                <option value="wh1">倉庫一 (30x30)</option>
-            </select>
-            <input type="text" id="wh-name" value="倉庫一">
-            <div style="display:flex; gap:5px;">
-                <input type="number" id="wh-w" value="30" placeholder="寬">
-                <input type="number" id="wh-h" value="30" placeholder="高">
-            </div>
-            <button onclick="saveWarehouseSettings()">儲存/新建倉庫</button>
-        </div>
-
-        <div class="control-group">
-            <h3>3. 生成新貨物</h3>
-            <label>貨物名稱</label>
-            <input type="text" id="cargo-name" value="棧板A">
-            <div style="display:flex; gap:5px;">
-                <input type="number" id="cargo-w" step="0.1" value="2" placeholder="寬(m)">
-                <input type="number" id="cargo-h" step="0.1" value="2" placeholder="高(m)">
-            </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px;">
-                <div>
-                    <label>方塊顏色</label>
-                    <input type="color" id="cargo-color" value="#ffc107" onchange="updateColorHistory(this.value)">
-                </div>
-                <div>
-                    <label>文字顏色</label>
-                    <input type="color" id="text-color" value="#000000">
-                </div>
-            </div>
-            <label>最近使用顏色</label>
-            <div class="color-history" id="color-history-container"></div>
-            <button onclick="createNewCargo()" style="background-color: #28a745;">生成貨物</button>
-        </div>
-    </div>
-
-    <div id="main-area">
-        <h3>當前倉庫網格 (1格 = 1m²)</h3>
-        <div id="warehouse-container">
-            <div id="warehouse-grid"></div>
-        </div>
-
-        <h3>貨物待放置區 (請從此處拖拉至上方網格)</h3>
-        <div id="cargo-buffer"></div>
-    </div>
-
-    <script>
-        let warehouses = { 'wh1': { name: '倉庫一', width: 30, height: 30 } };
-        let currentWhId = 'wh1';
-        let colorHistory = ['#ffc107', '#28a745', '#007bff', '#dc3545'];
-        
-        let cellSize = 40; 
-        let isSnapEnabled = true;
-        let interactInstance = null;
-
-        window.onload = function() {
-            renderGrid();
-            renderColorHistory();
-            initInteractEngine();
-        };
-
-        // 1. 處理動態比例尺調整與元件重新排列
-        function changeScale(val) {
-            cellSize = parseInt(val);
-            document.getElementById('scale-val').textContent = cellSize;
-            document.documentElement.style.setProperty('--cell-size', cellSize + 'px');
-            
-            // 重新依據最新的比例尺計算網格與所有已就位貨物的實際尺寸和坐標
-            renderGrid();
-            
-            const gridRect = document.getElementById('warehouse-grid').getBoundingClientRect();
-            document.querySelectorAll('#warehouse-grid .cargo-item').forEach(item => {
-                const w_m = parseFloat(item.getAttribute('data-w-m'));
-                const h_m = parseFloat(item.getAttribute('data-h-m'));
-                const m_x = parseFloat(item.getAttribute('data-m-x'));
-                const m_y = parseFloat(item.getAttribute('data-m-y'));
-
-                item.style.width = (w_m * cellSize) + 'px';
-                item.style.height = (h_m * cellSize) + 'px';
-
-                // 依據原本儲存的實際米數坐標，等比例放大縮小像素位置
-                const pixelX = m_x * cellSize;
-                const pixelY = m_y * cellSize;
-                item.style.transform = `translate(${pixelX}px, ${pixelY}px)`;
-                item.setAttribute('data-x', pixelX);
-                item.setAttribute('data-y', pixelY);
-            });
-
-            // 比例尺改變後，必須重建拖拉引擎以更新磁吸間距
-            initInteractEngine();
-        }
-
-        // 2. 切換吸附模式
-        function toggleSnap(checked) {
-            isSnapEnabled = checked;
-            initInteractEngine(); // 重啟引擎載入新設定
-        }
-
-        function renderGrid() {
-            const wh = warehouses[currentWhId];
-            const grid = document.getElementById('warehouse-grid');
-            document.documentElement.style.setProperty('--grid-cols', wh.width);
-            document.documentElement.style.setProperty('--grid-rows', wh.height);
-            grid.style.width = (wh.width * cellSize) + 'px';
-            grid.style.height = (wh.height * cellSize) + 'px';
-        }
-
-        function saveWarehouseSettings() {
-            const name = document.getElementById('wh-name').value;
-            const w = parseInt(document.getElementById('wh-w').value);
-            const h = parseInt(document.getElementById('wh-h').value);
-            const id = 'wh_' + Date.now();
-            warehouses[id] = { name: name, width: w, height: h };
-            
-            const select = document.getElementById('warehouse-select');
-            const opt = document.createElement('option');
-            opt.value = id; opt.textContent = `${name} (${w}x${h})`;
-            select.appendChild(opt);
-            select.value = id; currentWhId = id;
-            renderGrid();
-        }
-
-        function switchWarehouse() {
-            currentWhId = document.getElementById('warehouse-select').value;
-            const wh = warehouses[currentWhId];
-            document.getElementById('wh-name').value = wh.name;
-            document.getElementById('wh-w').value = wh.width;
-            document.getElementById('wh-h').value = wh.height;
-            renderGrid();
-        }
-
-        function updateColorHistory(color) {
-            if (!colorHistory.includes(color)) {
-                colorHistory.unshift(color);
-                if (colorHistory.length > 10) colorHistory.pop();
-                renderColorHistory();
-            }
-        }
-
-        function renderColorHistory() {
-            const container = document.getElementById('color-history-container');
-            container.innerHTML = '';
-            colorHistory.forEach(color => {
-                const dot = document.createElement('div');
-                dot.className = 'color-dot';
-                dot.style.backgroundColor = color;
-                dot.onclick = () => { document.getElementById('cargo-color').value = color; };
-                container.appendChild(dot);
-            });
-        }
-
-        // 3. 生成新貨物 (導入字體顏色、米數記憶)
-        function createNewCargo() {
-            const name = document.getElementById('cargo-name').value;
-            const w = parseFloat(document.getElementById('cargo-w').value);
-            const h = parseFloat(document.getElementById('cargo-h').value);
-            const bgColor = document.getElementById('cargo-color').value;
-            const textColor = document.getElementById('text-color').value;
-
-            const cargo = document.createElement('div');
-            cargo.className = 'cargo-item';
-            cargo.textContent = name;
-            
-            // 基礎外觀與顏色設定
-            cargo.style.width = (w * cellSize) + 'px';
-            cargo.style.height = (h * cellSize) + 'px';
-            cargo.style.backgroundColor = bgColor;
-            cargo.style.color = textColor; // 變更名稱顏色
-            
-            // 綁定幾何真實米數 (避免比例尺切換時失真)
-            cargo.setAttribute('data-w-m', w);
-            cargo.setAttribute('data-h-m', h);
-            cargo.setAttribute('data-id', 'item_' + Date.now()); // 唯一標記防重疊
-
-            document.getElementById('cargo-buffer').appendChild(cargo);
-        }
-
-        // 4. 動態初始化/刷新 Interact 拖拉引擎
-        function initInteractEngine() {
-            if (interactInstance) {
-                interactInstance.unset(); // 銷毀舊設定防重複綁定
-            }
-
-            let dragModifiers = [
-                interact.modifiers.restrictRect({
-                    restriction: '#main-area',
-                    endOnly: false
-                })
-            ];
-
-            // 若開啟吸附模式，加入網格磁吸修飾器
-            if (isSnapEnabled) {
-                dragModifiers.push(
-                    interact.modifiers.snap({
-                        targets: [ interact.snappers.grid({ x: cellSize, y: cellSize }) ],
-                        range: Infinity,
-                        relativePoints: [ { x: 0, y: 0 } ]
-                    })
-                );
-            }
-
-            interactInstance = interact('.cargo-item').draggable({
-                inertia: false,
-                modifiers: dragModifiers,
-                autoScroll: true,
-                listeners: {
-                    start(event) {
-                        event.target.classList.add('is-dragging');
-                    },
-                    move(event) {
-                        const target = event.target;
-                        
-                        // 如果原本在緩衝區，一旦開始在主區域移動，就將其掛載轉移至網格容器中
-                        if (target.parentElement.id === 'cargo-buffer') {
-                            const bufferRect = target.getBoundingClientRect();
-                            const gridRect = document.getElementById('warehouse-grid').getBoundingClientRect();
-                            
-                            // 計算相對網格的初始坐標
-                            const initX = bufferRect.left - gridRect.left;
-                            const initY = bufferRect.top - gridRect.top;
-                            
-                            target.setAttribute('data-x', initX);
-                            target.setAttribute('data-y', initY);
-                            document.getElementById('warehouse-grid').appendChild(target);
-                        }
-
-                        let x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
-                        let y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
-
-                        target.style.transform = `translate(${x}px, ${y}px)`;
-                        target.setAttribute('data-x', x);
-                        target.setAttribute('data-y', y);
-                    },
-                    end(event) {
-                        const target = event.target;
-                        target.classList.remove('is-dragging');
-                        
-                        // 取得當前拖拉物件的位置資訊
-                        const x = parseFloat(target.getAttribute('data-x')) || 0;
-                        const y = parseFloat(target.getAttribute('data-y')) || 0;
-                        const w = parseFloat(target.offsetWidth);
-                        const h = parseFloat(target.offsetHeight);
-
-                        // 5. 核心碰撞防重疊演算法
-                        let isOverlap = false;
-                        const otherItems = document.querySelectorAll('#warehouse-grid .cargo-item');
-                        
-                        for (let other of otherItems) {
-                            if (other === target) continue; // 不跟自己比
-
-                            const oX = parseFloat(other.getAttribute('data-x')) || 0;
-                            const oY = parseFloat(other.getAttribute('data-y')) || 0;
-                            const oW = parseFloat(other.offsetWidth);
-                            const oH = parseFloat(other.offsetHeight);
-
-                            // 2D AABB 邊界碰撞交叉檢查 (增加 1 像素極微緩衝防臨界點誤判)
-                            if (x < oX + oW - 1 && x + w - 1 > oX && y < oY + oH - 1 && y + h - 1 > oY) {
-                                isOverlap = true;
-                                break;
-                            }
-                        }
-
-                        if (isOverlap) {
-                            alert(`【擺放衝突】該儲位已有其他物件，系統已自動退回原位！`);
-                            
-                            // 讀取上一次儲存的成功坐標，若是剛從緩衝區出來的則退回緩衝區
-                            const lastMX = target.getAttribute('data-m-x');
-                            const lastMY = target.getAttribute('data-m-y');
-
-                            if (lastMX !== null && lastMY !== null) {
-                                const resetX = parseFloat(lastMX) * cellSize;
-                                const resetY = parseFloat(lastMY) * cellSize;
-                                target.style.transform = `translate(${resetX}px, ${resetY}px)`;
-                                target.setAttribute('data-x', resetX);
-                                target.setAttribute('data-y', resetY);
-                            } else {
-                                // 退回下方緩衝放置區
-                                document.getElementById('cargo-buffer').appendChild(target);
-                                target.removeAttribute('data-x');
-                                target.removeAttribute('data-y');
-                                target.style.transform = 'none';
-                            }
-                        } else {
-                            // 無重疊，成功擺放！將當前坐標換算為「真實世界米數」永久保存
-                            const metricX = Math.round((x / cellSize) * 10) / 10;
-                            const metricY = Math.round((y / cellSize) * 10) / 10;
-                            
-                            target.setAttribute('data-m-x', metricX);
-                            target.setAttribute('data-m-y', metricY);
-                            console.log(`儲位確認：[${target.textContent}] 位於坐標 (${metricX}m, ${metricY}m)`);
-                        }
-                    }
-                }
-            });
-        }
-    </script>
-</body>
-</html>
+    // 存入瀏覽器 LocalStorage
+    localStorage.setItem('warehouse_wms_data', JSON.stringify(saveData));
+    console.log('▼ 系統已自動儲存至本地瀏覽器');
+}
