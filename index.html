@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>公司內部倉儲網格系統 - 終極物理通車版</title>
+    <title>公司內部倉儲網格系統 - 外框同步縮放版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -24,26 +24,27 @@
             display: flex; 
             flex-direction: column; 
             gap: 10px; 
-            width: 100%; /* 寬度完全撐開，不讓 fit-content 縮小 */
+            width: 100%; 
         }
         
-        /* 核心修正：強制給予最底基礎寬高，防止在資料加載期被壓扁成 0 像素 */
+        /* 【外框核心優化】：改為 fit-content，讓黑邊外框完美貼合內部網格，且限高防爆 */
         #warehouse-container { 
             border: 2px solid #333; 
-            background-color: #f8fafc; 
-            overflow: auto; 
+            background-color: #ffffff; 
+            overflow: auto; /* 超出最大限制時，在黑框內產生滾動條 */
             position: relative; 
-            width: 100%; 
-            height: 500px; 
+            width: fit-content; 
+            height: fit-content;
+            max-width: 100%; 
+            max-height: 550px; /* 固定大視窗上限，防止畫面拉太長 */
             border-radius: 8px;
-            box-shadow: inset 0 2px 8px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         }
         
         /* 網格主容器 */
         #warehouse-grid {
-            position: absolute;
+            position: relative; /* 改為 relative 撐開父外框 */
             top: 0; left: 0;
-            background-color: #ffffff;
         }
 
         /* 獨立底層格子線 */
@@ -310,13 +311,11 @@
             }
         }
 
-        // 【縮放比例尺核心邏輯】
         function changeScale(val) {
             cellSize = parseInt(val);
             document.getElementById('scale-val').textContent = cellSize;
             renderGrid();
             
-            // 將畫布內的所有物品，依照新比例尺重新計算像素定位
             document.querySelectorAll('#cargo-layer .cargo-item').forEach(item => {
                 const w_m = parseFloat(item.getAttribute('data-w-m'));
                 const h_m = parseFloat(item.getAttribute('data-h-m'));
@@ -347,6 +346,7 @@
             document.documentElement.style.setProperty('--grid-cols', wh.width);
             document.documentElement.style.setProperty('--grid-rows', wh.height);
             
+            // 隨比例尺即時縮放網格畫布本身
             grid.style.width = (wh.width * cellSize) + 'px';
             grid.style.height = (wh.height * cellSize) + 'px';
 
@@ -657,7 +657,6 @@
                         const rect = target.getBoundingClientRect();
                         const bufferRect = document.getElementById('cargo-buffer').getBoundingClientRect();
                         
-                        // 【自由雙向移入移出】
                         if (rect.top >= bufferRect.top && rect.bottom <= bufferRect.bottom && rect.left >= bufferRect.left && rect.right <= bufferRect.right) {
                             if (target.parentElement.id !== 'cargo-buffer') {
                                 document.getElementById('cargo-buffer').appendChild(target);
