@@ -98,7 +98,6 @@
         .color-history { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; margin-top: 5px; }
         .color-combo-dot { width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 2px solid #cbd5e0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; user-select: none; -webkit-tap-highlight-color: transparent; }
 
-        /* 貨物物件 - 確保啟用滑鼠事件 pointer-events: auto */
         .cargo-item {
             position: absolute; box-sizing: border-box; border: 2px solid rgba(0,0,0,0.25);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -464,16 +463,20 @@
             initInteractEngine();
         }
 
+        // 【核心修正】：重寫儲存包裝邏輯，不再相信快取，完全以目前畫面上實際存在的物件為準！
         function autoSaveToCloud() {
             document.getElementById('sync-status').textContent = "⏳ 正在自動儲存至雲端...";
             document.getElementById('sync-status').style.color = "#6c757d";
 
+            // 1. 保留其他倉庫與其他樓層的貨物（不受當前操作影響）
             const cargoItemsToUpload = globalCargoCache.filter(item => {
                 const isCurrentWh = item.warehouseId === currentWhId;
                 const isCurrentBuffer = item.warehouseId === `buffer_${currentWhId}_z${currentZLevel}`;
+                // 排除當前倉庫的當前樓層，以及當前樓層的待放置區
                 return !isCurrentBuffer && !(isCurrentWh && parseInt(item.z_level || 1) === currentZLevel);
             });
             
+            // 2. 收集當前網格平面圖上「真正存在」的物件
             document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)').forEach(item => {
                 cargoItemsToUpload.push({
                     id: item.getAttribute('data-id'),
@@ -485,12 +488,13 @@
                     m_y: item.getAttribute('data-m-y') || "0",
                     bg: item.style.backgroundColor,
                     text: item.style.color,
-                    warehouseId: currentWhId,
-                    z_level: currentZLevel,
+                    warehouseId: currentWhId, // 嚴格綁定當前倉庫
+                    z_level: currentZLevel,   // 嚴格綁定當前樓層
                     isLocked: item.getAttribute('data-locked') === 'true'
                 });
             });
 
+            // 3. 收集當前待放置區裡「真正存在」的物件
             document.querySelectorAll('#cargo-buffer .cargo-item').forEach(item => {
                 cargoItemsToUpload.push({
                     id: item.getAttribute('data-id'),
@@ -501,8 +505,9 @@
                     m_x: "0", m_y: "0",
                     bg: item.style.backgroundColor,
                     text: item.style.color,
-                    warehouseId: `buffer_${currentWhId}_z${currentZLevel}`,
-                    z_level: currentZLevel, isLocked: false
+                    warehouseId: `buffer_${currentWhId}_z${currentZLevel}`, // 強制歸入當前待放置分流
+                    z_level: currentZLevel, 
+                    isLocked: false
                 });
             });
 
@@ -623,14 +628,12 @@
             cargo.setAttribute('data-id', itemData.id);
             cargo.setAttribute('data-locked', itemData.isLocked ? 'true' : 'false');
 
-            // 監聽單擊 (修改數量)
             cargo.addEventListener('click', (e) => {
                 e.stopPropagation(); 
                 rightClickedElement = cargo; 
                 editSelectedQty();
             });
 
-            // 監聽右鍵選單 (手機長按或電腦右鍵)
             cargo.addEventListener('contextmenu', (e) => {
                 e.preventDefault(); 
                 e.stopPropagation(); 
@@ -732,7 +735,6 @@
             } 
         }
 
-        // 【修正點】：綁定所有的 .cargo-item，改由內部監聽去阻斷鎖定的物件
         function initInteractEngine() {
             if (interactInstance) interactInstance.unset();
             
@@ -741,7 +743,6 @@
                 listeners: {
                     start(event) { 
                         const target = event.target;
-                        // 如果是鎖定或幽靈狀態，直接跳出不執行任何拖曳
                         if (target.getAttribute('data-locked') === 'true' || target.classList.contains('underlay-ghost')) {
                             return;
                         }
@@ -764,12 +765,22 @@
                         }
                         let x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
                         let y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
+                        
+                        // 【修正點 1】邊界限制防禦：在拖曳 move 過程中，如果還在網格區，不允許超出網格四周
+                        const wh = warehouses[currentWhId];
+                        const maxW = (wh.width * cellSize) - target.offsetWidth;
+                        const maxH = (wh.height * cellSize) - target.offsetHeight;
+                        
+                        // 如果物件是從平面圖內部移動的，限制不讓它滑出邊框
+                        if (x < 0) x = 0; if (x > maxW) x = maxW;
+                        if (y < 0) y = 0; if (y > maxH) y = maxH;
+
                         target.style.transform = `translate(${x}px, ${y}px)`;
                         target.setAttribute('data-x', x); target.setAttribute('data-y', y);
                     },
                     end(event) {
                         const target = event.target;
-                        if (!isDraggingActive) return; // 沒觸發 start 就不用跑 end
+                        if (!isDraggingActive) return;
                         
                         target.classList.remove('is-dragging');
                         isDraggingActive = false;
@@ -781,6 +792,7 @@
                         const duplicates = document.querySelectorAll(`[data-id="${thisId}"]`);
                         if (duplicates.length > 1) { for (let i = 1; i < duplicates.length; i++) duplicates[i].remove(); }
 
+                        // 【修正點 2】如果完全拖離大容器，或者放不進去，執行乾淨回彈（清空座標資料）
                         if (rect.top > containerRect.bottom || rect.bottom < containerRect.top || rect.left > containerRect.right || rect.right < containerRect.left) {
                             document.getElementById('cargo-buffer').appendChild(target);
                             target.removeAttribute('data-x'); target.removeAttribute('data-y');
@@ -799,6 +811,7 @@
                             if (localX < 0) localX = 0; if (localX > maxW) localX = maxW;
                             if (localY < 0) localY = 0; if (localY > maxH) localY = maxH;
                             
+                            // 碰撞擠開運算
                             const otherItems = document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)');
                             for (let other of otherItems) {
                                 if (other === target) continue;
@@ -818,11 +831,21 @@
                                 }
                             }
                             
-                            document.getElementById('cargo-layer').appendChild(target);
-                            target.style.transform = `translate(${localX}px, ${localY}px)`;
-                            target.setAttribute('data-x', localX); target.setAttribute('data-y', localY);
-                            target.setAttribute('data-m-x', Math.round((localX / cellSize) * 10) / 10);
-                            target.setAttribute('data-m-y', Math.round((localY / cellSize) * 10) / 10);
+                            // 檢查防禦：如果經過擠開計算後，座標被迫跑到平面圖外（代表完全塞不下了）
+                            if (localX < 0 || localX > maxW || localY < 0 || localY > maxH) {
+                                // 塞不進去，強制退回待放置區
+                                document.getElementById('cargo-buffer').appendChild(target);
+                                target.removeAttribute('data-x'); target.removeAttribute('data-y');
+                                target.removeAttribute('data-m-x'); target.removeAttribute('data-m-y');
+                                target.style.transform = 'none';
+                            } else {
+                                // 順利放入
+                                document.getElementById('cargo-layer').appendChild(target);
+                                target.style.transform = `translate(${localX}px, ${localY}px)`;
+                                target.setAttribute('data-x', localX); target.setAttribute('data-y', localY);
+                                target.setAttribute('data-m-x', Math.round((localX / cellSize) * 10) / 10);
+                                target.setAttribute('data-m-y', Math.round((localY / cellSize) * 10) / 10);
+                            }
                         }
                         autoSaveToCloud();
                     }
