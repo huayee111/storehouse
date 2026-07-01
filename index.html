@@ -2,8 +2,8 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>公司內部倉儲網格系統 - 直覺分頁優化版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>公司內部倉儲網格系統 - iOS防禦優化版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -11,6 +11,8 @@
             --grid-rows: 30;
             --cell-size: 20px;
         }
+        
+        /* 全域 iOS 系統手勢與文字防禦 */
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; 
             margin: 15px; 
@@ -18,8 +20,15 @@
             display: flex; 
             flex-direction: column; 
             gap: 15px; 
-            user-select: none;
             align-items: flex-start;
+            
+            /* 【iOS 強效防護】：徹底防止 iPhone 長按圈選文字或彈出複製選單 */
+            -webkit-touch-callout: none; 
+            -webkit-user-select: none;   
+            -khtml-user-select: none;     
+            -moz-user-select: none;      
+            -ms-user-select: none;         
+            user-select: none;             
         }
 
         #main-area { 
@@ -30,9 +39,8 @@
             max-width: 900px; 
         }
         
-        /* 標題色彩優化 */
         .wh-title-highlight {
-            color: #1a365d; /* 質感寶石藍 */
+            color: #1a365d; 
             background-color: #e2e8f0;
             padding: 2px 8px;
             border-radius: 6px;
@@ -40,7 +48,6 @@
             display: inline-block;
         }
 
-        /* 倉庫快捷分頁切換區 */
         .wh-tabs-container {
             display: flex;
             gap: 8px;
@@ -53,17 +60,16 @@
             background-color: #e2e8f0;
             color: #4a5568;
             border: 1px solid #cbd5e0;
-            border-radius: 20px; /* 圓角膠囊感，極度好點 */
+            border-radius: 20px; 
             font-weight: bold;
             font-size: 14px;
             cursor: pointer;
             transition: all 0.2s ease;
+            -webkit-tap-highlight-color: transparent; /* 防止 iOS 點擊反灰 */
         }
-        .wh-tab-btn:hover {
-            background-color: #cbd5e0;
-        }
+        .wh-tab-btn:hover { background-color: #cbd5e0; }
         .wh-tab-btn.active {
-            background-color: #2b6cb0; /* 亮眼湛藍 */
+            background-color: #2b6cb0; 
             color: white;
             border-color: #2b6cb0;
             box-shadow: 0 4px 6px rgba(43, 108, 176, 0.2);
@@ -84,6 +90,7 @@
             height: fit-content;
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            margin-bottom: 5px;
         }
         
         #warehouse-grid {
@@ -154,6 +161,7 @@
             justify-content: center;
             box-shadow: 0 2px 5px rgba(0,0,0,0.05);
             transition: all 0.15s;
+            -webkit-tap-highlight-color: transparent;
         }
         .layer-tab-btn.active {
             background: #805ad5;
@@ -177,6 +185,7 @@
         .collapsible-header {
             background-color: #edf2f7; padding: 14px 20px; font-size: 15px; font-weight: bold; color: #2d3748; cursor: pointer;
             display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
         .collapsible-header::after { content: '▼'; font-size: 12px; transition: transform 0.2s; }
         .collapsible-header.active::after { content: '▲'; }
@@ -195,7 +204,7 @@
         
         .action-btn { 
             background-color: #007bff; color: white; border: none; cursor: pointer; font-weight: bold;
-            display: flex; align-items: center; justify-content: center;
+            display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent;
         }
         .action-btn:active { opacity: 0.8; }
         .switch-container { display: flex; align-items: center; justify-content: space-between; height: 46px; }
@@ -205,8 +214,10 @@
         .color-combo-dot { 
             width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 2px solid #cbd5e0; 
             display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
+        /* 貨物物件防護樣式 */
         .cargo-item {
             position: absolute;
             box-sizing: border-box;
@@ -217,12 +228,17 @@
             justify-content: center;
             border-radius: 6px;
             cursor: move;
-            touch-action: none;
+            touch-action: none; /* 阻斷手機預設手勢 */
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            user-select: none;
             pointer-events: auto; 
             padding: 4px;
             overflow: hidden;
+            
+            /* 【iOS 局部精準阻斷選取】 */
+            -webkit-touch-callout: none !important;
+            -webkit-user-select: none !important;
+            user-select: none !important;
+            -webkit-tap-highlight-color: transparent !important;
         }
         
         .cargo-title {
@@ -235,6 +251,7 @@
             -webkit-box-orient: vertical;
             overflow: hidden;
             text-align: center;
+            pointer-events: none; /* 讓文字不吃任何滑鼠與長按事件，防反藍 */
         }
         .cargo-qty { 
             font-size: calc(var(--cell-size) * 0.26); 
@@ -245,6 +262,7 @@
             padding: 2px 5px; 
             border-radius: 4px; 
             white-space: nowrap;
+            pointer-events: none;
         }
         .cargo-item.is-dragging { opacity: 0.6; z-index: 100; box-shadow: 0 8px 15px rgba(0,0,0,0.2); }
         
@@ -257,7 +275,6 @@
             z-index: 2 !important;
             box-shadow: none !important;
         }
-        .cargo-item.underlay-ghost .cargo-qty { display: none !important; }
 
         .cargo-item.is-locked {
             opacity: 0.55;
@@ -281,8 +298,9 @@
         #context-menu {
             display: none; position: absolute; background: white; border: 1px solid #cbd5e0;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; border-radius: 8px; overflow: hidden;
+            -webkit-touch-callout: none; user-select: none;
         }
-        #context-menu div { padding: 14px 24px; cursor: pointer; font-size: 15px; font-weight: bold; }
+        #context-menu div { padding: 14px 24px; cursor: pointer; font-size: 15px; font-weight: bold; -webkit-tap-highlight-color: transparent;}
         #context-menu div:hover { background: #edf2f7; }
         #context-menu .lock-opt { color: #805ad5; font-weight: bold; }
         #context-menu .enter-opt { color: #28a745; font-weight: bold; border-top: 1px solid #edf2f7; }
@@ -337,7 +355,7 @@
                     <button class="action-btn" onclick="syncFromCloud()" style="background-color: #4a5568; margin-top: 10px;">🔄 手動刷新雲端資料</button>
                 </div>
                 <div>
-                    <label>當前操作倉庫設定（亦可從上方分頁一切換）</label>
+                    <label>當前操作倉庫設定</label>
                     <select id="warehouse-select" onchange="switchWarehouseSelect(this.value)" style="margin-bottom: 12px;"></select>
                     
                     <label>新增/修改倉庫名稱</label>
@@ -401,7 +419,7 @@
         let globalCargoCache = [];
         let warehouses = { 'wh1': { name: '倉庫一', width: 30, height: 30 } };
         let currentWhId = 'wh1';
-        let currentZLevel = 1; // 1代表第1層，2代表第2層，3代表第3層
+        let currentZLevel = 1; 
         
         let colorHistory = [
             {bg: '#ffc107', text: '#000000'},
@@ -417,7 +435,7 @@
 
         window.onload = function() {
             document.documentElement.style.setProperty('--cell-size', '20px');
-            switchZLayer(1); // 預設初始化在第1層
+            switchZLayer(1); 
             renderColorHistory();
             initInteractEngine();
             syncFromCloud(); 
@@ -425,34 +443,43 @@
             document.addEventListener('click', () => {
                 document.getElementById('context-menu').style.display = 'none';
             });
+            
+            // 【iOS特規】：防止整個網頁雙擊時畫面放大縮小放大干擾
+            document.addEventListener('touchstart', function (event) {
+                if (event.touches.length > 1) {
+                    event.preventDefault();
+                }
+            }, { passive: false });
         };
 
-        // 完美校正樓層對應邏輯
+        function toggleAccordion(header) {
+            header.classList.toggle("active");
+            const content = header.nextElementSibling;
+            if (content.style.maxHeight) {
+                content.style.maxHeight = null;
+            } else {
+                content.style.maxHeight = content.scrollHeight + "px";
+            }
+        }
+
         function switchZLayer(layerNum) {
             currentZLevel = parseInt(layerNum);
-            
             document.querySelectorAll('.layer-tab-btn').forEach((btn) => {
                 btn.classList.remove('active');
             });
-            // 點第1層就亮 id="btn-z1" 的按鈕，以此類推
             const activeBtn = document.getElementById(`btn-z${currentZLevel}`);
             if (activeBtn) activeBtn.classList.add('active');
-            
             renderCurrentWarehouseCargoes();
         }
 
-        // 重新繪製平面圖下方分頁標籤鈕（Tabs）
         function refreshWarehouseTabs() {
             const tabsBar = document.getElementById('warehouse-tabs-bar');
             tabsBar.innerHTML = '';
-
             for (let id in warehouses) {
                 const btn = document.createElement('button');
                 btn.className = `wh-tab-btn ${id === currentWhId ? 'active' : ''}`;
                 btn.textContent = warehouses[id].name;
-                btn.onclick = () => {
-                    switchWarehouseSelect(id);
-                };
+                btn.onclick = () => { switchWarehouseSelect(id); };
                 tabsBar.appendChild(btn);
             }
         }
@@ -475,7 +502,6 @@
             
             document.documentElement.style.setProperty('--grid-cols', wh.width);
             document.documentElement.style.setProperty('--grid-rows', wh.height);
-            
             grid.style.width = (wh.width * cellSize) + 'px';
             grid.style.height = (wh.height * cellSize) + 'px';
 
@@ -528,9 +554,7 @@
                     currentWhId = Object.keys(warehouses)[0];
                 }
                 
-                // 更新下拉選單及大標題名稱
                 switchWarehouseSelect(currentWhId, false);
-                
                 globalCargoCache = data && Array.isArray(data.cargoItems) ? data.cargoItems : [];
                 renderCurrentWarehouseCargoes();
                 
@@ -545,20 +569,15 @@
             });
         }
 
-        // 抽離出來的專用切換調度函式
         function switchWarehouseSelect(whId, triggerRender = true) {
             currentWhId = whId;
             const wh = warehouses[currentWhId];
             if(wh) {
-                // 1. 即時變更最上方寶石藍的大標題名字
                 document.getElementById('title-wh-name').textContent = wh.name;
-                
-                // 2. 更新系統設定區內部的輸入框
                 document.getElementById('wh-name').value = wh.name;
                 document.getElementById('wh-w').value = wh.width;
                 document.getElementById('wh-h').value = wh.height;
                 
-                // 3. 重繪同步進階設定區的下拉選單
                 const select = document.getElementById('warehouse-select');
                 select.innerHTML = '';
                 for (let id in warehouses) {
@@ -568,11 +587,7 @@
                     select.appendChild(opt);
                 }
                 select.value = currentWhId;
-                
-                // 4. 更新平面圖下方的分頁選取狀態
                 refreshWarehouseTabs();
-                
-                // 5. 刷新畫布
                 if (triggerRender) {
                     renderCurrentWarehouseCargoes();
                 }
@@ -622,6 +637,7 @@
             initInteractEngine();
         }
 
+        // 【強效防震儲存】：抽取最即時 DOM 狀態快照，完美過濾重複快取
         function autoSaveToCloud() {
             document.getElementById('sync-status').textContent = "⏳ 正在自動儲存至雲端...";
             document.getElementById('sync-status').style.color = "#6c757d";
@@ -636,6 +652,7 @@
                 return true;
             });
             
+            // 地圖上的當前物件
             document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)').forEach(item => {
                 cargoItemsToUpload.push({
                     id: item.getAttribute('data-id'),
@@ -653,6 +670,7 @@
                 });
             });
 
+            // 待放置區的物件
             document.querySelectorAll('#cargo-buffer .cargo-item').forEach(item => {
                 cargoItemsToUpload.push({
                     id: item.getAttribute('data-id'),
@@ -696,7 +714,6 @@
             const h = parseInt(document.getElementById('wh-h').value);
             const id = 'wh_' + Date.now();
             warehouses[id] = { name: name, width: w, height: h };
-            
             switchWarehouseSelect(id, true);
             autoSaveToCloud();
         }
@@ -744,7 +761,7 @@
             const bgColor = document.getElementById('cargo-color').value;
             const textColor = document.getElementById('text-color').value;
 
-            const itemData = { id: 'item_' + Date.now(), name: name, qty: qty, w_m: w, h_m: h, bg: bgColor, text: textColor, warehouseId: `buffer_${currentWhId}_z${currentZLevel}`, z_level: currentZLevel, isLocked: false };
+            const itemData = { id: 'item_' + Date.now(), name: name, qty: qty, w_m: w, h_m: h, bg: bgColor, text: textColor, warehouseId: 'buffer_' + currentWhId, isLocked: false };
             const cargo = reCreateCargoNode(itemData);
             document.getElementById('cargo-buffer').appendChild(cargo);
             globalCargoCache.push(itemData);
@@ -902,10 +919,11 @@
             } 
         }
 
+        // 終極流暢防禦引擎：強制加入防異常複製機制
         function initInteractEngine() {
             if (interactInstance) interactInstance.unset();
 
-            interactInstance = interact('.cargo-item:not([data-locked="true"]):not(.underlay-ghost)').draggable({
+            interactInstance = interact('.cargo-item:not([data-locked="true"])').draggable({
                 inertia: false,
                 autoScroll: true,
                 listeners: {
@@ -945,6 +963,15 @@
                         const rect = target.getBoundingClientRect();
                         const containerRect = document.getElementById('warehouse-container').getBoundingClientRect();
                         
+                        // 清除畫面上可能因 iPhone 長按手勢殘留的任何同 ID 幽靈重複物件
+                        const thisId = target.getAttribute('data-id');
+                        const duplicates = document.querySelectorAll(`[data-id="${thisId}"]`);
+                        if (duplicates.length > 1) {
+                            for (let i = 1; i < duplicates.length; i++) {
+                                duplicates[i].remove();
+                            }
+                        }
+
                         if (rect.top > containerRect.bottom || rect.bottom < containerRect.top || rect.left > containerRect.right || rect.right < containerRect.left) {
                             document.getElementById('cargo-buffer').appendChild(target);
                             target.removeAttribute('data-x');
