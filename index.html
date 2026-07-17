@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>公司內部倉儲網格系統 - 精準控制版</title>
+    <title>公司內部倉儲網格系統 - 全自由像素對流版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -158,9 +158,6 @@
         .switch-container { display: flex; align-items: center; justify-content: space-between; height: 46px; }
         .switch-container input { width: 22px; height: 22px; margin: 0; }
 
-        .color-history { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; margin-top: 5px; }
-        .color-combo-dot { width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 2px solid #cbd5e0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; user-select: none; -webkit-tap-highlight-color: transparent; }
-
         .cargo-item {
             position: absolute; box-sizing: border-box; border: 2px solid rgba(0,0,0,0.25);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -180,7 +177,6 @@
         
         .cargo-item.underlay-ghost { opacity: 0.15 !important; border: 2px dashed #000000 !important; background-color: #e2e8f0 !important; color: #000000 !important; pointer-events: none !important; z-index: 2 !important; box-shadow: none !important; }
         
-        /* 1. 核心大優化：鎖定商品的視覺特效強化修復（極高權重覆蓋） */
         .cargo-item.is-locked { 
             opacity: 0.55 !important; 
             border: 2px dashed #000000 !important; 
@@ -295,7 +291,6 @@
             <h3>📦 生成新貨物 (棧板設定)</h3>
             <div class="mobile-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
                 <div>
-                    <!-- 3. 核心優化：將預設名稱"棧板A"洗掉，改為預設完全空白 -->
                     <label>貨物商品名稱 <span style="color:red;">* (必填)</span></label>
                     <input type="text" id="cargo-name" value="" placeholder="請輸入商品或儲位編號...">
                     <label>初始存貨數量</label>
@@ -463,7 +458,6 @@
             }
         }
 
-        // 縮放比例尺時連動刷新
         function changeScale(val) {
             cellSize = parseInt(val);
             document.getElementById('scale-val').textContent = cellSize;
@@ -475,8 +469,6 @@
             isSnapEnabled = checked;
             initInteractEngine();
         }
-
-        document.getElementById('snap-toggle').checked = isSnapEnabled;
 
         function renderGrid() {
             const wh = warehouses[currentWhId] || { name: '倉庫一', width: 30, height: 30 };
@@ -891,7 +883,6 @@
         }
 
         function triggerCreateCargo() {
-            // 3. 核心優化：必填攔截驗證邏輯
             const nameInput = document.getElementById('cargo-name').value.trim();
             if (nameInput === "") {
                 alert("⚠️ 錯誤：貨物商品名稱不能為空，請輸入文字後再行生成！");
@@ -910,8 +901,6 @@
             }
             createNewCargo();
             autoSaveToCloud();
-            
-            // 生成成功後自動清空輸入框，方便下一次全新輸入
             document.getElementById('cargo-name').value = "";
         }
 
@@ -1200,18 +1189,17 @@
             } 
         }
 
-        // 2. 核心大優化：完美整合吸附開關的智慧防撞搜尋器
+        // 核心修正：優化防撞搜尋器，完全阻斷關閉吸附時的磁吸感
         function findNextValidVacantSlot(target, localX, localY) {
             const wh = warehouses[currentWhId];
             const w_m = parseFloat(target.getAttribute('data-w-m'));
             const h_m = parseFloat(target.getAttribute('data-h-m'));
             
-            // 如果取消吸附對齊，那就在不產生重疊碰撞的前提下，允許返回像素坐標點
+            // 2. 核心大優化：當自動吸附功能關閉後，完全採用 1:1 的自由像素定位
             if (!isSnapEnabled) {
                 let testX_m = localX / cellSize;
                 let testY_m = localY / cellSize;
                 
-                // 檢查是否超出右下邊界範圍
                 if (testX_m < 0 || testX_m + w_m > wh.width || testY_m < 0 || testY_m + h_m > wh.height) {
                     return null; 
                 }
@@ -1225,16 +1213,17 @@
                     const oWM = parseFloat(other.getAttribute('data-w-m'));
                     const oHM = parseFloat(other.getAttribute('data-h-m'));
                     
+                    // AABB 重疊排他防護
                     if (testX_m < oMX + oWM && testX_m + w_m > oMX && testY_m < oMY + oHM && testY_m + h_m > oMY) {
                         collision = true;
                         break;
                     }
                 }
-                // 若沒撞，直接以不對齊的原本像素點降落
                 if (!collision) return { x: localX, y: localY };
+                else return null; // 自由移動時若發生重疊碰撞，不進行任何磁吸修正，直接判定需要彈回待放區
             }
 
-            // 【吸附模式開啟】或【無吸附但落點產生碰撞時】引導至最佳磁吸空格
+            // 【吸附模式開啟】引導至最近網格磁吸
             let startX = Math.round(localX / cellSize);
             let startY = Math.round(localY / cellSize);
             const maxRadius = Math.max(wh.width, wh.height);
@@ -1272,6 +1261,7 @@
             return null; 
         }
 
+        // 1. 核心大優化：完美相容手動微調與磁吸拖曳的 1:1 跟隨引擎
         function initInteractEngine() {
             if (interactInstance) interactInstance.unset();
             
@@ -1287,8 +1277,15 @@
                         document.getElementById('cargo-tooltip').style.display = 'none';
 
                         const clientRect = target.getBoundingClientRect();
-                        dragPointerOffset.x = event.clientX - clientRect.left;
-                        dragPointerOffset.y = event.clientY - clientRect.top;
+                        
+                        // 吸附開啟：游標對齊左上角；吸附關閉：精準記錄滑鼠點擊方塊內的相對偏置
+                        if (isSnapEnabled) {
+                            dragPointerOffset.x = event.clientX - clientRect.left;
+                            dragPointerOffset.y = event.clientY - clientRect.top;
+                        } else {
+                            dragPointerOffset.x = event.clientX - clientRect.left;
+                            dragPointerOffset.y = event.clientY - clientRect.top;
+                        }
 
                         const w_m = parseFloat(target.getAttribute('data-w-m'));
                         const h_m = parseFloat(target.getAttribute('data-h-m'));
@@ -1311,6 +1308,7 @@
                         let x = event.clientX - dragPointerOffset.x + window.scrollX;
                         let y = event.clientY - dragPointerOffset.y + window.scrollY;
 
+                        // 徹底打碎磁吸拉扯感，拖曳中完全跟隨滑鼠
                         target.style.transform = `translate(${x}px, ${y}px)`;
                         target.setAttribute('data-x', x); 
                         target.setAttribute('data-y', y);
@@ -1355,7 +1353,7 @@
                                 target.setAttribute('data-x', optimalPos.x); 
                                 target.setAttribute('data-y', optimalPos.y);
                                 
-                                // 2. 精準保留米數資料（包含吸附對齊或自由模式的精細坐標）
+                                // 高精細度保存米數，允許自由擺放時的小數點坐標
                                 target.setAttribute('data-m-x', Math.round((optimalPos.x / cellSize) * 10) / 10);
                                 target.setAttribute('data-m-y', Math.round((optimalPos.y / cellSize) * 10) / 10);
                             } else {
@@ -1363,7 +1361,7 @@
                                 target.removeAttribute('data-x'); target.removeAttribute('data-y');
                                 target.removeAttribute('data-m-x'); target.removeAttribute('data-m-y');
                                 target.style.transform = 'none';
-                                alert("該區域無剩餘空間（或產生碰撞卡死），物件已自動彈回待放區。");
+                                alert("該位置已有其他貨物重疊，物件已自動彈回待放區。");
                             }
                         } else {
                             document.getElementById('cargo-buffer').appendChild(target);
