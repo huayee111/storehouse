@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>公司內部倉儲網格系統 - 視覺直覺版</title>
+    <title>公司內部倉儲網格系統 - 精準控制版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -89,7 +89,6 @@
             padding: 12px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; width: 100%; box-sizing: border-box; position: relative;
         }
 
-        /* 3. 分離後的快速操作面板樣式 */
         .quick-view-controls {
             background-color: #fff;
             border: 1px solid #e2e8f0;
@@ -169,6 +168,7 @@
             padding: 4px; overflow: hidden; pointer-events: auto !important; z-index: 10;
             transform-origin: center center;
             -webkit-touch-callout: none !important; -webkit-user-select: none !important; user-select: none !important; -webkit-tap-highlight-color: transparent !important;
+            transition: opacity 0.2s, border-style 0.2s;
         }
         
         .cargo-title {
@@ -180,12 +180,18 @@
         
         .cargo-item.underlay-ghost { opacity: 0.15 !important; border: 2px dashed #000000 !important; background-color: #e2e8f0 !important; color: #000000 !important; pointer-events: none !important; z-index: 2 !important; box-shadow: none !important; }
         
-        /* 2. 視覺提示：鎖定圖示與備註💡圖示共存排版 */
-        .cargo-item.is-locked::before { content: '🔒'; position: absolute; top: 1px; right: 2px; font-size: calc(var(--cell-size) * 0.25); }
-        .cargo-item.has-memo::before { content: '💡'; position: absolute; top: 1px; right: 2px; font-size: calc(var(--cell-size) * 0.28); }
-        .cargo-item.is-locked.has-memo::before { content: '🔒💡'; position: absolute; top: 1px; right: 2px; font-size: calc(var(--cell-size) * 0.25); letter-spacing: -2px; }
+        /* 1. 核心大優化：鎖定商品的視覺特效強化修復（極高權重覆蓋） */
+        .cargo-item.is-locked { 
+            opacity: 0.55 !important; 
+            border: 2px dashed #000000 !important; 
+            box-shadow: none !important;
+            cursor: not-allowed !important;
+        }
+        .cargo-item.is-locked::before { content: '🔒'; position: absolute; top: 1px; right: 2px; font-size: calc(var(--cell-size) * 0.25); z-index: 15; }
+        .cargo-item.has-memo::before { content: '💡'; position: absolute; top: 1px; right: 2px; font-size: calc(var(--cell-size) * 0.28); z-index: 15; }
+        .cargo-item.is-locked.has-memo::before { content: '🔒💡'; position: absolute; top: 1px; right: 2px; font-size: calc(var(--cell-size) * 0.25); letter-spacing: -2px; z-index: 15; }
         
-        .cargo-item.is-starred::after { content: '⭐'; position: absolute; top: 1px; left: 2px; font-size: calc(var(--cell-size) * 0.28); }
+        .cargo-item.is-starred::after { content: '⭐'; position: absolute; top: 1px; left: 2px; font-size: calc(var(--cell-size) * 0.28); z-index: 15; }
 
         #cargo-buffer .cargo-item { position: relative !important; transform: none !important; display: inline-flex !important; margin: 0 !important; top: auto !important; left: auto !important; }
 
@@ -197,7 +203,7 @@
         #context-menu div:hover { background: #edf2f7; }
         #context-menu .rotate-opt { color: #d69e2e; font-weight: bold; }
         #context-menu .star-opt { color: #e67e22; font-weight: bold; } 
-        #context-menu .copy-opt { color: #00a8ff; font-weight: bold; } /* 4. 複製選項樣式 */
+        #context-menu .copy-opt { color: #00a8ff; font-weight: bold; } 
         #context-menu .lock-opt { color: #805ad5; font-weight: bold; }
         #context-menu .enter-opt { color: #28a745; font-weight: bold; border-top: 1px solid #edf2f7; }
         #context-menu .return-opt { color: #007bff; font-weight: bold; border-top: 1px solid #edf2f7; }
@@ -244,7 +250,6 @@
         <h3>貨物待放置區 (跨樓層全面共用)</h3>
         <div id="cargo-buffer"></div>
 
-        <!-- 3. 外放的快速操作比例尺與吸附面板 -->
         <div class="quick-view-controls">
             <div class="quick-control-item" style="flex: 2;">
                 <label>🔍 畫布比例尺 (格寬: <span id="scale-val">20</span>px)</label>
@@ -290,8 +295,9 @@
             <h3>📦 生成新貨物 (棧板設定)</h3>
             <div class="mobile-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
                 <div>
-                    <label>貨物商品名稱</label>
-                    <input type="text" id="cargo-name" value="棧板A">
+                    <!-- 3. 核心優化：將預設名稱"棧板A"洗掉，改為預設完全空白 -->
+                    <label>貨物商品名稱 <span style="color:red;">* (必填)</span></label>
+                    <input type="text" id="cargo-name" value="" placeholder="請輸入商品或儲位編號...">
                     <label>初始存貨數量</label>
                     <input type="number" id="cargo-qty" value="0"> </div>
                 <div>
@@ -326,7 +332,7 @@
         <div onclick="openEditModal('size')">📏 修改尺寸</div>
         <div onclick="openEditModal('memo')">📝 編輯備註</div>
         <div id="menu-star-btn" class="star-opt" onclick="toggleCargoStar()">⭐ 標記星號</div>
-        <div id="menu-copy-btn" class="copy-opt" onclick="copySelectedCargo()">📋 複製此貨物</div> <!-- 4. 右鍵選單補上複製功能 -->
+        <div id="menu-copy-btn" class="copy-opt" onclick="copySelectedCargo()">📋 複製此貨物</div> 
         <div id="menu-rotate-btn" class="rotate-opt" onclick="rotateCargo90()">🔄 旋轉 90 度</div>
         <div id="menu-lock-btn" class="lock-opt" onclick="toggleCargoLock()">🔒 鎖定物件</div>
         <div id="menu-enter-btn" class="enter-opt" onclick="enterWarehouseDirect()">📥 放進倉庫</div>
@@ -371,7 +377,7 @@
         let rightClickedElement = null;
 
         let dragPointerOffset = { x: 0, y: 0 };
-        let lastTapTime = 0; // 雙擊手機相容偵測機制
+        let lastTapTime = 0; 
 
         window.onload = function() {
             document.documentElement.style.setProperty('--cell-size', '20px');
@@ -457,6 +463,7 @@
             }
         }
 
+        // 縮放比例尺時連動刷新
         function changeScale(val) {
             cellSize = parseInt(val);
             document.getElementById('scale-val').textContent = cellSize;
@@ -468,6 +475,8 @@
             isSnapEnabled = checked;
             initInteractEngine();
         }
+
+        document.getElementById('snap-toggle').checked = isSnapEnabled;
 
         function renderGrid() {
             const wh = warehouses[currentWhId] || { name: '倉庫一', width: 30, height: 30 };
@@ -585,7 +594,6 @@
                         cargo.setAttribute('data-locked', 'false');
                     }
                     
-                    // 2. 備註燈泡💡視覺樣式動態掛載
                     if (itemData.memo && itemData.memo.trim() !== "") {
                         cargo.classList.add('has-memo');
                     } else {
@@ -810,7 +818,6 @@
             }
         }
 
-        // 4. 新增功能：右鍵點選直接複製物件並拋至待放區
         function copySelectedCargo() {
             if (rightClickedElement) {
                 const sourceId = rightClickedElement.getAttribute('data-id');
@@ -818,10 +825,10 @@
                 if (match) {
                     const clonedItem = {
                         ...match,
-                        id: 'item_' + Date.now(), // 給予全新唯一辨識碼
-                        warehouseId: `buffer_${currentWhId}`, // 必定拋入共用待放區
+                        id: 'item_' + Date.now(), 
+                        warehouseId: `buffer_${currentWhId}`, 
                         m_x: "0", m_y: "0",
-                        isLocked: false // 複製出來預設解鎖
+                        isLocked: false 
                     };
                     globalCargoCache.push(clonedItem);
                     renderCurrentWarehouseCargoes();
@@ -884,6 +891,14 @@
         }
 
         function triggerCreateCargo() {
+            // 3. 核心優化：必填攔截驗證邏輯
+            const nameInput = document.getElementById('cargo-name').value.trim();
+            if (nameInput === "") {
+                alert("⚠️ 錯誤：貨物商品名稱不能為空，請輸入文字後再行生成！");
+                document.getElementById('cargo-name').focus();
+                return;
+            }
+
             const bg = document.getElementById('cargo-color').value;
             const text = document.getElementById('text-color').value;
             const exists = colorHistory.some(c => c.bg === bg && c.text === text);
@@ -895,6 +910,9 @@
             }
             createNewCargo();
             autoSaveToCloud();
+            
+            // 生成成功後自動清空輸入框，方便下一次全新輸入
+            document.getElementById('cargo-name').value = "";
         }
 
         function renderColorHistory() {
@@ -909,7 +927,7 @@
         }
 
         function createNewCargo() {
-            const name = document.getElementById('cargo-name').value;
+            const name = document.getElementById('cargo-name').value.trim();
             const qty = parseInt(document.getElementById('cargo-qty').value) || 0;
             const w = parseFloat(document.getElementById('cargo-w').value);
             const h = parseFloat(document.getElementById('cargo-h').value);
@@ -1011,7 +1029,6 @@
                 rightClickedElement.setAttribute('data-memo', val);
                 if (matchInCache) matchInCache.memo = val;
                 
-                // 2. 儲存完畢後立刻動態更新💡視覺標記
                 if (val !== "") rightClickedElement.classList.add('has-memo');
                 else rightClickedElement.classList.remove('has-memo');
             }
@@ -1062,14 +1079,12 @@
                 document.getElementById('cargo-tooltip').style.display = 'none';
             });
 
-            // 1. 核心大優化：將 click 修改改為精準的 dblclick（雙擊）事件，釋放單擊給流暢拖曳
             cargo.addEventListener('dblclick', (e) => {
                 e.stopPropagation(); 
                 rightClickedElement = cargo; 
                 openEditModal('qty');
             });
 
-            // 手機版雙擊模擬輔助機制
             cargo.addEventListener('touchend', (e) => {
                 const currentTime = new Date().getTime();
                 const tapLength = currentTime - lastTapTime;
@@ -1125,9 +1140,15 @@
         function toggleCargoLock() {
             if (rightClickedElement) {
                 const isLocked = rightClickedElement.getAttribute('data-locked') === 'true';
-                rightClickedElement.setAttribute('data-locked', isLocked ? 'false' : 'true');
-                if (isLocked) rightClickedElement.classList.remove('is-locked');
-                else rightClickedElement.classList.add('is-locked');
+                const nextState = !isLocked;
+                rightClickedElement.setAttribute('data-locked', nextState ? 'true' : 'false');
+                if (nextState) rightClickedElement.classList.add('is-locked');
+                else rightClickedElement.classList.remove('is-locked');
+                
+                const targetId = rightClickedElement.getAttribute('data-id');
+                const matchInCache = globalCargoCache.find(c => c.id === targetId);
+                if (matchInCache) matchInCache.isLocked = nextState;
+
                 rightClickedElement = null;
                 initInteractEngine(); autoSaveToCloud();
             }
@@ -1179,15 +1200,45 @@
             } 
         }
 
+        // 2. 核心大優化：完美整合吸附開關的智慧防撞搜尋器
         function findNextValidVacantSlot(target, localX, localY) {
             const wh = warehouses[currentWhId];
             const w_m = parseFloat(target.getAttribute('data-w-m'));
             const h_m = parseFloat(target.getAttribute('data-h-m'));
             
+            // 如果取消吸附對齊，那就在不產生重疊碰撞的前提下，允許返回像素坐標點
+            if (!isSnapEnabled) {
+                let testX_m = localX / cellSize;
+                let testY_m = localY / cellSize;
+                
+                // 檢查是否超出右下邊界範圍
+                if (testX_m < 0 || testX_m + w_m > wh.width || testY_m < 0 || testY_m + h_m > wh.height) {
+                    return null; 
+                }
+
+                let collision = false;
+                const otherItems = document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)');
+                for (let other of otherItems) {
+                    if (other === target) continue;
+                    const oMX = parseFloat(other.getAttribute('data-m-x')) || 0;
+                    const oMY = parseFloat(other.getAttribute('data-m-y')) || 0;
+                    const oWM = parseFloat(other.getAttribute('data-w-m'));
+                    const oHM = parseFloat(other.getAttribute('data-h-m'));
+                    
+                    if (testX_m < oMX + oWM && testX_m + w_m > oMX && testY_m < oMY + oHM && testY_m + h_m > oMY) {
+                        collision = true;
+                        break;
+                    }
+                }
+                // 若沒撞，直接以不對齊的原本像素點降落
+                if (!collision) return { x: localX, y: localY };
+            }
+
+            // 【吸附模式開啟】或【無吸附但落點產生碰撞時】引導至最佳磁吸空格
             let startX = Math.round(localX / cellSize);
             let startY = Math.round(localY / cellSize);
-            
             const maxRadius = Math.max(wh.width, wh.height);
+
             for (let r = 0; r <= maxRadius; r++) {
                 for (let dx = -r; dx <= r; dx++) {
                     for (let dy = -r; dy <= r; dy++) {
@@ -1196,15 +1247,12 @@
                         let testX = startX + dx;
                         let testY = startY + dy;
                         
-                        if (testX < 0 || testX + w_m > wh.width || testY < 0 || testY + h_m > wh.height) {
-                            continue;
-                        }
+                        if (testX < 0 || testX + w_m > wh.width || testY < 0 || testY + h_m > wh.height) continue;
                         
                         let hasCollision = false;
                         const otherItems = document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)');
                         for (let other of otherItems) {
                             if (other === target) continue;
-                            
                             const oMX = parseFloat(other.getAttribute('data-m-x')) || 0;
                             const oMY = parseFloat(other.getAttribute('data-m-y')) || 0;
                             const oWM = parseFloat(other.getAttribute('data-w-m'));
@@ -1215,7 +1263,6 @@
                                 break;
                             }
                         }
-                        
                         if (!hasCollision) {
                             return { x: testX * cellSize, y: testY * cellSize };
                         }
@@ -1307,6 +1354,8 @@
                                 target.style.transform = `translate(${optimalPos.x}px, ${optimalPos.y}px)`;
                                 target.setAttribute('data-x', optimalPos.x); 
                                 target.setAttribute('data-y', optimalPos.y);
+                                
+                                // 2. 精準保留米數資料（包含吸附對齊或自由模式的精細坐標）
                                 target.setAttribute('data-m-x', Math.round((optimalPos.x / cellSize) * 10) / 10);
                                 target.setAttribute('data-m-y', Math.round((optimalPos.y / cellSize) * 10) / 10);
                             } else {
@@ -1314,7 +1363,7 @@
                                 target.removeAttribute('data-x'); target.removeAttribute('data-y');
                                 target.removeAttribute('data-m-x'); target.removeAttribute('data-m-y');
                                 target.style.transform = 'none';
-                                alert("釋放格位周圍已無足夠剩餘空間，物件已自動彈回待放區。");
+                                alert("該區域無剩餘空間（或產生碰撞卡死），物件已自動彈回待放區。");
                             }
                         } else {
                             document.getElementById('cargo-buffer').appendChild(target);
