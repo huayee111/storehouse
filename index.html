@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>公司內部倉儲網格系統 - 全端同步流暢版</title>
+    <title>公司內部倉儲網格系統 - 內建彈窗優化版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -138,7 +138,7 @@
             text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
         }
 
-        /* 【核心修補】：確保懸浮泡泡樣式能精準讀取 HTML 的 data-memo 屬性 */
+        /* 懸浮泡泡樣式 */
         .cargo-item[data-memo]:not([data-memo=""]):hover::after {
             content: "📝 備註: " attr(data-memo);
             position: absolute; bottom: 105%; left: 50%; transform: translateX(-50%);
@@ -165,6 +165,33 @@
         #context-menu .enter-opt { color: #28a745; font-weight: bold; border-top: 1px solid #edf2f7; }
         #context-menu .return-opt { color: #007bff; font-weight: bold; border-top: 1px solid #edf2f7; }
         #context-menu .delete-opt { color: #e53e3e; border-top: 1px solid #edf2f7; }
+
+        /* ==========================================================================
+           【全新自訂輸入小彈窗 (Custom Modal UI)】樣式設定
+           ========================================================================== */
+        .custom-modal-backdrop {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.4); z-index: 99999; align-items: center; justify-content: center;
+        }
+        .custom-modal-window {
+            background: white; padding: 22px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+            width: 90%; max-width: 360px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px;
+            animation: modalFadeIn 0.15s ease-out;
+        }
+        @keyframes modalFadeIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .custom-modal-title { font-size: 16px; font-weight: bold; color: #1a365d; margin: 0; }
+        .custom-modal-body label { font-size: 13px; font-weight: bold; color: #4a5568; display: block; margin-bottom: 4px; }
+        .custom-modal-input {
+            width: 100%; height: 42px; padding: 8px 12px; box-sizing: border-box;
+            border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; margin-bottom: 10px;
+        }
+        .custom-modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 5px; }
+        .modal-btn {
+            height: 42px; padding: 0 18px; border-radius: 6px; font-size: 14px; font-weight: bold;
+            cursor: pointer; display: inline-flex; align-items: center; justify-content: center; border: none;
+        }
+        .modal-btn-confirm { background-color: #28a745; color: white; }
+        .modal-btn-cancel { background-color: #edf2f7; color: #4a5568; border: 1px solid #cbd5e0; }
 
         @media (max-width: 600px) {
             .canvas-layout { flex-direction: column; }
@@ -279,13 +306,27 @@
         </div>
     </div>
 
-    <!-- 選單面板 -->
+    <!-- 網頁互動式小彈窗結構 -->
+    <div class="custom-modal-backdrop" id="custom-edit-modal">
+        <div class="custom-modal-window">
+            <h4 class="custom-modal-title" id="modal-panel-title">✏️ 編輯貨物資訊</h4>
+            <div class="custom-modal-body" id="modal-inputs-area">
+                <!-- 動態注入輸入框 -->
+            </div>
+            <div class="custom-modal-footer">
+                <button class="modal-btn modal-btn-cancel" onclick="closeCustomModal()">❌ 取消</button>
+                <button class="modal-btn modal-btn-confirm" onclick="submitCustomModal()">✔️ 儲存修改</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右鍵選單 -->
     <div id="context-menu">
-        <div onclick="editSelectedName()">✏️ 變更名稱</div>
-        <div onclick="editSelectedQty()">🔢 修改數量</div>
-        <div class="size-opt" onclick="editSelectedSize()">📏 變更尺寸</div> 
+        <div onclick="openEditNameModal()">✏️ 變更名稱</div>
+        <div onclick="openEditQtyModal()">🔢 修改數量</div>
+        <div class="size-opt" onclick="openEditSizeModal()">📏 變更尺寸</div> 
         <div class="copy-opt" onclick="copyCargoToBuffer()">📋 複製到待放區</div> 
-        <div class="memo-opt" onclick="editSelectedMemo()">💬 編輯備註</div> 
+        <div class="memo-opt" onclick="openEditMemoModal()">💬 編輯備註</div> 
         <div class="star-opt" onclick="toggleCargoStar()">⭐ 標記星號</div> 
         <div id="menu-rotate-btn" class="rotate-opt" onclick="rotateCargo90()">🔄 旋轉 90 度</div>
         <div id="menu-lock-btn" class="lock-opt" onclick="toggleCargoLock()">🔒 鎖定物件</div>
@@ -303,6 +344,7 @@
         let currentZLevel = 1; 
         let autoSyncTimer = null;
         let isDraggingActive = false;
+        let modalActiveType = ""; // 用於追蹤當前彈窗編輯的類型
 
         let colorHistory = JSON.parse(localStorage.getItem('wh_color_memory')) || [
             {bg: '#ffc107', text: '#000000'},
@@ -506,6 +548,7 @@
                 if (itemData.warehouseId === currentWhId) {
                     validIds.add(itemData.id);
                     let cargo = document.querySelector(`#cargo-layer [data-id="${itemData.id}"]`);
+                    
                     if (!cargo) cargo = reCreateCargoNode(itemData);
                     else updateCargoNodeData(cargo, itemData);
 
@@ -539,10 +582,8 @@
                     
                     cargo.className = 'cargo-item';
                     cargo.removeAttribute('data-locked');
-                    
                     cargo.style.transform = 'none';
-                    cargo.removeAttribute('data-x'); 
-                    cargo.removeAttribute('data-y');
+                    cargo.removeAttribute('data-x'); cargo.removeAttribute('data-y');
 
                     if (cargo.parentElement !== buffer) buffer.appendChild(cargo);
                 }
@@ -557,15 +598,12 @@
             initInteractEngine();
         }
 
-        // 【核心修正點】：在修改備註及更新時，同步使用 setAttribute 強行塞入 data-memo，修復 CSS Tooltip
         function updateCargoNodeData(cargo, itemData) {
             cargo.setAttribute('data-w-m', itemData.w_m || 2);
             cargo.setAttribute('data-h-m', itemData.h_m || 2);
             const qtyInt = parseInt(itemData.qty) || 0;
             cargo.setAttribute('data-qty', qtyInt);
             cargo.setAttribute('data-name', itemData.name || '未命名');
-            
-            // 【修復】：強效填寫 DOM 節點備註欄位，讓 CSS 能被觸發顯示
             cargo.setAttribute('data-memo', itemData.memo || ''); 
             
             const hasStar = itemData.isStarred === true || itemData.isStar === "true" || itemData.isStarred === "true";
@@ -595,7 +633,6 @@
             } else { if (qtySpan) qtySpan.remove(); }
         }
 
-        // 【重要優化】：全面清除快取與實體不一致漏洞，杜絕進倉時樓層錯位
         function autoSaveToCloud() {
             document.getElementById('sync-status').textContent = "⏳ 正在自動儲存至雲端...";
             document.getElementById('sync-status').style.color = "#6c757d";
@@ -605,7 +642,6 @@
             });
             
             document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)').forEach(item => {
-                // 【核心修補】：如果沒有明確的紀錄（例如剛從待放區拉進來），強制指派目前操作中的正統樓層！
                 const cacheHit = globalCargoCache.find(c => c.id === item.getAttribute('data-id'));
                 const originalZ = cacheHit && cacheHit.warehouseId === currentWhId ? parseInt(cacheHit.z_level || currentZLevel) : currentZLevel;
 
@@ -695,21 +731,128 @@
             }
         }
 
-        function editSelectedSize() {
+        /* ==========================================================================
+           【全新優化】：完全取代傳統 prompt 泡泡的自訂小方框內建彈窗邏輯
+           ========================================================================== */
+        function openCustomModal(title, fieldsHtml) {
+            document.getElementById('modal-panel-title').textContent = title;
+            document.getElementById('modal-inputs-area').innerHTML = fieldsHtml;
+            document.getElementById('custom-edit-modal').style.display = 'flex';
+        }
+
+        function closeCustomModal() {
+            document.getElementById('custom-edit-modal').style.display = 'none';
+            rightClickedElement = null;
+            modalActiveType = "";
+        }
+
+        // 1. 點擊變更名稱
+        function openEditNameModal() {
+            if (rightClickedElement) {
+                modalActiveType = "name";
+                const currentName = rightClickedElement.getAttribute('data-name');
+                const html = `
+                    <label>新商品名稱</label>
+                    <input type="text" id="modal-field-name" class="custom-modal-input" value="${currentName}">
+                `;
+                openCustomModal("✏️ 變更商品名稱", html);
+                document.getElementById('modal-field-name').focus();
+            }
+        }
+
+        // 2. 點擊修改數量
+        function openEditQtyModal() {
+            if (rightClickedElement) {
+                modalActiveType = "qty";
+                const currentQty = rightClickedElement.getAttribute('data-qty');
+                const html = `
+                    <label>新貨物數量 (輸入 0 隱藏標籤)</label>
+                    <input type="number" id="modal-field-qty" class="custom-modal-input" value="${currentQty}">
+                `;
+                openCustomModal("🔢 修改商品數量", html);
+                document.getElementById('modal-field-qty').focus();
+            }
+        }
+
+        // 3. 點擊變更尺寸
+        function openEditSizeModal() {
             if (rightClickedElement) {
                 if (rightClickedElement.getAttribute('data-locked') === 'true') return;
-                const oldW = rightClickedElement.getAttribute('data-w-m');
-                const oldH = rightClickedElement.getAttribute('data-h-m');
-                const newW = prompt("請輸入新的物理【寬度】(公尺 m):", oldW);
-                if (newW === null || newW.trim() === "") return;
-                const newH = prompt("請輸入新的物理【高度】(公尺 m):", oldH);
-                if (newH === null || newH.trim() === "") return;
-
-                const parsedW = parseFloat(newW) || 1; const parsedH = parseFloat(newH) || 1;
-                rightClickedElement.setAttribute('data-w-m', parsedW); rightClickedElement.setAttribute('data-h-m', parsedH);
-                rightClickedElement.style.width = (parsedW * cellSize) + 'px'; rightClickedElement.style.height = (parsedH * cellSize) + 'px';
-                autoSaveToCloud();
+                modalActiveType = "size";
+                const currentW = rightClickedElement.getAttribute('data-w-m');
+                const currentH = rightClickedElement.getAttribute('data-h-m');
+                const html = `
+                    <label>物理寬度寬 (米 m)</label>
+                    <input type="number" step="0.1" id="modal-field-w" class="custom-modal-input" value="${currentW}">
+                    <label>物理長度高 (米 m)</label>
+                    <input type="number" step="0.1" id="modal-field-h" class="custom-modal-input" value="${currentH}">
+                `;
+                openCustomModal("📏 變更真實尺寸", html);
+                document.getElementById('modal-field-w').focus();
             }
+        }
+
+        // 4. 點擊編輯備註
+        function openEditMemoModal() {
+            if (rightClickedElement) {
+                modalActiveType = "memo";
+                const currentMemo = rightClickedElement.getAttribute('data-memo') || '';
+                const html = `
+                    <label>盤點備註內容 (滑鼠移入時懸浮顯示)</label>
+                    <input type="text" id="modal-field-memo" class="custom-modal-input" value="${currentMemo}" placeholder="例如：急件、棧板破損...">
+                `;
+                openCustomModal("💬 編輯盤點備註", html);
+                document.getElementById('modal-field-memo').focus();
+            }
+        }
+
+        // 核心：自訂小彈窗點擊「✔️ 儲存修改」後的綜合派發處理
+        function submitCustomModal() {
+            if (!rightClickedElement || !modalActiveType) return;
+            const cargoId = rightClickedElement.getAttribute('data-id');
+            const matchInCache = globalCargoCache.find(c => c.id === cargoId);
+
+            if (modalActiveType === "name") {
+                const val = document.getElementById('modal-field-name').value.trim();
+                if (val) {
+                    rightClickedElement.setAttribute('data-name', val);
+                    rightClickedElement.querySelector('.cargo-title').textContent = val;
+                    if (matchInCache) matchInCache.name = val;
+                }
+            } 
+            else if (modalActiveType === "qty") {
+                const val = parseInt(document.getElementById('modal-field-qty').value) || 0;
+                rightClickedElement.setAttribute('data-qty', val);
+                if (matchInCache) matchInCache.qty = val;
+                
+                let qtySpan = rightClickedElement.querySelector('.cargo-qty');
+                if (val > 0) {
+                    if (!qtySpan) {
+                        qtySpan = document.createElement('span'); qtySpan.className = 'cargo-qty';
+                        rightClickedElement.appendChild(qtySpan);
+                    }
+                    qtySpan.textContent = `${val} 件`;
+                } else { if (qtySpan) qtySpan.remove(); }
+            } 
+            else if (modalActiveType === "size") {
+                const w = parseFloat(document.getElementById('modal-field-w').value) || 1;
+                const h = parseFloat(document.getElementById('modal-field-h').value) || 1;
+                
+                rightClickedElement.setAttribute('data-w-m', w);
+                rightClickedElement.setAttribute('data-h-m', h);
+                if (matchInCache) { matchInCache.w_m = w; matchInCache.h_m = h; }
+
+                rightClickedElement.style.width = (w * cellSize) + 'px';
+                rightClickedElement.style.height = (h * cellSize) + 'px';
+            } 
+            else if (modalActiveType === "memo") {
+                const val = document.getElementById('modal-field-memo').value.trim();
+                rightClickedElement.setAttribute('data-memo', val);
+                if (matchInCache) matchInCache.memo = val;
+            }
+
+            autoSaveToCloud();
+            closeCustomModal();
         }
 
         function copyCargoToBuffer() {
@@ -733,22 +876,6 @@
                 document.getElementById('cargo-buffer').appendChild(newCargo);
                 globalCargoCache.push(itemData);
                 autoSaveToCloud();
-            }
-        }
-
-        // 【修復項目】：更新備註並強制塞入 DOM
-        function editSelectedMemo() {
-            if (rightClickedElement) {
-                const oldMemo = rightClickedElement.getAttribute('data-memo') || '';
-                const newMemo = prompt("請輸入該貨物的盤點備註內容 (滑鼠懸浮時會跳出顯示)：", oldMemo);
-                if (newMemo !== null) {
-                    rightClickedElement.setAttribute('data-memo', newMemo.trim());
-                    // 找到雲端快取並即時修改，防止被蓋掉
-                    const match = globalCargoCache.find(c => c.id === rightClickedElement.getAttribute('data-id'));
-                    if (match) match.memo = newMemo.trim();
-                    
-                    autoSaveToCloud();
-                }
             }
         }
 
@@ -850,8 +977,6 @@
             cargo.setAttribute('data-w-m', itemData.w_m || 2); cargo.setAttribute('data-h-m', itemData.h_m || 2);
             cargo.setAttribute('data-qty', qtyInt); cargo.setAttribute('data-name', itemData.name || '未命名');
             cargo.setAttribute('data-id', itemData.id); cargo.setAttribute('data-locked', itemData.isLocked ? 'true' : 'false');
-            
-            // 【修復】：強效綁定備註欄位屬性
             cargo.setAttribute('data-memo', itemData.memo || ''); 
             
             const hasStar = itemData.isStarred === true || itemData.isStar === "true" || itemData.isStarred === "true";
@@ -860,8 +985,9 @@
                 const starBadge = document.createElement('span'); starBadge.className = 'cargo-star-badge'; starBadge.textContent = '★'; cargo.appendChild(starBadge);
             }
 
+            // 單擊改為開啟自訂數量彈窗，不再觸發傳統 prompt
             cargo.addEventListener('click', (e) => {
-                e.stopPropagation(); rightClickedElement = cargo; editSelectedQty();
+                e.stopPropagation(); rightClickedElement = cargo; openEditQtyModal();
             });
 
             cargo.addEventListener('contextmenu', (e) => {
@@ -888,7 +1014,17 @@
             return cargo;
         }
 
-        // 【右鍵選單按鈕連動優化】：從待放區點選進倉時，即時修復並指派目前的樓層
+        function toggleCargoLock() {
+            if (rightClickedElement) {
+                const isLocked = rightClickedElement.getAttribute('data-locked') === 'true';
+                rightClickedElement.setAttribute('data-locked', isLocked ? 'false' : 'true');
+                if (isLocked) rightClickedElement.classList.remove('is-locked');
+                else rightClickedElement.classList.add('is-locked');
+                rightClickedElement = null;
+                initInteractEngine(); autoSaveToCloud();
+            }
+        }
+
         function enterWarehouseDirect() {
             if (rightClickedElement) {
                 const w_m = parseFloat(rightClickedElement.getAttribute('data-w-m'));
@@ -896,7 +1032,6 @@
                 rightClickedElement.style.width = (w_m * cellSize) + 'px';
                 rightClickedElement.style.height = (h_m * cellSize) + 'px';
                 
-                // 找到快取，強制修改為當前的操作樓層
                 const cacheHit = globalCargoCache.find(c => c.id === rightClickedElement.getAttribute('data-id'));
                 if (cacheHit) {
                     cacheHit.z_level = currentZLevel;
@@ -920,12 +1055,19 @@
                 rightClickedElement.removeAttribute('data-locked'); rightClickedElement.classList.remove('is-locked');
                 
                 const cacheHit = globalCargoCache.find(c => c.id === rightClickedElement.getAttribute('data-id'));
-                if (cacheHit) {
-                    cacheHit.warehouseId = `buffer_${currentWhId}`;
-                }
+                if (cacheHit) cacheHit.warehouseId = `buffer_${currentWhId}`;
 
                 rightClickedElement = null; initInteractEngine(); autoSaveToCloud();
             }
+        }
+
+        function deleteSelectedCargo() { 
+            if(rightClickedElement) { 
+                const targetId = rightClickedElement.getAttribute('data-id');
+                rightClickedElement.remove(); rightClickedElement = null;
+                globalCargoCache = globalCargoCache.filter(item => item.id !== targetId);
+                autoSaveToCloud();
+            } 
         }
 
         function initInteractEngine() {
@@ -983,7 +1125,6 @@
                             target.removeAttribute('data-locked'); target.classList.remove('is-locked');
                             target.style.transform = 'none';
                             
-                            // 拖回待放區，同步修正快取陣列屬性
                             const cacheHit = globalCargoCache.find(c => c.id === thisId);
                             if (cacheHit) cacheHit.warehouseId = `buffer_${currentWhId}`;
                         } 
@@ -1032,7 +1173,6 @@
                                 target.setAttribute('data-m-x', Math.round((localX / cellSize) * 10) / 10);
                                 target.setAttribute('data-m-y', Math.round((localY / cellSize) * 10) / 10);
                                 
-                                // 【核心修復】：從待放區拖曳進網格時，即時在快取陣列中補上當前的正統操作樓層！
                                 const cacheHit = globalCargoCache.find(c => c.id === thisId);
                                 if (cacheHit) {
                                     cacheHit.z_level = currentZLevel;
@@ -1040,7 +1180,6 @@
                                 }
                             }
                         }
-                        
                         autoSaveToCloud();
                         isDraggingActive = false; 
                     }
