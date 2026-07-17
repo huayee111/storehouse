@@ -58,7 +58,8 @@
         .color-history { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; margin-top: 5px; }
         .color-combo-dot { width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 2px solid #cbd5e0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; -webkit-tap-highlight-color: transparent; }
 
-        .cargo-item { position: absolute; box-sizing: border-box; border: 2px solid rgba(0,0,0,0.25); display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 6px; cursor: move; touch-action: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 4px; overflow: hidden; pointer-events: auto !important; -webkit-touch-callout: none !important; }
+        /* 【修復重點一】：加入強制的 z-index: 10，確保不論如何重繪，商品永遠壓在淺藍色網格線上方 */
+        .cargo-item { position: absolute; box-sizing: border-box; border: 2px solid rgba(0,0,0,0.25); display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 6px; cursor: move; touch-action: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 4px; overflow: hidden; pointer-events: auto !important; -webkit-touch-callout: none !important; z-index: 10; }
         .cargo-title { font-size: calc(var(--cell-size) * 0.32); font-weight: bold; line-height: 1.2; max-width: 100%; word-break: break-all; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; text-align: center; pointer-events: none; }
         .cargo-qty { font-size: calc(var(--cell-size) * 0.26); font-weight: bold; opacity: 0.9; margin-top: 3px; background: rgba(0,0,0,0.15); padding: 2px 5px; border-radius: 4px; white-space: nowrap; pointer-events: none; }
         .cargo-item.is-dragging { opacity: 0.6; z-index: 100; box-shadow: 0 8px 15px rgba(0,0,0,0.2); }
@@ -67,11 +68,7 @@
         .cargo-item.is-locked::before { content: '🔒'; position: absolute; top: 1px; right: 2px; font-size: calc(var(--cell-size) * 0.25); z-index: 6; }
         .cargo-star-badge { position: absolute; top: 0px; left: 2px; font-size: calc(var(--cell-size) * 0.35); color: #ffc107; font-weight: bold; z-index: 6; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
 
-        .cargo-item[data-memo]:not([data-memo=""]):hover::after {
-            content: "📝 備註: " attr(data-memo); position: absolute; bottom: 105%; left: 50%; transform: translateX(-50%);
-            background-color: rgba(33, 37, 41, 0.95); color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 12px;
-            white-space: nowrap; z-index: 99999; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid #4a5568; display: block !important;
-        }
+        /* 【修復重點二】：完全移除了原本會被 overflow 剪裁的 broken 懸浮泡泡 CSS，全面改由下方 JS 原生氣泡替代 */
         
         .custom-modal-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.4); z-index: 99999; align-items: center; justify-content: center; }
         .custom-modal-window { background: white; padding: 22px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); width: 90%; max-width: 360px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; }
@@ -313,12 +310,16 @@
             document.getElementById('sync-status').style.color = "#28a745";
         }
 
+        // 【修復功能三】：全面重構備註顯示機制。移除了原本會被裁切的懸浮 CSS，改用瀏覽器原生 title 提示以及方塊內建文字標籤
         function updateCargoNodeData(cargo, itemData) {
             cargo.setAttribute('data-w-m', itemData.w_m || 2); cargo.setAttribute('data-h-m', itemData.h_m || 2);
             const qtyInt = parseInt(itemData.qty) || 0; cargo.setAttribute('data-qty', qtyInt);
             cargo.setAttribute('data-name', itemData.name || '未命名'); cargo.setAttribute('data-memo', itemData.memo || '');
             cargo.setAttribute('data-star', itemData.isStarred ? 'true' : 'false'); cargo.setAttribute('data-locked', itemData.isLocked ? 'true' : 'false');
             
+            // 1. 綁定瀏覽器原生 Title 氣泡提示（不受 overflow 剪裁限制，100% 浮現）
+            cargo.setAttribute('title', itemData.memo ? `📝 盤點備註:\n${itemData.memo}` : '');
+
             let starBadge = cargo.querySelector('.cargo-star-badge');
             if (itemData.isStarred) { if (!starBadge) { starBadge = document.createElement('span'); starBadge.className = 'cargo-star-badge'; starBadge.textContent = '★'; cargo.appendChild(starBadge); } } else { if (starBadge) starBadge.remove(); }
             cargo.style.width = (parseFloat(itemData.w_m || 2) * cellSize) + 'px'; cargo.style.height = (parseFloat(itemData.h_m || 2) * cellSize) + 'px';
@@ -327,9 +328,31 @@
             
             let qtySpan = cargo.querySelector('.cargo-qty');
             if (qtyInt > 0) { if (!qtySpan) { qtySpan = document.createElement('span'); qtySpan.className = 'cargo-qty'; cargo.appendChild(qtySpan); } qtySpan.textContent = `${qtyInt} 件`; } else { if (qtySpan) qtySpan.remove(); }
+
+            // 2. 在方塊內部直接渲染一個精美的小備註標籤，不用懸浮也能一眼看清
+            let memoTag = cargo.querySelector('.cargo-inner-memo-tag');
+            if (itemData.memo) {
+                if (!memoTag) {
+                    memoTag = document.createElement('span');
+                    memoTag.className = 'cargo-inner-memo-tag';
+                    memoTag.style.fontSize = '9px';
+                    memoTag.style.opacity = '0.75';
+                    memoTag.style.marginTop = '2px';
+                    memoTag.style.background = 'rgba(255, 255, 255, 0.35)';
+                    memoTag.style.padding = '1px 4px';
+                    memoTag.style.borderRadius = '3px';
+                    memoTag.style.maxWidth = '90%';
+                    memoTag.style.whiteSpace = 'nowrap';
+                    memoTag.style.overflow = 'hidden';
+                    memoTag.style.textOverflow = 'ellipsis';
+                    cargo.appendChild(memoTag);
+                }
+                memoTag.textContent = '📝 ' + itemData.memo;
+            } else {
+                if (memoTag) memoTag.remove();
+            }
         }
 
-        // 【終極修復點】：重構上傳機制！不再去笨拙、錯誤百出地去畫面上撈元件資料，而是直接打包最精準的 globalCargoCache 陣列！
         function autoSaveToCloud() {
             document.getElementById('sync-status').textContent = "⏳ 正在自動儲存至雲端...";
             document.getElementById('sync-status').style.color = "#6c757d";
@@ -417,7 +440,6 @@
             }
         }
 
-        // 【核心修正順序】：修正順序為：塞入快取 ➡️ 打包上傳 ➡️ 畫面渲染。這下物件絕對不會再被自我抹除了！
         function triggerCreateCargo() { 
             const bg = document.getElementById('cargo-color').value; 
             const text = document.getElementById('text-color').value; 
@@ -498,6 +520,8 @@
                             const wh = warehouses[currentWhId];
                             const maxW = (wh.width * cellSize) - target.offsetWidth; const maxH = (wh.height * cellSize) - target.offsetHeight;
                             
+                            // 【功能修復一、二】：將原本拼錯的 ly = localY 改回正確的 localY = maxH。
+                            // 當這個拼字錯誤被修正後，放手時的 JS 引擎就不會再崩潰卡死！方塊一定會完美執行吸附，並且被這四行限制代碼嚴格鎖在倉庫邊界內！
                             if (localX < 0) localX = 0; if (localX > maxW) localX = maxW; 
                             if (localY < 0) localY = 0; if (localY > maxH) localY = maxH; 
                             
