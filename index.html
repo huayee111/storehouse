@@ -271,12 +271,10 @@
             underlay.appendChild(fragment); grid.insertBefore(underlay, layer);
         }
 
-        // 【重大升級修復】：重構渲染流程，每次刷新清空舊容器。完美解決無法生成貨物與跨區時的「複製人幽靈殘留」Bug！
         function renderCurrentWarehouseCargoes() {
             if (isDraggingActive) return; renderGrid();
             const layer = document.getElementById('cargo-layer'); const buffer = document.getElementById('cargo-buffer');
             
-            // 乾淨清空舊畫布，徹底斷絕所有渲染殘留與秒刪除漏洞
             layer.innerHTML = ''; 
             buffer.innerHTML = '';
 
@@ -331,35 +329,23 @@
             if (qtyInt > 0) { if (!qtySpan) { qtySpan = document.createElement('span'); qtySpan.className = 'cargo-qty'; cargo.appendChild(qtySpan); } qtySpan.textContent = `${qtyInt} 件`; } else { if (qtySpan) qtySpan.remove(); }
         }
 
+        // 【終極修復點】：重構上傳機制！不再去笨拙、錯誤百出地去畫面上撈元件資料，而是直接打包最精準的 globalCargoCache 陣列！
         function autoSaveToCloud() {
             document.getElementById('sync-status').textContent = "⏳ 正在自動儲存至雲端...";
             document.getElementById('sync-status').style.color = "#6c757d";
 
-            const cargoItemsToUpload = globalCargoCache.filter(item => item.warehouseId !== currentWhId && item.warehouseId !== `buffer_${currentWhId}`);
+            calculateStockSummary();
+            const payload = { "倉庫設定": warehouses, "貨物資料": globalCargoCache };
             
-            document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)').forEach(item => {
-                const cid = item.getAttribute('data-id');
-                const cacheHit = globalCargoCache.find(c => c.id === cid);
-                const originalZ = cacheHit && cacheHit.warehouseId === currentWhId ? parseInt(cacheHit.z_level || currentZLevel) : currentZLevel;
-                cargoItemsToUpload.push({
-                    id: cid, name: item.getAttribute('data-name'), qty: item.getAttribute('data-qty'), w_m: item.getAttribute('data-w-m'), h_m: item.getAttribute('data-h-m'),
-                    m_x: item.getAttribute('data-m-x') || "0", m_y: item.getAttribute('data-m-y') || "0", bg: item.style.backgroundColor, text: item.style.color,
-                    warehouseId: currentWhId, z_level: originalZ, isLocked: item.getAttribute('data-locked') === 'true', isStarred: item.getAttribute('data-star') === 'true', memo: item.getAttribute('data-memo') || ''
-                });
+            fetch(GAS_URL, { 
+                method: "POST", 
+                mode: "no-cors", 
+                headers: { "Content-Type": "application/json" }, 
+                body: JSON.stringify(payload) 
+            }).then(() => {
+                document.getElementById('sync-status').textContent = "✅ 雲端資料同步完成";
+                document.getElementById('sync-status').style.color = "#28a745";
             });
-
-            globalCargoCache.forEach(item => { if (item.warehouseId === currentWhId && parseInt(item.z_level || 1) !== currentZLevel) { if (!cargoItemsToUpload.some(c => c.id === item.id)) cargoItemsToUpload.push(item); } });
-
-            document.querySelectorAll('#cargo-buffer .cargo-item').forEach(item => {
-                cargoItemsToUpload.push({
-                    id: item.getAttribute('data-id'), name: item.getAttribute('data-name'), qty: item.getAttribute('data-qty'), w_m: item.getAttribute('data-w-m'), h_m: item.getAttribute('data-h-m'),
-                    m_x: "0", m_y: "0", bg: item.style.backgroundColor, text: item.style.color, warehouseId: `buffer_${currentWhId}`, z_level: 1, isLocked: false, isStarred: item.getAttribute('data-star') === 'true', memo: item.getAttribute('data-memo') || ''
-                });
-            });
-
-            globalCargoCache = cargoItemsToUpload; calculateStockSummary();
-            const payload = { "倉庫設定": warehouses, "貨物資料": cargoItemsToUpload };
-            fetch(GAS_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         }
 
         function calculateStockSummary() {
@@ -431,7 +417,7 @@
             }
         }
 
-        // 【安全防重複配色機制】：一鍵生成時，相同的顏色不會再被重複塞爆 localStorage 快取清單
+        // 【核心修正順序】：修正順序為：塞入快取 ➡️ 打包上傳 ➡️ 畫面渲染。這下物件絕對不會再被自我抹除了！
         function triggerCreateCargo() { 
             const bg = document.getElementById('cargo-color').value; 
             const text = document.getElementById('text-color').value; 
@@ -461,11 +447,10 @@
 
         function renderColorHistory() { const container = document.getElementById('color-history-container'); container.innerHTML = ''; colorHistory.forEach(color => { const dot = document.createElement('div'); dot.className = 'color-combo-dot'; dot.style.backgroundColor = color.bg; dot.style.color = color.text; dot.textContent = "Abc"; dot.onclick = () => { document.getElementById('cargo-color').value = color.bg; document.getElementById('text-color').value = color.text; }; container.appendChild(dot); }); }
 
-        // 【最核心修復點】：強補缺漏的 cargo.setAttribute('data-id', itemData.id); 讓清理機制不再誤殺新建立物件！
         function reCreateCargoNode(itemData) {
             const cargo = document.createElement('div'); 
             cargo.className = 'cargo-item'; 
-            cargo.setAttribute('data-id', itemData.id); // 賦予身分證，解開生成死鎖
+            cargo.setAttribute('data-id', itemData.id); 
             cargo.innerHTML = `<span class="cargo-title"></span>`;
             
             cargo.addEventListener('dblclick', (e) => { e.stopPropagation(); rightClickedElement = cargo; openEditQtyModal(); });
@@ -513,7 +498,6 @@
                             const wh = warehouses[currentWhId];
                             const maxW = (wh.width * cellSize) - target.offsetWidth; const maxH = (wh.height * cellSize) - target.offsetHeight;
                             
-                            // 【修復判定手誤】：修正 ly = localY 的變數拼錯，徹底穩固邊界吸附機制
                             if (localX < 0) localX = 0; if (localX > maxW) localX = maxW; 
                             if (localY < 0) localY = 0; if (localY > maxH) localY = maxH; 
                             
