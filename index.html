@@ -58,7 +58,6 @@
         .color-history { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; margin-top: 5px; }
         .color-combo-dot { width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 2px solid #cbd5e0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; -webkit-tap-highlight-color: transparent; }
 
-        /* 【優化】：加入強制 z-index，確保貨物永遠完美覆蓋在淡藍色網格線之上 */
         .cargo-item { position: absolute; box-sizing: border-box; border: 2px solid rgba(0,0,0,0.25); display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 6px; cursor: move; touch-action: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 4px; overflow: hidden; pointer-events: auto !important; -webkit-touch-callout: none !important; z-index: 10; }
         .cargo-title { font-size: calc(var(--cell-size) * 0.32); font-weight: bold; line-height: 1.2; max-width: 100%; word-break: break-all; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; text-align: center; pointer-events: none; }
         .cargo-qty { font-size: calc(var(--cell-size) * 0.26); font-weight: bold; opacity: 0.9; margin-top: 3px; background: rgba(0,0,0,0.15); padding: 2px 5px; border-radius: 4px; white-space: nowrap; pointer-events: none; }
@@ -230,17 +229,24 @@
         function changeScale(val) { cellSize = parseInt(val); document.getElementById('scale-val').textContent = cellSize; document.documentElement.style.setProperty('--cell-size', cellSize + 'px'); renderCurrentWarehouseCargoes(); }
         function toggleSnap(checked) { isSnapEnabled = checked; initInteractEngine(); }
 
+        // 【前端終極去重濾網】：此處重構，只要載入時發現重複 ID 的幽靈複製人，直接一刀切除，只留唯一一組乾淨資料！
         function fixCargoItemsFormat(items) {
             if(!items || !Array.isArray(items)) return [];
-            return items.map(item => {
-                if (!item.warehouseId) return item;
-                if (item.warehouseId.startsWith('buffer_')) {
-                    item.warehouseId = `buffer_${currentWhId}`; 
-                    item.m_x = 0; item.m_y = 0;
+            let seen = {};
+            let uniqueItems = [];
+            items.forEach(item => {
+                if (!item.id) return;
+                if (!seen[item.id]) {
+                    seen[item.id] = true;
+                    if (item.warehouseId && item.warehouseId.startsWith('buffer_')) {
+                        item.warehouseId = `buffer_${currentWhId}`; 
+                        item.m_x = 0; item.m_y = 0;
+                    }
+                    if (item.z_level === undefined || item.z_level === null) item.z_level = 1;
+                    uniqueItems.push(item);
                 }
-                if (item.z_level === undefined || item.z_level === null) item.z_level = 1;
-                return item;
             });
+            return uniqueItems;
         }
 
         function renderGrid() {
@@ -266,7 +272,6 @@
             underlay.appendChild(fragment); grid.insertBefore(underlay, layer);
         }
 
-        // 【重構修復】：每次重繪時採取物理全空機制，杜絕任何重複生成的幽靈方塊
         function renderCurrentWarehouseCargoes() {
             if (isDraggingActive) return; renderGrid();
             const layer = document.getElementById('cargo-layer'); const buffer = document.getElementById('cargo-buffer');
@@ -309,7 +314,6 @@
             document.getElementById('sync-status').style.color = "#28a745";
         }
 
-        // 【優化】：使用瀏覽器原生 title 屬性作為氣泡提示，100% 解決被 overflow:hidden 剪裁切斷的 Bug
         function updateCargoNodeData(cargo, itemData) {
             cargo.setAttribute('data-w-m', itemData.w_m || 2); cargo.setAttribute('data-h-m', itemData.h_m || 2);
             const qtyInt = parseInt(itemData.qty) || 0; cargo.setAttribute('data-qty', qtyInt);
@@ -484,7 +488,6 @@
             return cargo;
         }
 
-        // 【最核心修正】：移除先前出錯的劣質碰撞演算，回歸最完美的 interact 原生對齊公式，保證 100% 精準吸附、絕不越界重疊！
         function initInteractEngine() {
             if (interactInstance) interactInstance.unset();
             interactInstance = interact('.cargo-item').draggable({
@@ -514,7 +517,6 @@
                             const wh = warehouses[currentWhId] || { width: 30, height: 30 };
                             const maxW = (wh.width * cellSize) - target.offsetWidth; const maxH = (wh.height * cellSize) - target.offsetHeight;
                             
-                            // 修正打錯的變數邊界判定，牢牢將商品限制在黑框格線內部
                             if (localX < 0) localX = 0; if (localX > maxW) localX = maxW; 
                             if (localY < 0) localY = 0; if (localY > maxH) localY = maxH; 
                             
