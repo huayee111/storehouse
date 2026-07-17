@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>公司內部倉儲網格系統 - 絲滑零誤差微調版</title>
+    <title>公司內部倉儲網格系統 - 絲滑微調版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -158,14 +158,17 @@
         .switch-container { display: flex; align-items: center; justify-content: space-between; height: 46px; }
         .switch-container input { width: 22px; height: 22px; margin: 0; }
 
+        .color-history { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; margin-top: 5px; }
+        .color-combo-dot { width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 2px solid #cbd5e0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; user-select: none; -webkit-tap-highlight-color: transparent; }
+
         .cargo-item {
             position: absolute; box-sizing: border-box; border: 2px solid rgba(0,0,0,0.25);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            border-radius: 6px; cursor: move; touch-action: none; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 6px; cursor: move; touch-action: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             padding: 4px; overflow: hidden; pointer-events: auto !important; z-index: 10;
             transform-origin: center center;
             -webkit-touch-callout: none !important; -webkit-user-select: none !important; user-select: none !important; -webkit-tap-highlight-color: transparent !important;
-            transition: opacity 0.15s;
+            transition: opacity 0.15s, border-style 0.15s;
         }
         
         .cargo-title {
@@ -174,11 +177,11 @@
         }
         .cargo-qty { font-size: calc(var(--cell-size) * 0.26); font-weight: bold; opacity: 0.9; margin-top: 3px; background: rgba(0,0,0,0.15); padding: 2px 5px; border-radius: 4px; white-space: nowrap; pointer-events: none; }
         
-        /* 微調優化：降低移動時的陰影高度，消除「拔起往右下飄」的視覺差錯感 */
+        /* 🛠️ 優化拖曳特效：維持高不透明度，修正為淡且緊湊的實體細陰影，保留方塊最精確的真實物理邊界 */
         .cargo-item.is-dragging { 
-            opacity: 0.90; 
+            opacity: 0.92 !important; 
             z-index: 999999 !important; 
-            box-shadow: 0 4px 10px rgba(0,0,0,0.25) !important; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25) !important; 
             pointer-events: none !important; 
         }
         
@@ -1264,7 +1267,7 @@
             return null; 
         }
 
-        // 🛠️ 核心修正：全功能零跳動、游標位置黏滯運算核心
+        // 🛠️ 拖曳坐標追蹤引擎升級：完美消除「拔起拉扯感」
         function initInteractEngine() {
             if (interactInstance) interactInstance.unset();
             
@@ -1279,9 +1282,8 @@
                         isDraggingActive = true; 
                         document.getElementById('cargo-tooltip').style.display = 'none';
 
+                        // 精準計算游標相對於方塊左上角的物理像素偏移量（不含滾動條干擾）
                         const clientRect = target.getBoundingClientRect();
-                        
-                        // 【關鍵公式】：精確抓取點擊點相對於商品方塊左上角的純淨像素距離，完全排除拔起時的外邊距位移
                         dragPointerOffset.x = event.clientX - clientRect.left;
                         dragPointerOffset.y = event.clientY - clientRect.top;
 
@@ -1290,24 +1292,24 @@
                         target.style.width = (w_m * cellSize) + 'px';
                         target.style.height = (h_m * cellSize) + 'px';
 
-                        // 轉移至最外層 body 前，先用頁面絕對坐標完美接落點，完全封鎖「跳動、右下飄」
-                        let initPageX = event.pageX - dragPointerOffset.x;
-                        let initPageY = event.pageY - dragPointerOffset.y;
-
+                        // 抽離掛載至頂層
                         document.body.appendChild(target);
                         target.classList.add('is-dragging');
 
-                        target.style.transform = `translate(${initPageX}px, ${initPageY}px)`;
-                        target.setAttribute('data-x', initPageX); 
-                        target.setAttribute('data-y', initPageY);
+                        // 修正初次渲染定位，消除瞬移偏移感
+                        let x = event.clientX - dragPointerOffset.x + window.scrollX;
+                        let y = event.clientY - dragPointerOffset.y + window.scrollY;
+                        target.style.transform = `translate(${x}px, ${y}px)`;
+                        target.setAttribute('data-x', x); 
+                        target.setAttribute('data-y', y);
                     },
                     move(event) {
                         const target = event.target;
                         if (target.getAttribute('data-locked') === 'true' || target.classList.contains('underlay-ghost')) return;
 
-                        // 1:1 純淨追隨頁面游標，無任何視覺拔起高度落差
-                        let x = event.pageX - dragPointerOffset.x;
-                        let y = event.pageY - dragPointerOffset.y;
+                        // 完美 1:1 黏滯於游標正下方
+                        let x = event.clientX - dragPointerOffset.x + window.scrollX;
+                        let y = event.clientY - dragPointerOffset.y + window.scrollY;
 
                         target.style.transform = `translate(${x}px, ${y}px)`;
                         target.setAttribute('data-x', x); 
@@ -1325,20 +1327,18 @@
                         const grid = document.getElementById('warehouse-grid');
                         const gridRect = grid.getBoundingClientRect();
                         
-                        // 放開時，逆向精準還原方塊左上角相對於畫布容器內部的坐標點
-                        let localX = (event.pageX - dragPointerOffset.x) - (gridRect.left + window.scrollX);
-                        let localY = (event.pageY - dragPointerOffset.y) - (gridRect.top + window.scrollY);
+                        let localX = (event.clientX - dragPointerOffset.x) - gridRect.left;
+                        let localY = (event.clientY - dragPointerOffset.y) - gridRect.top;
 
                         const wh = warehouses[currentWhId];
                         const w_m = parseFloat(target.getAttribute('data-w-m'));
                         const h_m = parseFloat(target.getAttribute('data-h-m'));
 
-                        // 精準落點範圍檢查：改用更穩健的 page 坐標矩形交叉驗證
                         const isInsideWarehouse = (
-                            event.pageX >= (gridRect.left + window.scrollX) && 
-                            event.pageX <= (gridRect.right + window.scrollX) && 
-                            event.pageY >= (gridRect.top + window.scrollY) && 
-                            event.pageY <= (gridRect.bottom + window.scrollY)
+                            event.clientX >= gridRect.left && 
+                            event.clientX <= gridRect.right && 
+                            event.clientY >= gridRect.top && 
+                            event.clientY <= gridRect.bottom
                         );
 
                         if (isInsideWarehouse) {
