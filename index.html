@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>公司內部倉儲網格系統 - 全自由像素對流版</title>
+    <title>公司內部倉儲網格系統 - 零視差精準版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -173,7 +173,14 @@
             word-break: break-all; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; text-align: center; pointer-events: none;
         }
         .cargo-qty { font-size: calc(var(--cell-size) * 0.26); font-weight: bold; opacity: 0.9; margin-top: 3px; background: rgba(0,0,0,0.15); padding: 2px 5px; border-radius: 4px; white-space: nowrap; pointer-events: none; }
-        .cargo-item.is-dragging { opacity: 0.85; z-index: 999999 !important; box-shadow: 0 12px 24px rgba(0,0,0,0.4); pointer-events: none !important; }
+        
+        /* 核心修正：移除移動時的高度陰影與位移特效，保持 1:1 純粹平面平移感，防止視差 */
+        .cargo-item.is-dragging { 
+            opacity: 0.9 !important; 
+            z-index: 999999 !important; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important; /* 保持與平常相同的貼地陰影 */
+            pointer-events: none !important; 
+        }
         
         .cargo-item.underlay-ghost { opacity: 0.15 !important; border: 2px dashed #000000 !important; background-color: #e2e8f0 !important; color: #000000 !important; pointer-events: none !important; z-index: 2 !important; box-shadow: none !important; }
         
@@ -1180,7 +1187,7 @@
             }
         }
 
-        function deleteSelectedCargo() { 
+        function deleteSelectedCargo; 
             if(rightClickedElement) { 
                 const targetId = rightClickedElement.getAttribute('data-id');
                 rightClickedElement.remove(); rightClickedElement = null;
@@ -1189,13 +1196,11 @@
             } 
         }
 
-        // 核心修正：優化防撞搜尋器，完全阻斷關閉吸附時的磁吸感
         function findNextValidVacantSlot(target, localX, localY) {
             const wh = warehouses[currentWhId];
             const w_m = parseFloat(target.getAttribute('data-w-m'));
             const h_m = parseFloat(target.getAttribute('data-h-m'));
             
-            // 2. 核心大優化：當自動吸附功能關閉後，完全採用 1:1 的自由像素定位
             if (!isSnapEnabled) {
                 let testX_m = localX / cellSize;
                 let testY_m = localY / cellSize;
@@ -1213,17 +1218,15 @@
                     const oWM = parseFloat(other.getAttribute('data-w-m'));
                     const oHM = parseFloat(other.getAttribute('data-h-m'));
                     
-                    // AABB 重疊排他防護
                     if (testX_m < oMX + oWM && testX_m + w_m > oMX && testY_m < oMY + oHM && testY_m + h_m > oMY) {
                         collision = true;
                         break;
                     }
                 }
                 if (!collision) return { x: localX, y: localY };
-                else return null; // 自由移動時若發生重疊碰撞，不進行任何磁吸修正，直接判定需要彈回待放區
+                else return null; 
             }
 
-            // 【吸附模式開啟】引導至最近網格磁吸
             let startX = Math.round(localX / cellSize);
             let startY = Math.round(localY / cellSize);
             const maxRadius = Math.max(wh.width, wh.height);
@@ -1261,7 +1264,7 @@
             return null; 
         }
 
-        // 1. 核心大優化：完美相容手動微調與磁吸拖曳的 1:1 跟隨引擎
+        // 零視差 1:1 精準平移核心引擎
         function initInteractEngine() {
             if (interactInstance) interactInstance.unset();
             
@@ -1276,13 +1279,20 @@
                         isDraggingActive = true; 
                         document.getElementById('cargo-tooltip').style.display = 'none';
 
+                        // 精準校正：如果是從待放區起跑，直接換算成相對於視窗的起點，不套用舊快取，杜絕任何右下偏移
                         const clientRect = target.getBoundingClientRect();
                         
-                        // 吸附開啟：游標對齊左上角；吸附關閉：精準記錄滑鼠點擊方塊內的相對偏置
-                        if (isSnapEnabled) {
+                        if (target.parentElement.id === 'cargo-buffer') {
                             dragPointerOffset.x = event.clientX - clientRect.left;
                             dragPointerOffset.y = event.clientY - clientRect.top;
+                            
+                            // 預先寫入乾淨的絕對坐標起點，避免 DOM 被搬移至 body 時發生瞬間拉扯
+                            let initX = event.clientX - dragPointerOffset.x + window.scrollX;
+                            let initY = event.clientY - dragPointerOffset.y + window.scrollY;
+                            target.setAttribute('data-x', initX);
+                            target.setAttribute('data-y', initY);
                         } else {
+                            // 如果是倉庫內移動，精準沿用滑鼠點擊相對位置
                             dragPointerOffset.x = event.clientX - clientRect.left;
                             dragPointerOffset.y = event.clientY - clientRect.top;
                         }
@@ -1298,17 +1308,15 @@
                         let x = event.clientX - dragPointerOffset.x + window.scrollX;
                         let y = event.clientY - dragPointerOffset.y + window.scrollY;
                         target.style.transform = `translate(${x}px, ${y}px)`;
-                        target.setAttribute('data-x', x); 
-                        target.setAttribute('data-y', y);
                     },
                     move(event) {
                         const target = event.target;
                         if (target.getAttribute('data-locked') === 'true' || target.classList.contains('underlay-ghost')) return;
 
+                        // 零視差映射：滑鼠移到哪、方塊絕對 1:1 平移到哪
                         let x = event.clientX - dragPointerOffset.x + window.scrollX;
                         let y = event.clientY - dragPointerOffset.y + window.scrollY;
 
-                        // 徹底打碎磁吸拉扯感，拖曳中完全跟隨滑鼠
                         target.style.transform = `translate(${x}px, ${y}px)`;
                         target.setAttribute('data-x', x); 
                         target.setAttribute('data-y', y);
@@ -1352,8 +1360,6 @@
                                 target.style.transform = `translate(${optimalPos.x}px, ${optimalPos.y}px)`;
                                 target.setAttribute('data-x', optimalPos.x); 
                                 target.setAttribute('data-y', optimalPos.y);
-                                
-                                // 高精細度保存米數，允許自由擺放時的小數點坐標
                                 target.setAttribute('data-m-x', Math.round((optimalPos.x / cellSize) * 10) / 10);
                                 target.setAttribute('data-m-y', Math.round((optimalPos.y / cellSize) * 10) / 10);
                             } else {
