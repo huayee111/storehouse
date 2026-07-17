@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>公司內部倉儲網格系統 - 絲滑微調版</title>
+    <title>公司內部倉儲網格系統 - 終極絲滑版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -168,7 +168,6 @@
             padding: 4px; overflow: hidden; pointer-events: auto !important; z-index: 10;
             transform-origin: center center;
             -webkit-touch-callout: none !important; -webkit-user-select: none !important; user-select: none !important; -webkit-tap-highlight-color: transparent !important;
-            transition: opacity 0.15s, border-style 0.15s;
         }
         
         .cargo-title {
@@ -177,12 +176,11 @@
         }
         .cargo-qty { font-size: calc(var(--cell-size) * 0.26); font-weight: bold; opacity: 0.9; margin-top: 3px; background: rgba(0,0,0,0.15); padding: 2px 5px; border-radius: 4px; white-space: nowrap; pointer-events: none; }
         
-        /* 🛠️ 優化拖曳特效：維持高不透明度，修正為淡且緊湊的實體細陰影，保留方塊最精確的真實物理邊界 */
+        /* 🛠️ 終極修復：移除大陰影干擾，改為極淡乾淨外框，確保拖曳時跟隨毫無位移感 */
         .cargo-item.is-dragging { 
-            opacity: 0.92 !important; 
+            opacity: 0.95 !important; 
             z-index: 999999 !important; 
-            box-shadow: 0 2px 8px rgba(0,0,0,0.25) !important; 
-            pointer-events: none !important; 
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important; 
         }
         
         .cargo-item.underlay-ghost { opacity: 0.15 !important; border: 2px dashed #000000 !important; background-color: #e2e8f0 !important; color: #000000 !important; pointer-events: none !important; z-index: 2 !important; box-shadow: none !important; }
@@ -381,7 +379,8 @@
         let interactInstance = null;
         let rightClickedElement = null;
 
-        let dragPointerOffset = { x: 0, y: 0 };
+        // 🛠️ 優化：改寫為全相對增量追蹤模型
+        let dragDeltaPos = { x: 0, y: 0 };
         let lastTapTime = 0; 
 
         window.onload = function() {
@@ -1267,7 +1266,7 @@
             return null; 
         }
 
-        // 🛠️ 拖曳坐標追蹤引擎升級：完美消除「拔起拉扯感」
+        // 🛠️ 終極修復：全純粹增量式坐標系追蹤引擎（100% 消除拉扯偏移 Bug）
         function initInteractEngine() {
             if (interactInstance) interactInstance.unset();
             
@@ -1282,38 +1281,33 @@
                         isDraggingActive = true; 
                         document.getElementById('cargo-tooltip').style.display = 'none';
 
-                        // 精準計算游標相對於方塊左上角的物理像素偏移量（不含滾動條干擾）
-                        const clientRect = target.getBoundingClientRect();
-                        dragPointerOffset.x = event.clientX - clientRect.left;
-                        dragPointerOffset.y = event.clientY - clientRect.top;
+                        // 核心改寫：停止任何跨容器的 HTML DOM 抽離移位！
+                        // 讓方塊老老實實待在原本的容器裡，直接以現有的坐標（data-x / data-y）當作起點
+                        let curX = parseFloat(target.getAttribute('data-x')) || 0;
+                        let curY = parseFloat(target.getAttribute('data-y')) || 0;
+                        
+                        // 如果原本在待放區，起點像素坐標重置為 0
+                        if (target.parentElement.id === 'cargo-buffer') {
+                            curX = 0; curY = 0;
+                        }
 
-                        const w_m = parseFloat(target.getAttribute('data-w-m'));
-                        const h_m = parseFloat(target.getAttribute('data-h-m'));
-                        target.style.width = (w_m * cellSize) + 'px';
-                        target.style.height = (h_m * cellSize) + 'px';
+                        dragDeltaPos.x = curX;
+                        dragDeltaPos.y = curY;
 
-                        // 抽離掛載至頂層
-                        document.body.appendChild(target);
                         target.classList.add('is-dragging');
-
-                        // 修正初次渲染定位，消除瞬移偏移感
-                        let x = event.clientX - dragPointerOffset.x + window.scrollX;
-                        let y = event.clientY - dragPointerOffset.y + window.scrollY;
-                        target.style.transform = `translate(${x}px, ${y}px)`;
-                        target.setAttribute('data-x', x); 
-                        target.setAttribute('data-y', y);
                     },
                     move(event) {
                         const target = event.target;
                         if (target.getAttribute('data-locked') === 'true' || target.classList.contains('underlay-ghost')) return;
 
-                        // 完美 1:1 黏滯於游標正下方
-                        let x = event.clientX - dragPointerOffset.x + window.scrollX;
-                        let y = event.clientY - dragPointerOffset.y + window.scrollY;
+                        // 核心改寫：100% 純粹疊加滑鼠移動的微小差距（event.dx / dy），完美消滅「拔起右下偏移」
+                        dragDeltaPos.x += event.dx;
+                        dragDeltaPos.y += event.dy;
 
-                        target.style.transform = `translate(${x}px, ${y}px)`;
-                        target.setAttribute('data-x', x); 
-                        target.setAttribute('data-y', y);
+                        // 渲染商品移動，保證滑鼠跟隨點絕不跑位
+                        target.style.transform = `translate(${dragDeltaPos.x}px, ${dragDeltaPos.y}px)`;
+                        target.setAttribute('data-x', dragDeltaPos.x); 
+                        target.setAttribute('data-y', dragDeltaPos.y);
                     },
                     end(event) {
                         const target = event.target;
@@ -1324,30 +1318,37 @@
                         const duplicates = document.querySelectorAll(`[data-id="${thisId}"]`);
                         if (duplicates.length > 1) { for (let i = 1; i < duplicates.length; i++) duplicates[i].remove(); }
 
+                        // 取得落點時，滑鼠在全螢幕上的絕對坐標
                         const grid = document.getElementById('warehouse-grid');
                         const gridRect = grid.getBoundingClientRect();
-                        
-                        let localX = (event.clientX - dragPointerOffset.x) - gridRect.left;
-                        let localY = (event.clientY - dragPointerOffset.y) - gridRect.top;
+                        const buffer = document.getElementById('cargo-buffer');
+                        const bufferRect = buffer.getBoundingClientRect();
 
-                        const wh = warehouses[currentWhId];
                         const w_m = parseFloat(target.getAttribute('data-w-m'));
                         const h_m = parseFloat(target.getAttribute('data-h-m'));
+                        const wh = warehouses[currentWhId];
 
-                        const isInsideWarehouse = (
-                            event.clientX >= gridRect.left && 
-                            event.clientX <= gridRect.right && 
-                            event.clientY >= gridRect.top && 
-                            event.clientY <= gridRect.bottom
+                        // 智慧落點容器判定：滑鼠放開時人在哪裡
+                        const isOverWarehouse = (
+                            event.clientX >= gridRect.left && event.clientX <= gridRect.right &&
+                            event.clientY >= gridRect.top && event.clientY <= gridRect.bottom
+                        );
+                        const isOverBuffer = (
+                            event.clientX >= bufferRect.left && event.clientX <= bufferRect.right &&
+                            event.clientY >= bufferRect.top && event.clientY <= bufferRect.bottom
                         );
 
-                        if (isInsideWarehouse) {
+                        if (isOverWarehouse) {
+                            // 精確換算落點在倉庫內的左上角相對像素位置
+                            let finalLocalX = (event.clientX - (target.offsetWidth / 2)) - gridRect.left;
+                            let finalLocalY = (event.clientY - (target.offsetHeight / 2)) - gridRect.top;
+
                             const maxW = (wh.width - w_m) * cellSize;
                             const maxH = (wh.height - h_m) * cellSize;
-                            if (localX < 0) localX = 0; if (localX > maxW) localX = maxW;
-                            if (localY < 0) localY = 0; if (localY > maxH) localY = maxH;
+                            if (finalLocalX < 0) finalLocalX = 0; if (finalLocalX > maxW) finalLocalX = maxW;
+                            if (finalLocalY < 0) finalLocalY = 0; if (finalLocalY > maxH) finalLocalY = maxH;
 
-                            let optimalPos = findNextValidVacantSlot(target, localX, localY);
+                            let optimalPos = findNextValidVacantSlot(target, finalLocalX, finalLocalY);
                             
                             if (optimalPos) {
                                 document.getElementById('cargo-layer').appendChild(target);
@@ -1361,9 +1362,10 @@
                                 target.removeAttribute('data-x'); target.removeAttribute('data-y');
                                 target.removeAttribute('data-m-x'); target.removeAttribute('data-m-y');
                                 target.style.transform = 'none';
-                                alert("該位置已有其他貨物重疊，物件已自動彈回待放區。");
+                                alert("該位置空間不足，商品已自動彈回待放區。");
                             }
                         } else {
+                            // 放開在倉庫外（包含丟回待放區），順暢歸回流式排版
                             document.getElementById('cargo-buffer').appendChild(target);
                             target.removeAttribute('data-x'); target.removeAttribute('data-y');
                             target.removeAttribute('data-m-x'); target.removeAttribute('data-m-y');
