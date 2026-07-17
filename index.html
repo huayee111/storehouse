@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>公司內部倉儲網格系統 - 進階版</title>
+    <title>公司內部倉儲網格系統 - 重疊根除修復版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -112,7 +112,6 @@
         .color-history { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; margin-top: 5px; }
         .color-combo-dot { width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 2px solid #cbd5e0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; user-select: none; -webkit-tap-highlight-color: transparent; }
 
-        /* 貨物物件 */
         .cargo-item {
             position: absolute; box-sizing: border-box; border: 2px solid rgba(0,0,0,0.25);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -131,10 +130,8 @@
         .cargo-item.underlay-ghost { opacity: 0.15 !important; border: 2px dashed #000000 !important; background-color: #e2e8f0 !important; color: #000000 !important; pointer-events: none !important; z-index: 2 !important; box-shadow: none !important; }
         .cargo-item.is-locked { opacity: 0.55; border: 2px dashed rgba(0,0,0,0.5) !important; cursor: not-allowed !important; }
         
-        /* 🔒 鎖定與 ⭐ 星號標記樣式調整 */
         .cargo-item.is-locked::before { content: '🔒'; position: absolute; top: 1px; right: 2px; font-size: calc(var(--cell-size) * 0.25); z-index: 6; }
         
-        /* 星號標記樣式 */
         .cargo-star-badge {
             position: absolute; top: 0px; left: 2px;
             font-size: calc(var(--cell-size) * 0.35);
@@ -142,7 +139,6 @@
             text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
         }
 
-        /* 備註懸浮泡泡樣式 */
         .cargo-item[data-memo]:not([data-memo=""]):hover::after {
             content: "📝 備註: " attr(data-memo);
             position: absolute; bottom: 105%; left: 50%; transform: translateX(-50%);
@@ -161,10 +157,10 @@
         #context-menu div { padding: 12px 24px; cursor: pointer; font-size: 14px; font-weight: bold; }
         #context-menu div:hover { background: #edf2f7; }
         #context-menu .rotate-opt { color: #d69e2e; }
-        #context-menu .size-opt { color: #3182ce; } /* 尺寸藍色 */
-        #context-menu .copy-opt { color: #dd6b20; } /* 複製橘色 */
-        #context-menu .memo-opt { color: #4a5568; } /* 備註灰色 */
-        #context-menu .star-opt { color: #b7791f; } /* 標記金色 */
+        #context-menu .size-opt { color: #3182ce; } 
+        #context-menu .copy-opt { color: #dd6b20; } 
+        #context-menu .memo-opt { color: #4a5568; } 
+        #context-menu .star-opt { color: #b7791f; } 
         #context-menu .lock-opt { color: #805ad5; border-top: 1px solid #edf2f7; }
         #context-menu .enter-opt { color: #28a745; font-weight: bold; border-top: 1px solid #edf2f7; }
         #context-menu .return-opt { color: #007bff; font-weight: bold; border-top: 1px solid #edf2f7; }
@@ -183,7 +179,7 @@
 <body>
 
     <div id="main-area">
-        <h3 id="dynamic-title-heading">
+        <h3>
             <span class="wh-title-highlight" id="title-wh-name">倉庫一</span>網格平面圖 (1格 = 1m²) 
             <span id="sync-status" style="font-size:12px; color:#e67e22; margin-left:10px;">⏳ 系統載入中...</span>
             <button class="sync-btn-inline" onclick="syncFromCloudManual()">🔄 立即更新圖表</button>
@@ -283,14 +279,14 @@
         </div>
     </div>
 
-    <!-- 右鍵自訂選單面板 -->
+    <!-- 右鍵面板 -->
     <div id="context-menu">
         <div onclick="editSelectedName()">✏️ 變更名稱</div>
         <div onclick="editSelectedQty()">🔢 修改數量</div>
-        <div class="size-opt" onclick="editSelectedSize()">📏 變更尺寸</div> <!-- 1. 變更尺寸 -->
-        <div class="copy-opt" onclick="copyCargoToBuffer()">📋 複製到待放區</div> <!-- 2. 複製到待放區 -->
-        <div class="memo-opt" onclick="editSelectedMemo()">💬 編輯備註</div> <!-- 3. 編輯備註 -->
-        <div class="star-opt" onclick="toggleCargoStar()">⭐ 標記星號</div> <!-- 4. 標記星號 -->
+        <div class="size-opt" onclick="editSelectedSize()">📏 變更尺寸</div> 
+        <div class="copy-opt" onclick="copyCargoToBuffer()">📋 複製到待放區</div> 
+        <div class="memo-opt" onclick="editSelectedMemo()">💬 編輯備註</div> 
+        <div class="star-opt" onclick="toggleCargoStar()">⭐ 標記星號</div> 
         <div id="menu-rotate-btn" class="rotate-opt" onclick="rotateCargo90()">🔄 旋轉 90 度</div>
         <div id="menu-lock-btn" class="lock-opt" onclick="toggleCargoLock()">🔒 鎖定物件</div>
         <div id="menu-enter-btn" class="enter-opt" onclick="enterWarehouseDirect()">📥 放進倉庫</div>
@@ -350,10 +346,11 @@
                 autoSyncTimer = setInterval(() => {
                     if (isDraggingActive || document.querySelector('.is-dragging')) return;
                     syncFromCloudSilent();
-                }, 300000); // 5分鐘
+                }, 300000); 
             }
         }
 
+        // 手動更新按鈕
         function syncFromCloudManual() {
             if (isDraggingActive || document.querySelector('.is-dragging')) {
                 alert("目前同仁正在移動棧板，請稍後再試！"); return;
@@ -475,6 +472,7 @@
                 select.value = currentWhId;
                 refreshWarehouseTabs();
                 if (triggerRender) {
+                    // 全面清空畫面緩衝節點，由底層重新比對乾淨繪製
                     const layer = document.getElementById('cargo-layer'); if (layer) layer.innerHTML = '';
                     document.getElementById('cargo-buffer').innerHTML = '';
                     renderCurrentWarehouseCargoes();
@@ -482,6 +480,7 @@
             }
         }
 
+        // 【終極校正點】：完美分流 Layer 物件與 Buffer 物件，強制解決 0,0 左上角重疊問題！
         function renderCurrentWarehouseCargoes() {
             if (isDraggingActive) return; 
             renderGrid();
@@ -493,6 +492,7 @@
                 if (!itemData.name || !itemData.id) return;
                 const cargoZ = parseInt(itemData.z_level || 1);
                 
+                // 狀況一：實體平面圖貨物
                 if (itemData.warehouseId === currentWhId) {
                     validIds.add(itemData.id);
                     let cargo = document.querySelector(`#cargo-layer [data-id="${itemData.id}"]`);
@@ -520,7 +520,7 @@
                         cargo.remove();
                     }
                 } 
-                // 【核心修改】：不同層級之間商品通用，不再加上 _z 樓層後綴，僅與廠區綁定
+                // 狀況二：待放置緩衝區貨物 (【修正】：強制洗掉 transform 位移屬性，避免被誤塞在左上角！)
                 else if (itemData.warehouseId === `buffer_${currentWhId}`) {
                     validIds.add(itemData.id);
                     let cargo = document.querySelector(`#cargo-buffer [data-id="${itemData.id}"]`);
@@ -529,8 +529,16 @@
                     
                     cargo.className = 'cargo-item';
                     cargo.removeAttribute('data-locked');
-                    cargo.style.transform = 'none';
+                    
+                    // 【關鍵修正】：強制把待放區的 transform 位移、絕對座標屬性拆除，讓它乖乖在下方排隊！
+                    cargo.style.transform = 'none !important';
+                    cargo.style.position = 'relative';
+                    cargo.removeAttribute('data-x'); 
+                    cargo.removeAttribute('data-y');
+
                     if (cargo.parentElement !== buffer) buffer.appendChild(cargo);
+                    // 再次確保它的 inline 樣式中沒有殘留位移
+                    cargo.style.transform = 'none';
                 }
             });
 
@@ -549,9 +557,8 @@
             const qtyInt = parseInt(itemData.qty) || 0;
             cargo.setAttribute('data-qty', qtyInt);
             cargo.setAttribute('data-name', itemData.name || '未命名');
-            cargo.setAttribute('data-memo', itemData.memo || ''); // 更新備註屬性
+            cargo.setAttribute('data-memo', itemData.memo || ''); 
             
-            // 恢復星號狀態
             const hasStar = itemData.isStarred === true || itemData.isStar === "true" || itemData.isStarred === "true";
             cargo.setAttribute('data-star', hasStar ? 'true' : 'false');
             let starBadge = cargo.querySelector('.cargo-star-badge');
@@ -583,14 +590,11 @@
             document.getElementById('sync-status').textContent = "⏳ 正在自動儲存至雲端...";
             document.getElementById('sync-status').style.color = "#6c757d";
 
-            // 過濾並保留「非本倉庫」的資料
             const cargoItemsToUpload = globalCargoCache.filter(item => {
                 return item.warehouseId !== currentWhId && item.warehouseId !== `buffer_${currentWhId}`;
             });
             
-            // 目前倉庫內的物件
             document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)').forEach(item => {
-                // 為了保留原本其他樓層的資料，需要去快取撈出其 z_level
                 const cacheHit = globalCargoCache.find(c => c.id === item.getAttribute('data-id'));
                 const originalZ = cacheHit ? parseInt(cacheHit.z_level || currentZLevel) : currentZLevel;
 
@@ -612,17 +616,14 @@
                 });
             });
 
-            // 補回目前倉庫其他樓層沒被渲染到的原本快取資料 (防止跨樓層覆蓋)
             globalCargoCache.forEach(item => {
                 if (item.warehouseId === currentWhId && parseInt(item.z_level || 1) !== currentZLevel) {
-                    // 檢查是否不小心重複
                     if (!cargoItemsToUpload.some(c => c.id === item.id)) {
                         cargoItemsToUpload.push(item);
                     }
                 }
             });
 
-            // 待放置區的物件（僅依據倉庫名稱分流，跨層通用）
             document.querySelectorAll('#cargo-buffer .cargo-item').forEach(item => {
                 cargoItemsToUpload.push({
                     id: item.getAttribute('data-id'),
@@ -630,7 +631,7 @@
                     qty: item.getAttribute('data-qty'),
                     w_m: item.getAttribute('data-w-m'),
                     h_m: item.getAttribute('data-h-m'),
-                    m_x: "0", m_y: "0",
+                    m_x: "0", m_y: "0", // 待放區物件在雲端資料庫中座標永久歸零
                     bg: item.style.backgroundColor,
                     text: item.style.color,
                     warehouseId: `buffer_${currentWhId}`, 
@@ -653,61 +654,23 @@
             });
         }
 
-        function calculateStockSummary() {
-            const summaryContainer = document.getElementById('summary-cards-container');
-            summaryContainer.innerHTML = '';
-            const stockMap = {};
-
-            globalCargoCache.forEach(item => {
-                if (!item.name) return;
-                const name = item.name.trim();
-                const qty = parseInt(item.qty) || 0;
-                if (!stockMap[name]) stockMap[name] = 0;
-                stockMap[name] += qty;
-            });
-
-            const sortedItems = Object.keys(stockMap).sort();
-            let hasVisibleStock = false;
-
-            sortedItems.forEach(name => {
-                const totalQty = stockMap[name];
-                if (totalQty <= 0) return;
-                hasVisibleStock = true;
-                const card = document.createElement('div'); card.className = 'summary-card';
-                card.innerHTML = `<span class="summary-card-name">${name}</span><span class="summary-card-qty">${totalQty} 件</span>`;
-                summaryContainer.appendChild(card);
-            });
-
-            if (!hasVisibleStock) {
-                summaryContainer.innerHTML = `<div style="color: #a0aec0; font-size: 13px;">目前無任何大於 0 件的商品庫存</div>`;
-            }
-        }
-
-        // 【新增功能 1】：右鍵調整大小
         function editSelectedSize() {
             if (rightClickedElement) {
                 if (rightClickedElement.getAttribute('data-locked') === 'true') return;
                 const oldW = rightClickedElement.getAttribute('data-w-m');
                 const oldH = rightClickedElement.getAttribute('data-h-m');
-                
                 const newW = prompt("請輸入新的物理【寬度】(公尺 m):", oldW);
                 if (newW === null || newW.trim() === "") return;
                 const newH = prompt("請輸入新的物理【高度】(公尺 m):", oldH);
                 if (newH === null || newH.trim() === "") return;
 
-                const parsedW = parseFloat(newW) || 1;
-                const parsedH = parseFloat(newH) || 1;
-
-                rightClickedElement.setAttribute('data-w-m', parsedW);
-                rightClickedElement.setAttribute('data-h-m', parsedH);
-                rightClickedElement.style.width = (parsedW * cellSize) + 'px';
-                rightClickedElement.style.height = (parsedH * cellSize) + 'px';
-
+                const parsedW = parseFloat(newW) || 1; const parsedH = parseFloat(newH) || 1;
+                rightClickedElement.setAttribute('data-w-m', parsedW); rightClickedElement.setAttribute('data-h-m', parsedH);
+                rightClickedElement.style.width = (parsedW * cellSize) + 'px'; rightClickedElement.style.height = (parsedH * cellSize) + 'px';
                 autoSaveToCloud();
             }
         }
 
-        // 【新增功能 2】：商品右鍵選擇複製到待放置區
         function copyCargoToBuffer() {
             if (rightClickedElement) {
                 const name = rightClickedElement.getAttribute('data-name');
@@ -720,21 +683,18 @@
                 const star = rightClickedElement.getAttribute('data-star') || 'false';
 
                 const itemData = {
-                    id: 'item_' + Date.now() + '_' + Math.floor(Math.random()*1000), // 亂數防重複
+                    id: 'item_' + Date.now() + '_' + Math.floor(Math.random()*1000), 
                     name: name, qty: qty, w_m: w_m, h_m: h_m, bg: bg, text: text,
-                    warehouseId: `buffer_${currentWhId}`, // 固定複製至當前倉庫的待放區
-                    z_level: 1, isLocked: false, isStarred: star === 'true', memo: memo
+                    warehouseId: `buffer_${currentWhId}`, z_level: 1, isLocked: false, isStarred: star === 'true', memo: memo
                 };
 
                 const newCargo = reCreateCargoNode(itemData);
                 document.getElementById('cargo-buffer').appendChild(newCargo);
                 globalCargoCache.push(itemData);
-                
                 autoSaveToCloud();
             }
         }
 
-        // 【新增功能 3】：編輯備註
         function editSelectedMemo() {
             if (rightClickedElement) {
                 const oldMemo = rightClickedElement.getAttribute('data-memo') || '';
@@ -746,12 +706,10 @@
             }
         }
 
-        // 【新增功能 4】：切換星號標記
         function toggleCargoStar() {
             if (rightClickedElement) {
                 const isStarred = rightClickedElement.getAttribute('data-star') === 'true';
                 rightClickedElement.setAttribute('data-star', isStarred ? 'false' : 'true');
-                
                 let starBadge = rightClickedElement.querySelector('.cargo-star-badge');
                 if (!isStarred) {
                     if (!starBadge) {
@@ -759,9 +717,7 @@
                         rightClickedElement.appendChild(starBadge);
                     }
                 } else { if (starBadge) starBadge.remove(); }
-                
-                rightClickedElement = null;
-                autoSaveToCloud();
+                rightClickedElement = null; autoSaveToCloud();
             }
         }
 
@@ -811,15 +767,6 @@
             createNewCargo(); autoSaveToCloud();
         }
 
-        function renderColorHistory() {
-            const container = document.getElementById('color-history-container'); container.innerHTML = '';
-            colorHistory.forEach(color => {
-                const dot = document.createElement('div'); dot.className = 'color-combo-dot'; dot.style.backgroundColor = color.bg; dot.style.color = color.text; dot.textContent = "Abc";
-                dot.onclick = () => { document.getElementById('cargo-color').value = color.bg; document.getElementById('text-color').value = color.text; };
-                container.appendChild(dot);
-            });
-        }
-
         function createNewCargo() {
             const name = document.getElementById('cargo-name').value;
             const qty = parseInt(document.getElementById('cargo-qty').value) || 0;
@@ -828,7 +775,6 @@
             const bgColor = document.getElementById('cargo-color').value;
             const textColor = document.getElementById('text-color').value;
 
-            // 【核心修改】：待放區分流不加上樓層後綴，維持跨樓層通用
             const itemData = { id: 'item_' + Date.now(), name: name, qty: qty, w_m: w, h_m: h, bg: bgColor, text: textColor, warehouseId: `buffer_${currentWhId}`, z_level: currentZLevel, isLocked: false, isStarred: false, memo: '' };
             const cargo = reCreateCargoNode(itemData);
             document.getElementById('cargo-buffer').appendChild(cargo);
@@ -836,9 +782,7 @@
         }
 
         function reCreateCargoNode(itemData) {
-            const cargo = document.createElement('div');
-            cargo.className = 'cargo-item';
-            
+            const cargo = document.createElement('div'); cargo.className = 'cargo-item';
             const qtyInt = parseInt(itemData.qty) || 0;
             const qtyHtml = qtyInt > 0 ? `<span class="cargo-qty">${qtyInt} 件</span>` : '';
             cargo.innerHTML = `<span class="cargo-title">${itemData.name}</span>${qtyHtml}`;
@@ -848,20 +792,15 @@
             cargo.style.backgroundColor = itemData.bg || '#ffc107';
             cargo.style.color = itemData.text || '#000000';
             
-            cargo.setAttribute('data-w-m', itemData.w_m || 2);
-            cargo.setAttribute('data-h-m', itemData.h_m || 2);
-            cargo.setAttribute('data-qty', qtyInt);
-            cargo.setAttribute('data-name', itemData.name || '未命名');
-            cargo.setAttribute('data-id', itemData.id);
-            cargo.setAttribute('data-locked', itemData.isLocked ? 'true' : 'false');
-            cargo.setAttribute('data-memo', itemData.memo || ''); // 綁定備註
+            cargo.setAttribute('data-w-m', itemData.w_m || 2); cargo.setAttribute('data-h-m', itemData.h_m || 2);
+            cargo.setAttribute('data-qty', qtyInt); cargo.setAttribute('data-name', itemData.name || '未命名');
+            cargo.setAttribute('data-id', itemData.id); cargo.setAttribute('data-locked', itemData.isLocked ? 'true' : 'false');
+            cargo.setAttribute('data-memo', itemData.memo || ''); 
             
-            // 恢復星號狀態
             const hasStar = itemData.isStarred === true || itemData.isStar === "true" || itemData.isStarred === "true";
             cargo.setAttribute('data-star', hasStar ? 'true' : 'false');
             if (hasStar) {
-                const starBadge = document.createElement('span'); starBadge.className = 'cargo-star-badge'; starBadge.textContent = '★';
-                cargo.appendChild(starBadge);
+                const starBadge = document.createElement('span'); starBadge.className = 'cargo-star-badge'; starBadge.textContent = '★'; cargo.appendChild(starBadge);
             }
 
             cargo.addEventListener('click', (e) => {
@@ -870,7 +809,6 @@
 
             cargo.addEventListener('contextmenu', (e) => {
                 e.preventDefault(); e.stopPropagation(); rightClickedElement = cargo;
-                
                 const menu = document.getElementById('context-menu');
                 const enterBtn = document.getElementById('menu-enter-btn');
                 const returnBtn = document.getElementById('menu-return-btn');
@@ -886,85 +824,11 @@
                 } else {
                     enterBtn.style.display = 'none';
                     returnBtn.style.display = isLocked ? 'none' : 'block';
-                    rotateBtn.style.display = isLocked ? 'none' : 'block';
-                    lockBtn.style.display = 'block';
+                    rotateBtn.style.display = isLocked ? 'none' : 'block'; lockBtn.style.display = 'block';
                 }
                 menu.style.display = 'block'; menu.style.left = e.pageX + 'px'; menu.style.top = e.pageY + 'px';
             });
             return cargo;
-        }
-
-        function editSelectedName() {
-            if(rightClickedElement) {
-                const oldName = rightClickedElement.getAttribute('data-name');
-                const newName = prompt("請輸入新的貨物商品名稱：", oldName);
-                if (newName !== null && newName.trim() !== "") {
-                    rightClickedElement.setAttribute('data-name', newName.trim());
-                    rightClickedElement.querySelector('.cargo-title').textContent = newName.trim();
-                    autoSaveToCloud();
-                }
-            }
-        }
-
-        function editSelectedQty() { 
-            if(rightClickedElement) {
-                const oldQty = rightClickedElement.getAttribute('data-qty');
-                const newQty = prompt("請輸入新的貨物數量：", oldQty);
-                if (newQty !== null && newQty.trim() !== "") {
-                    const parsedQty = parseInt(newQty) || 0;
-                    rightClickedElement.setAttribute('data-qty', parsedQty);
-                    let qtySpan = rightClickedElement.querySelector('.cargo-qty');
-                    if (parsedQty > 0) {
-                        if (!qtySpan) { qtySpan = document.createElement('span'); qtySpan.className = 'cargo-qty'; rightClickedElement.appendChild(qtySpan); }
-                        qtySpan.textContent = `${parsedQty} 件`;
-                    } else { if (qtySpan) qtySpan.remove(); }
-                    autoSaveToCloud();
-                }
-            }
-        }
-
-        function toggleCargoLock() {
-            if (rightClickedElement) {
-                const isLocked = rightClickedElement.getAttribute('data-locked') === 'true';
-                rightClickedElement.setAttribute('data-locked', isLocked ? 'false' : 'true');
-                if (isLocked) rightClickedElement.classList.remove('is-locked');
-                else rightClickedElement.classList.add('is-locked');
-                rightClickedElement = null;
-                initInteractEngine(); autoSaveToCloud();
-            }
-        }
-
-        function enterWarehouseDirect() {
-            if (rightClickedElement) {
-                const w_m = parseFloat(rightClickedElement.getAttribute('data-w-m'));
-                const h_m = parseFloat(rightClickedElement.getAttribute('data-h-m'));
-                rightClickedElement.style.width = (w_m * cellSize) + 'px';
-                rightClickedElement.style.height = (h_m * cellSize) + 'px';
-                document.getElementById('cargo-layer').appendChild(rightClickedElement);
-                rightClickedElement.style.transform = `translate(0px, 0px)`;
-                rightClickedElement.setAttribute('data-x', 0); rightClickedElement.setAttribute('data-y', 0);
-                rightClickedElement.setAttribute('data-m-x', 0); rightClickedElement.setAttribute('data-m-y', 0);
-                rightClickedElement = null; autoSaveToCloud();
-            }
-        }
-
-        function returnToBuffer() {
-            if (rightClickedElement) {
-                document.getElementById('cargo-buffer').appendChild(rightClickedElement);
-                rightClickedElement.removeAttribute('data-x'); rightClickedElement.removeAttribute('data-y');
-                rightClickedElement.removeAttribute('data-m-x'); rightClickedElement.removeAttribute('data-m-y');
-                rightClickedElement.removeAttribute('data-locked'); rightClickedElement.classList.remove('is-locked');
-                rightClickedElement = null; initInteractEngine(); autoSaveToCloud();
-            }
-        }
-
-        function deleteSelectedCargo() { 
-            if(rightClickedElement) { 
-                const targetId = rightClickedElement.getAttribute('data-id');
-                rightClickedElement.remove(); rightClickedElement = null;
-                globalCargoCache = globalCargoCache.filter(item => item.id !== targetId);
-                autoSaveToCloud();
-            } 
         }
 
         function initInteractEngine() {
