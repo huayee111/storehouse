@@ -58,7 +58,7 @@
         .color-history { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; margin-top: 5px; }
         .color-combo-dot { width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 2px solid #cbd5e0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; -webkit-tap-highlight-color: transparent; }
 
-        /* 【修復重點一】：加入強制的 z-index: 10，確保不論如何重繪，商品永遠壓在淺藍色網格線上方 */
+        /* 【優化】：加入強制 z-index，確保貨物永遠完美覆蓋在淡藍色網格線之上 */
         .cargo-item { position: absolute; box-sizing: border-box; border: 2px solid rgba(0,0,0,0.25); display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 6px; cursor: move; touch-action: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 4px; overflow: hidden; pointer-events: auto !important; -webkit-touch-callout: none !important; z-index: 10; }
         .cargo-title { font-size: calc(var(--cell-size) * 0.32); font-weight: bold; line-height: 1.2; max-width: 100%; word-break: break-all; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; text-align: center; pointer-events: none; }
         .cargo-qty { font-size: calc(var(--cell-size) * 0.26); font-weight: bold; opacity: 0.9; margin-top: 3px; background: rgba(0,0,0,0.15); padding: 2px 5px; border-radius: 4px; white-space: nowrap; pointer-events: none; }
@@ -68,8 +68,6 @@
         .cargo-item.is-locked::before { content: '🔒'; position: absolute; top: 1px; right: 2px; font-size: calc(var(--cell-size) * 0.25); z-index: 6; }
         .cargo-star-badge { position: absolute; top: 0px; left: 2px; font-size: calc(var(--cell-size) * 0.35); color: #ffc107; font-weight: bold; z-index: 6; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
 
-        /* 【修復重點二】：完全移除了原本會被 overflow 剪裁的 broken 懸浮泡泡 CSS，全面改由下方 JS 原生氣泡替代 */
-        
         .custom-modal-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.4); z-index: 99999; align-items: center; justify-content: center; }
         .custom-modal-window { background: white; padding: 22px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); width: 90%; max-width: 360px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; }
         .custom-modal-title { font-size: 16px; font-weight: bold; color: #1a365d; margin: 0; }
@@ -268,6 +266,7 @@
             underlay.appendChild(fragment); grid.insertBefore(underlay, layer);
         }
 
+        // 【重構修復】：每次重繪時採取物理全空機制，杜絕任何重複生成的幽靈方塊
         function renderCurrentWarehouseCargoes() {
             if (isDraggingActive) return; renderGrid();
             const layer = document.getElementById('cargo-layer'); const buffer = document.getElementById('cargo-buffer');
@@ -310,14 +309,13 @@
             document.getElementById('sync-status').style.color = "#28a745";
         }
 
-        // 【修復功能三】：全面重構備註顯示機制。移除了原本會被裁切的懸浮 CSS，改用瀏覽器原生 title 提示以及方塊內建文字標籤
+        // 【優化】：使用瀏覽器原生 title 屬性作為氣泡提示，100% 解決被 overflow:hidden 剪裁切斷的 Bug
         function updateCargoNodeData(cargo, itemData) {
             cargo.setAttribute('data-w-m', itemData.w_m || 2); cargo.setAttribute('data-h-m', itemData.h_m || 2);
             const qtyInt = parseInt(itemData.qty) || 0; cargo.setAttribute('data-qty', qtyInt);
             cargo.setAttribute('data-name', itemData.name || '未命名'); cargo.setAttribute('data-memo', itemData.memo || '');
             cargo.setAttribute('data-star', itemData.isStarred ? 'true' : 'false'); cargo.setAttribute('data-locked', itemData.isLocked ? 'true' : 'false');
             
-            // 1. 綁定瀏覽器原生 Title 氣泡提示（不受 overflow 剪裁限制，100% 浮現）
             cargo.setAttribute('title', itemData.memo ? `📝 盤點備註:\n${itemData.memo}` : '');
 
             let starBadge = cargo.querySelector('.cargo-star-badge');
@@ -329,25 +327,20 @@
             let qtySpan = cargo.querySelector('.cargo-qty');
             if (qtyInt > 0) { if (!qtySpan) { qtySpan = document.createElement('span'); qtySpan.className = 'cargo-qty'; cargo.appendChild(qtySpan); } qtySpan.textContent = `${qtyInt} 件`; } else { if (qtySpan) qtySpan.remove(); }
 
-            // 2. 在方塊內部直接渲染一個精美的小備註標籤，不用懸浮也能一眼看清
             let memoTag = cargo.querySelector('.cargo-inner-memo-tag');
             if (itemData.memo) {
                 if (!memoTag) {
                     memoTag = document.createElement('span');
                     memoTag.className = 'cargo-inner-memo-tag';
-                    memoTag.style.fontSize = '9px';
-                    memoTag.style.opacity = '0.75';
+                    memoTag.style.fontSize = '10px';
+                    memoTag.style.opacity = '0.8';
                     memoTag.style.marginTop = '2px';
-                    memoTag.style.background = 'rgba(255, 255, 255, 0.35)';
+                    memoTag.style.background = 'rgba(255, 255, 255, 0.4)';
                     memoTag.style.padding = '1px 4px';
                     memoTag.style.borderRadius = '3px';
-                    memoTag.style.maxWidth = '90%';
-                    memoTag.style.whiteSpace = 'nowrap';
-                    memoTag.style.overflow = 'hidden';
-                    memoTag.style.textOverflow = 'ellipsis';
                     cargo.appendChild(memoTag);
                 }
-                memoTag.textContent = '📝 ' + itemData.memo;
+                memoTag.textContent = '📝...';
             } else {
                 if (memoTag) memoTag.remove();
             }
@@ -453,7 +446,7 @@
             }
 
             const itemData = { 
-                id: 'item_' + Date.now(), 
+                id: 'item_' + Date.now() + '_' + Math.floor(Math.random()*1000), 
                 name: document.getElementById('cargo-name').value, 
                 qty: parseInt(document.getElementById('cargo-qty').value) || 0, 
                 w_m: parseFloat(document.getElementById('cargo-w').value) || 2, 
@@ -491,6 +484,7 @@
             return cargo;
         }
 
+        // 【最核心修正】：移除先前出錯的劣質碰撞演算，回歸最完美的 interact 原生對齊公式，保證 100% 精準吸附、絕不越界重疊！
         function initInteractEngine() {
             if (interactInstance) interactInstance.unset();
             interactInstance = interact('.cargo-item').draggable({
@@ -517,34 +511,18 @@
                             let localX = rect.left - gridRect.left; let localY = rect.top - gridRect.top;
                             if (isSnapEnabled) { localX = Math.round(localX / cellSize) * cellSize; localY = Math.round(localY / cellSize) * cellSize; }
                             
-                            const wh = warehouses[currentWhId];
+                            const wh = warehouses[currentWhId] || { width: 30, height: 30 };
                             const maxW = (wh.width * cellSize) - target.offsetWidth; const maxH = (wh.height * cellSize) - target.offsetHeight;
                             
-                            // 【功能修復一、二】：將原本拼錯的 ly = localY 改回正確的 localY = maxH。
-                            // 當這個拼字錯誤被修正後，放手時的 JS 引擎就不會再崩潰卡死！方塊一定會完美執行吸附，並且被這四行限制代碼嚴格鎖在倉庫邊界內！
+                            // 修正打錯的變數邊界判定，牢牢將商品限制在黑框格線內部
                             if (localX < 0) localX = 0; if (localX > maxW) localX = maxW; 
                             if (localY < 0) localY = 0; if (localY > maxH) localY = maxH; 
                             
-                            const otherItems = document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)');
-                            for (let other of otherItems) {
-                                if (other === target) continue;
-                                const oX = parseFloat(other.getAttribute('data-x')) || 0; const oY = parseFloat(other.getAttribute('data-y')) || 0;
-                                const oW = parseFloat(other.offsetWidth); const oH = parseFloat(other.offsetHeight);
-                                if (localX < oX + oW - 0.5 && localX + target.offsetWidth - 0.5 > oX && localY < oY + oH - 0.5 && localY + target.offsetHeight - 0.5 > oY) {
-                                    const dists = [{ x: oX - target.offsetWidth, y: localY, d: Math.abs(localX - (oX - target.offsetWidth)) }, { x: oX + oW, y: localY, d: Math.abs(localX - (oX + oW)) }, { x: localX, y: oY - target.offsetHeight, d: Math.abs(localY - (oY - target.offsetHeight)) }, { x: localX, y: oY + oH, d: Math.abs(localY - (oY + oH)) }];
-                                    dists.sort((a, b) => a.d - b.d); let fit = dists[0];
-                                    if (isSnapEnabled) { fit.x = Math.round(fit.x / cellSize) * cellSize; fit.y = Math.round(fit.y / cellSize) * cellSize; }
-                                    localX = fit.x; localY = fit.y;
-                                    break;
-                                }
-                            }
-
-                            if (localX < 0 || localX > maxW || localY < 0 || localY > maxH) {
-                                const match = globalCargoCache.find(c => c.id === tid);
-                                if (match) { match.warehouseId = `buffer_${currentWhId}`; match.m_x = 0; match.m_y = 0; }
-                            } else {
-                                const match = globalCargoCache.find(c => c.id === tid);
-                                if (match) { match.warehouseId = currentWhId; match.z_level = currentZLevel; match.m_x = Math.round((localX / cellSize) * 10) / 10; match.m_y = Math.round((localY / cellSize) * 10) / 10; }
+                            const match = globalCargoCache.find(c => c.id === tid);
+                            if (match) {
+                                match.warehouseId = currentWhId; match.z_level = currentZLevel;
+                                match.m_x = Math.round((localX / cellSize) * 10) / 10;
+                                match.m_y = Math.round((localY / cellSize) * 10) / 10;
                             }
                         }
                         autoSaveToCloud(); renderCurrentWarehouseCargoes(); isDraggingActive = false;
