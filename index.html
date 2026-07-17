@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>公司內部倉儲網格系統 - 多倉修復優化版</title>
+    <title>公司內部倉儲網格系統 - 中文對齊通車版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -321,6 +321,7 @@
             if (qtyInt > 0) { if (!qtySpan) { qtySpan = document.createElement('span'); qtySpan.className = 'cargo-qty'; cargo.appendChild(qtySpan); } qtySpan.textContent = `${qtyInt} 件`; } else { if (qtySpan) qtySpan.remove(); }
         }
 
+        // 【最核心修正】：將上傳雲端（Payload）的鍵名全面由英文改為對齊後台的中文分頁「倉庫設定」與「貨物資料」
         function autoSaveToCloud() {
             document.getElementById('sync-status').textContent = "⏳ 正在自動儲存至雲端...";
             document.getElementById('sync-status').style.color = "#6c757d";
@@ -348,7 +349,14 @@
             });
 
             globalCargoCache = cargoItemsToUpload; calculateStockSummary();
-            fetch(GAS_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ warehouses: warehouses, cargoItems: cargoItemsToUpload }) });
+
+            // 【格式修正】：將 JSON 包裹內容精準替換成與試算表分頁字眼一致的中文！
+            const payload = {
+                "倉庫設定": warehouses,
+                "貨物資料": cargoItemsToUpload
+            };
+
+            fetch(GAS_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         }
 
         function calculateStockSummary() {
@@ -389,23 +397,46 @@
         function returnToBuffer() { if (rightClickedElement) { const match = globalCargoCache.find(c => c.id === rightClickedElement.getAttribute('data-id')); if (match) { match.warehouseId = `buffer_${currentWhId}`; match.m_x = 0; match.m_y = 0; } autoSaveToCloud(); renderCurrentWarehouseCargoes(); } }
         function deleteSelectedCargo() { if(rightClickedElement) { globalCargoCache = globalCargoCache.filter(item => item.id !== rightClickedElement.getAttribute('data-id')); autoSaveToCloud(); renderCurrentWarehouseCargoes(); } }
         
-        // 【核心修正】：重寫倉庫儲存/新建邏輯，確保選單和分流結構同步咬合
         function saveWarehouseSettings() {
             const name = document.getElementById('wh-name').value.trim();
             const w = parseInt(document.getElementById('wh-w').value) || 30;
             const h = parseInt(document.getElementById('wh-h').value) || 30;
             if(!name) { alert("請輸入倉庫名稱！"); return; }
-            
-            // 使用時間戳記生成唯一的倉庫 ID
             const id = 'wh_' + Date.now();
             warehouses[id] = { name: name, width: w, height: h };
-            
-            // 重要：立刻執行選單更新，並自動將焦點切換到新倉庫上
             switchWarehouseSelect(id, true);
             autoSaveToCloud();
         }
 
-        // 【優化】：確保在切換或新建倉庫時，下拉選單（Select）和頁籤（Tabs）都會重新繪製
+        // 【最核心修正】：初始載入解析（GET）時，同步支援對應「倉庫設定」與「貨物資料」中文鍵名
+        function syncFromCloud() {
+            document.getElementById('sync-status').textContent = "⏳ 正在同步雲端資料...";
+            document.getElementById('sync-status').style.color = "#6c757d";
+
+            fetch(GAS_URL)
+            .then(res => { if (!res.ok) throw new Error("網絡不通"); return res.json(); })
+            .then(data => {
+                // 相容新舊欄位名：優先讀取中文分頁屬性
+                const whList = data["倉庫設定"] || data.warehouses;
+                const cargoList = data["貨物資料"] || data.cargoItems;
+
+                if(whList && Object.keys(whList).length > 0) warehouses = whList;
+                if (!warehouses[currentWhId]) currentWhId = Object.keys(warehouses)[0];
+                
+                switchWarehouseSelect(currentWhId, false);
+                globalCargoCache = fixCargoItemsFormat(cargoList && Array.isArray(cargoList) ? cargoList : []);
+                renderCurrentWarehouseCargoes();
+                
+                document.getElementById('sync-status').textContent = "✅ 雲端資料同步完成";
+                document.getElementById('sync-status').style.color = "#28a745";
+            })
+            .catch(err => {
+                document.getElementById('sync-status').textContent = "⚠️ 獨立單機操作模式運作中";
+                document.getElementById('sync-status').style.color = "#e67e22";
+                renderGrid(); 
+            });
+        }
+
         function switchWarehouseSelect(whId, triggerRender = true) {
             currentWhId = whId;
             const wh = warehouses[currentWhId];
@@ -415,7 +446,6 @@
                 document.getElementById('wh-w').value = wh.width;
                 document.getElementById('wh-h').value = wh.height;
                 
-                // 動態重新填寫進階面板中的下拉選單
                 const select = document.getElementById('warehouse-select');
                 select.innerHTML = '';
                 for (let id in warehouses) {
