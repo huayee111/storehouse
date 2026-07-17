@@ -165,9 +165,6 @@
         .cargo-item.is-locked { opacity: 0.55; border: 2px dashed rgba(0,0,0,0.5) !important; cursor: not-allowed !important; }
         .cargo-item.is-locked::before { content: '🔒'; position: absolute; top: 1px; right: 2px; font-size: calc(var(--cell-size) * 0.25); }
         
-        /* 標記星號 Badge 樣式 */
-        .cargo-star-badge { position: absolute; top: 0px; left: 2px; font-size: calc(var(--cell-size) * 0.35); color: #ffc107; font-weight: bold; z-index: 6; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
-
         #cargo-buffer .cargo-item { position: relative !important; transform: none !important; display: inline-flex !important; margin: 0 !important; top: auto !important; left: auto !important; }
 
         #context-menu {
@@ -178,12 +175,11 @@
         #context-menu div:hover { background: #edf2f7; }
         #context-menu .rotate-opt { color: #d69e2e; font-weight: bold; }
         #context-menu .lock-opt { color: #805ad5; font-weight: bold; }
-        #context-menu .star-opt { color: #b7791f; font-weight: bold; }
         #context-menu .enter-opt { color: #28a745; font-weight: bold; border-top: 1px solid #edf2f7; }
         #context-menu .return-opt { color: #007bff; font-weight: bold; border-top: 1px solid #edf2f7; }
         #context-menu .delete-opt { color: #e53e3e; border-top: 1px solid #edf2f7; }
 
-        /* 全自訂彈窗樣式定義 */
+        /* 新增功能：自訂彈窗樣式定義 */
         .custom-modal-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.4); z-index: 99999; align-items: center; justify-content: center; }
         .custom-modal-window { background: white; padding: 22px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); width: 90%; max-width: 360px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; }
         .custom-modal-title { font-size: 16px; font-weight: bold; color: #1a365d; margin: 0; }
@@ -192,9 +188,6 @@
         .custom-modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 5px; }
         .modal-btn { padding: 10px 18px; font-size: 14px; font-weight: bold; border-radius: 20px; cursor: pointer; border: 1px solid #cbd5e0; background: #e2e8f0; color: #4a5568; }
         .modal-btn-confirm { background-color: #007bff; color: white; border: none; }
-
-        /* 全域最高層級智慧懸浮提示框 (Tooltip) 樣式 */
-        #cargo-tooltip { display: none; position: absolute; background: rgba(33, 37, 41, 0.95); color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: bold; z-index: 999999; box-shadow: 0 6px 16px rgba(0,0,0,0.3); border: 1px solid #4a5568; pointer-events: none; max-width: 280px; word-break: break-all; line-height: 1.5; }
     </style>
 </head>
 <body>
@@ -299,12 +292,12 @@
         </div>
     </div>
 
+    <!-- 升級右鍵選單：全自訂視窗觸發 -->
     <div id="context-menu">
         <div onclick="openEditModal('name')">✏️ 變更名稱</div>
         <div onclick="openEditModal('qty')">🔢 修改數量</div>
         <div onclick="openEditModal('size')">📏 修改尺寸</div>
         <div onclick="openEditModal('memo')">📝 編輯備註</div>
-        <div class="star-opt" onclick="toggleCargoStar()">⭐ 標記/取消星號</div>
         <div id="menu-rotate-btn" class="rotate-opt" onclick="rotateCargo90()">🔄 旋轉 90 度</div>
         <div id="menu-lock-btn" class="lock-opt" onclick="toggleCargoLock()">🔒 鎖定物件</div>
         <div id="menu-enter-btn" class="enter-opt" onclick="enterWarehouseDirect()">📥 放進倉庫</div>
@@ -312,6 +305,7 @@
         <div class="delete-opt" onclick="deleteSelectedCargo()">❌ 刪除貨物</div>
     </div>
 
+    <!-- 新增新功能：與原生 Prompt 告別的全自訂優雅編輯視窗 -->
     <div class="custom-modal-backdrop" id="custom-edit-modal">
         <div class="custom-modal-window">
             <h4 class="custom-modal-title" id="modal-panel-title">✏️ 編輯資訊</h4>
@@ -323,7 +317,11 @@
         </div>
     </div>
 
+    <!-- 新增新功能：懸浮大提示框（Tooltip），完美迴避剪裁問題 -->
+    <div id="cargo-tooltip" style="display: none; position: absolute; background: rgba(33, 37, 41, 0.95); color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: bold; z-index: 999999; box-shadow: 0 6px 16px rgba(0,0,0,0.3); border: 1px solid #4a5568; pointer-events: none; max-width: 280px; word-break: break-all; line-height: 1.5;"></div>
+
     <script>
+        // 完全保留原汁原味的 GAS_URL
         const GAS_URL = "https://script.google.com/macros/s/AKfycbx-sEY_rLOfnDHPl9YMBzIC3TBUUYuwQUeCP0rQABU_x2bYfOqW_7gS8vB2eY5Mm2hN/exec";
 
         let globalCargoCache = [];
@@ -332,7 +330,7 @@
         let currentZLevel = 1; 
         let autoSyncTimer = null;
         let isDraggingActive = false;
-        let modalActiveType = "";
+        let modalActiveType = ""; // 新增：用於標記彈窗操作狀態
 
         let colorHistory = JSON.parse(localStorage.getItem('wh_color_memory')) || [
             {bg: '#ffc107', text: '#000000'},
@@ -362,7 +360,7 @@
                 if (event.touches.length > 1) event.preventDefault();
             }, { passive: false });
 
-            // 開啟視窗時，監聽 Enter 鍵直接儲存
+            // 【新增功能】：開啟視窗時，監聽 Enter 鍵直接儲存
             document.addEventListener('keydown', function(e) {
                 const modal = document.getElementById('custom-edit-modal');
                 if (modal && modal.style.display === 'flex' && e.key === 'Enter') {
@@ -397,14 +395,17 @@
             syncFromCloud();
         }
 
+        // 【最核心校正】：同步讀取支援中文分頁格式
         function syncFromCloudSilent() {
             if (isDraggingActive || document.querySelector('.is-dragging')) return;
             fetch(GAS_URL)
             .then(res => res.json())
             .then(data => {
                 if (isDraggingActive || document.querySelector('.is-dragging')) return;
-                if(data && data.warehouses) warehouses = data.warehouses;
-                globalCargoCache = data && Array.isArray(data.cargoItems) ? data.cargoItems : [];
+                const whList = data["倉庫設定"] || data.warehouses;
+                const cargoList = data["貨物資料"] || data.cargoItems;
+                if(whList) warehouses = whList;
+                globalCargoCache = cargoList && Array.isArray(cargoList) ? cargoList : [];
                 renderCurrentWarehouseCargoes();
             }).catch(e => console.log("同步延遲"));
         }
@@ -472,6 +473,7 @@
             grid.insertBefore(underlay, layer);
         }
 
+        // 【最核心校正】：同步下載解析全自動對接中文工作表分頁
         function syncFromCloud() {
             document.getElementById('sync-status').textContent = "⏳ 正在同步雲端資料...";
             document.getElementById('sync-status').style.color = "#6c757d";
@@ -479,11 +481,14 @@
             fetch(GAS_URL)
             .then(res => { if (!res.ok) throw new Error("網絡不通"); return res.json(); })
             .then(data => {
-                if(data && data.warehouses && Object.keys(data.warehouses).length > 0) warehouses = data.warehouses;
+                const whList = data["倉庫設定"] || data.warehouses;
+                const cargoList = data["貨物資料"] || data.cargoItems;
+
+                if(whList && Object.keys(whList).length > 0) warehouses = whList;
                 if (!warehouses[currentWhId]) currentWhId = Object.keys(warehouses)[0];
                 
                 switchWarehouseSelect(currentWhId, false);
-                globalCargoCache = data && Array.isArray(data.cargoItems) ? data.cargoItems : [];
+                globalCargoCache = cargoList && Array.isArray(cargoList) ? cargoList : [];
                 renderCurrentWarehouseCargoes();
                 
                 document.getElementById('sync-status').textContent = "✅ 雲端資料同步完成";
@@ -641,7 +646,7 @@
             const qtyInt = parseInt(itemData.qty) || 0;
             cargo.setAttribute('data-qty', qtyInt);
             cargo.setAttribute('data-name', itemData.name || '未命名');
-            cargo.setAttribute('data-memo', itemData.memo || '');
+            cargo.setAttribute('data-memo', itemData.memo || ''); // 完美承接備註屬性
 
             cargo.style.width = (parseFloat(itemData.w_m || 2) * cellSize) + 'px';
             cargo.style.height = (parseFloat(itemData.h_m || 2) * cellSize) + 'px';
@@ -662,21 +667,9 @@
             } else {
                 if (qtySpan) qtySpan.remove();
             }
-
-            // 星號標記渲染
-            let starBadge = cargo.querySelector('.cargo-star-badge');
-            if (itemData.isStarred === true || itemData.isStarred === "true") {
-                if (!starBadge) {
-                    starBadge = document.createElement('span');
-                    starBadge.className = 'cargo-star-badge';
-                    starBadge.textContent = '★';
-                    cargo.appendChild(starBadge);
-                }
-            } else {
-                if (starBadge) starBadge.remove();
-            }
         }
 
+        // 【最核心校正】：將前端打包上傳的物件結構，100% 修正為與後台中文工作表一致的 JSON 格式
         function autoSaveToCloud() {
             document.getElementById('sync-status').textContent = "⏳ 正在自動儲存至雲端...";
             document.getElementById('sync-status').style.color = "#6c757d";
@@ -687,6 +680,7 @@
                 return !isCurrentBuffer && !(isCurrentWh && parseInt(item.z_level || 1) === currentZLevel);
             });
             
+            // 完整保留你原本 100% 穩定的 DOM Scraping 排版判定，並加入 memo 欄位
             document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)').forEach(item => {
                 cargoItemsToUpload.push({
                     id: item.getAttribute('data-id'),
@@ -701,7 +695,6 @@
                     warehouseId: currentWhId,
                     z_level: currentZLevel,
                     isLocked: item.getAttribute('data-locked') === 'true',
-                    isStarred: item.getAttribute('data-star') === 'true',
                     memo: item.getAttribute('data-memo') || ''
                 });
             });
@@ -719,7 +712,6 @@
                     warehouseId: `buffer_${currentWhId}_z${currentZLevel}`,
                     z_level: currentZLevel, 
                     isLocked: false,
-                    isStarred: item.getAttribute('data-star') === 'true',
                     memo: item.getAttribute('data-memo') || ''
                 });
             });
@@ -727,9 +719,15 @@
             globalCargoCache = cargoItemsToUpload;
             calculateStockSummary();
 
+            // 【格式修正】：封包精準改回中文 「倉庫設定」與「貨物資料」
+            const payload = {
+                "倉庫設定": warehouses,
+                "貨物資料": cargoItemsToUpload
+            };
+
             fetch(GAS_URL, {
                 method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ warehouses: warehouses, cargoItems: cargoItemsToUpload })
+                body: JSON.stringify(payload)
             }).then(() => {
                 document.getElementById('sync-status').textContent = "✅ 雲端儲存成功！";
                 document.getElementById('sync-status').style.color = "#28a745";
@@ -817,13 +815,14 @@
             const bgColor = document.getElementById('cargo-color').value;
             const textColor = document.getElementById('text-color').value;
 
-            const itemData = { id: 'item_' + Date.now(), name: name, qty: qty, w_m: w, h_m: h, bg: bgColor, text: textColor, warehouseId: `buffer_${currentWhId}_z${currentZLevel}`, z_level: currentZLevel, isLocked: false, isStarred: false, memo: '' };
+            const itemData = { id: 'item_' + Date.now(), name: name, qty: qty, w_m: w, h_m: h, bg: bgColor, text: textColor, warehouseId: `buffer_${currentWhId}_z${currentZLevel}`, z_level: currentZLevel, isLocked: false, memo: '' };
             const cargo = reCreateCargoNode(itemData);
             document.getElementById('cargo-buffer').appendChild(cargo);
             globalCargoCache.push(itemData);
             calculateStockSummary();
         }
 
+        /* 【新增新功能】：自訂優雅編輯視窗管理器 */
         function openEditModal(type) {
             if (!rightClickedElement) return;
             modalActiveType = type;
@@ -891,6 +890,20 @@
                 if (matchInCache) { matchInCache.w_m = w; matchInCache.h_m = h; }
                 rightClickedElement.style.width = (w * cellSize) + 'px';
                 rightClickedElement.style.height = (h * cellSize) + 'px';
+
+                if (rightClickedElement.parentElement.id === 'cargo-layer') {
+                    let lx = parseFloat(rightClickedElement.getAttribute('data-x')) || 0;
+                    let ly = parseFloat(rightClickedElement.getAttribute('data-y')) || 0;
+                    const wh = warehouses[currentWhId];
+                    const maxW = (wh.width * cellSize) - rightClickedElement.offsetWidth;
+                    const maxH = (wh.height * cellSize) - rightClickedElement.offsetHeight;
+                    if (lx > maxW) lx = Math.max(0, Math.round(maxW / cellSize) * cellSize);
+                    if (ly > maxH) ly = Math.max(0, Math.round(maxH / cellSize) * cellSize);
+                    rightClickedElement.style.transform = `translate(${lx}px, ${ly}px)`;
+                    rightClickedElement.setAttribute('data-x', lx); rightClickedElement.setAttribute('data-y', ly);
+                    rightClickedElement.setAttribute('data-m-x', lx / cellSize); rightClickedElement.setAttribute('data-m-y', ly / cellSize);
+                    if (matchInCache) { matchInCache.m_x = lx / cellSize; matchInCache.m_y = ly / cellSize; }
+                }
             } else if (modalActiveType === "memo") {
                 const val = document.getElementById('modal-field-memo').value.trim();
                 rightClickedElement.setAttribute('data-memo', val);
@@ -901,20 +914,7 @@
             closeCustomModal();
         }
 
-        // 星號切換處理
-        function toggleCargoStar() {
-            if (rightClickedElement) {
-                const tid = rightClickedElement.getAttribute('data-id');
-                const match = globalCargoCache.find(c => c.id === tid);
-                if (match) {
-                    match.isStarred = (match.isStarred === true || match.isStarred === "true") ? false : true;
-                    rightClickedElement.setAttribute('data-star', match.isStarred ? 'true' : 'false');
-                    autoSaveToCloud();
-                    renderCurrentWarehouseCargoes();
-                }
-            }
-        }
-
+        // 【新增功能】：滑鼠觸碰時，最高層級全域懸浮氣泡提示（Tooltip）事件監聽
         function reCreateCargoNode(itemData) {
             const cargo = document.createElement('div');
             cargo.className = 'cargo-item';
@@ -934,10 +934,9 @@
             cargo.setAttribute('data-name', itemData.name || '未命名');
             cargo.setAttribute('data-id', itemData.id);
             cargo.setAttribute('data-locked', itemData.isLocked ? 'true' : 'false');
-            cargo.setAttribute('data-star', itemData.isStarred ? 'true' : 'false');
             cargo.setAttribute('data-memo', itemData.memo || '');
 
-            // 頂層智慧懸浮框觸發
+            // 智慧全域懸浮框事件驅動
             cargo.addEventListener('mouseenter', (e) => {
                 const memo = cargo.getAttribute('data-memo');
                 if (memo && memo.trim() !== '') {
@@ -957,6 +956,7 @@
                 document.getElementById('cargo-tooltip').style.display = 'none';
             });
 
+            // 雙擊與單擊皆相容的自訂視窗開啟
             cargo.addEventListener('click', (e) => {
                 e.stopPropagation(); 
                 rightClickedElement = cargo; 
@@ -967,7 +967,7 @@
                 e.preventDefault(); 
                 e.stopPropagation(); 
                 rightClickedElement = cargo;
-                document.getElementById('cargo-tooltip').style.display = 'none'; 
+                document.getElementById('cargo-tooltip').style.display = 'none'; // 右鍵時關閉提示氣泡
                 
                 const menu = document.getElementById('context-menu');
                 const enterBtn = document.getElementById('menu-enter-btn');
@@ -1013,24 +1013,17 @@
                 rightClickedElement.style.transform = `translate(0px, 0px)`;
                 rightClickedElement.setAttribute('data-x', 0); rightClickedElement.setAttribute('data-y', 0);
                 rightClickedElement.setAttribute('data-m-x', 0); rightClickedElement.setAttribute('data-m-y', 0);
-                
-                const tid = rightClickedElement.getAttribute('data-id');
-                const match = globalCargoCache.find(c => c.id === tid);
-                if (match) {
-                    match.warehouseId = currentWhId; match.z_level = currentZLevel; match.m_x = 0; match.m_y = 0;
-                }
-                rightClickedElement = null; autoSaveToCloud(); renderCurrentWarehouseCargoes();
+                rightClickedElement = null; autoSaveToCloud();
             }
         }
 
         function returnToBuffer() {
             if (rightClickedElement) {
-                const tid = rightClickedElement.getAttribute('data-id');
-                const match = globalCargoCache.find(c => c.id === tid);
-                if (match) {
-                    match.warehouseId = `buffer_${currentWhId}_z${currentZLevel}`; match.m_x = 0; match.m_y = 0;
-                }
-                rightClickedElement = null; autoSaveToCloud(); renderCurrentWarehouseCargoes();
+                document.getElementById('cargo-buffer').appendChild(rightClickedElement);
+                rightClickedElement.removeAttribute('data-x'); rightClickedElement.removeAttribute('data-y');
+                rightClickedElement.removeAttribute('data-m-x'); rightClickedElement.removeAttribute('data-m-y');
+                rightClickedElement.removeAttribute('data-locked'); rightClickedElement.classList.remove('is-locked');
+                rightClickedElement = null; initInteractEngine(); autoSaveToCloud();
             }
         }
 
@@ -1051,140 +1044,106 @@
                 listeners: {
                     start(event) { 
                         const target = event.target;
-                        if (target.getAttribute('data-locked') === 'true' || target.classList.contains('underlay-ghost')) return;
+                        if (target.getAttribute('data-locked') === 'true' || target.classList.contains('underlay-ghost')) {
+                            return;
+                        }
                         isDraggingActive = true; 
                         target.classList.add('is-dragging'); 
-                        document.getElementById('cargo-tooltip').style.display = 'none';
-
-                        // 【優化】：從待放區開拉時，立刻平滑轉移到倉庫畫布，移除瞬移感
-                        if (target.parentElement.id === 'cargo-buffer') {
-                            const rect = target.getBoundingClientRect();
-                            const gridRect = document.getElementById('warehouse-grid').getBoundingClientRect();
-                            const initX = rect.left - gridRect.left; 
-                            const initY = rect.top - gridRect.top;
-                            document.getElementById('cargo-layer').appendChild(target);
-                            target.setAttribute('data-x', initX); 
-                            target.setAttribute('data-y', initY);
-                            target.style.transform = `translate(${initX}px, ${initY}px)`;
-                        }
+                        document.getElementById('cargo-tooltip').style.display = 'none'; // 拖曳中隱藏氣泡
                     },
                     move(event) {
                         const target = event.target;
                         if (target.getAttribute('data-locked') === 'true' || target.classList.contains('underlay-ghost')) return;
 
+                        if (target.parentElement.id === 'cargo-buffer') {
+                            const rect = target.getBoundingClientRect();
+                            const gridRect = document.getElementById('warehouse-grid').getBoundingClientRect();
+                            const initX = rect.left - gridRect.left; const initY = rect.top - gridRect.top;
+                            const w_m = parseFloat(target.getAttribute('data-w-m'));
+                            const h_m = parseFloat(target.getAttribute('data-h-m'));
+                            target.style.width = (w_m * cellSize) + 'px'; target.style.height = (h_m * cellSize) + 'px';
+                            document.getElementById('cargo-layer').appendChild(target);
+                            target.setAttribute('data-x', initX); target.setAttribute('data-y', initY);
+                        }
                         let x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
                         let y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
                         
-                        // 【核心修復】：移除 move 中的限制，讓物件可以被自由拉出倉庫邊界、拉回待放區
+                        const wh = warehouses[currentWhId];
+                        const maxW = (wh.width * cellSize) - target.offsetWidth;
+                        const maxH = (wh.height * cellSize) - target.offsetHeight;
+                        
+                        if (x < 0) x = 0; if (x > maxW) x = maxW;
+                        if (y < 0) y = 0; if (y > maxH) y = maxH;
+
                         target.style.transform = `translate(${x}px, ${y}px)`;
                         target.setAttribute('data-x', x); target.setAttribute('data-y', y);
                     },
                     end(event) {
                         const target = event.target;
                         if (!isDraggingActive) return; 
+                        
                         target.classList.remove('is-dragging');
                         
                         const rect = target.getBoundingClientRect();
                         const containerRect = document.getElementById('warehouse-container').getBoundingClientRect();
-                        const tid = target.getAttribute('data-id');
-
+                        
+                        const thisId = target.getAttribute('data-id');
                         const duplicates = document.querySelectorAll(`[data-id="${thisId}"]`);
                         if (duplicates.length > 1) { for (let i = 1; i < duplicates.length; i++) duplicates[i].remove(); }
 
-                        // 判斷是否拉出倉庫，若是則退回待放置區
                         if (rect.top > containerRect.bottom || rect.bottom < containerRect.top || rect.left > containerRect.right || rect.right < containerRect.left) {
-                            const match = globalCargoCache.find(c => c.id === tid);
-                            if (match) {
-                                match.warehouseId = `buffer_${currentWhId}_z${currentZLevel}`;
-                                match.m_x = 0; match.m_y = 0;
-                            }
+                            document.getElementById('cargo-buffer').appendChild(target);
+                            target.removeAttribute('data-x'); target.removeAttribute('data-y');
+                            target.removeAttribute('data-m-x'); target.removeAttribute('data-m-y');
+                            target.removeAttribute('data-locked'); target.classList.remove('is-locked');
+                            target.style.transform = 'none';
                         } 
                         else {
                             const gridRect = document.getElementById('warehouse-grid').getBoundingClientRect();
-                            let localX = rect.left - gridRect.left; 
-                            let localY = rect.top - gridRect.top;
+                            let localX = rect.left - gridRect.left; let localY = rect.top - gridRect.top;
+                            if (isSnapEnabled) { localX = Math.round(localX / cellSize) * cellSize; localY = Math.round(localY / cellSize) * cellSize; }
                             
-                            if (isSnapEnabled) { 
-                                localX = Math.round(localX / cellSize) * cellSize; 
-                                localY = Math.round(localY / cellSize) * cellSize; 
-                            }
-                            
-                            const wh = warehouses[currentWhId] || { width: 30, height: 30 };
+                            const wh = warehouses[currentWhId];
                             const maxW = (wh.width * cellSize) - target.offsetWidth;
                             const maxH = (wh.height * cellSize) - target.offsetHeight;
                             
                             if (localX < 0) localX = 0; if (localX > maxW) localX = maxW;
                             if (localY < 0) localY = 0; if (localY > maxH) localY = maxH;
                             
-                            // 【全新核心避讓演算法】：同一樓層防重疊、自動螺旋尋找周邊空位歸正
-                            let finalX = localX;
-                            let finalY = localY;
-                            let foundSpot = false;
-
-                            function checkCollision(x, y) {
-                                if (x < 0 || x > maxW || y < 0 || y > maxH) return true;
-                                let isOverlapping = false;
-                                globalCargoCache.forEach(item => {
-                                    if (item.id === tid) return;
-                                    if (item.warehouseId !== currentWhId || parseInt(item.z_level || 1) !== currentZLevel) return;
-                                    
-                                    let oX = parseFloat(item.m_x || 0) * cellSize;
-                                    let oY = parseFloat(item.m_y || 0) * cellSize;
-                                    let oW = parseFloat(item.w_m || 2) * cellSize;
-                                    let oH = parseFloat(item.h_m || 2) * cellSize;
-                                    
-                                    // 網格矩形重疊交叉判定
-                                    if (x < oX + oW - 0.1 && x + target.offsetWidth - 0.1 > oX &&
-                                        y < oY + oH - 0.1 && y + target.offsetHeight - 0.1 > oY) {
-                                        isOverlapping = true;
-                                    }
-                                });
-                                return isOverlapping;
+                            const otherItems = document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)');
+                            for (let other of otherItems) {
+                                if (other === target) continue;
+                                const oX = parseFloat(other.getAttribute('data-x')) || 0; const oY = parseFloat(other.getAttribute('data-y')) || 0;
+                                const oW = parseFloat(other.offsetWidth); const oH = parseFloat(other.offsetHeight);
+                                
+                                if (localX < oX + oW - 0.5 && localX + target.offsetWidth - 0.5 > oX && localY < oY + oH - 0.5 && event.clientY < oY + oH) {
+                                    const dists = [
+                                        { x: oX - target.offsetWidth, y: localY, d: Math.abs(localX - (oX - target.offsetWidth)) },
+                                        { x: oX + oW, y: localY, d: Math.abs(localX - (oX + oW)) },
+                                        { x: localX, y: oY - target.offsetHeight, d: Math.abs(localY - (oY - target.offsetHeight)) },
+                                        { x: localX, y: oY + oH, d: Math.abs(localY - (oY + oH)) }
+                                    ];
+                                    dists.sort((a, b) => a.d - b.d); let fit = dists[0];
+                                    if (isSnapEnabled) { fit.x = Math.round(fit.x / cellSize) * cellSize; fit.y = Math.round(fit.y / cellSize) * cellSize; }
+                                    localX = fit.x; localY = fit.y;
+                                }
                             }
-
-                            // 優先檢查原始放開位置是否無重疊
-                            if (!checkCollision(finalX, finalY)) {
-                                foundSpot = true;
+                            
+                            if (localX < 0 || localX > maxW || localY < 0 || localY > maxH) {
+                                document.getElementById('cargo-buffer').appendChild(target);
+                                target.removeAttribute('data-x'); target.removeAttribute('data-y');
+                                target.removeAttribute('data-m-x'); target.removeAttribute('data-m-y');
+                                target.style.transform = 'none';
                             } else {
-                                // 若有重疊，自動往周邊格子擴散搜索空位 (自動歸正吸附)
-                                const searchOffsets = [];
-                                for (let r = 1; r <= 10; r++) {
-                                    for (let dx = -r; dx <= r; dx++) {
-                                        for (let dy = -r; dy <= r; dy++) {
-                                            if (Math.abs(dx) === r || Math.abs(dy) === r) {
-                                                searchOffsets.push({ x: localX + dx * cellSize, y: localY + dy * cellSize });
-                                            }
-                                        }
-                                    }
-                                }
-                                for (let i = 0; i < searchOffsets.length; i++) {
-                                    let pt = searchOffsets[i];
-                                    if (!checkCollision(pt.x, pt.y)) {
-                                        finalX = pt.x; finalY = pt.y;
-                                        foundSpot = true;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            const match = globalCargoCache.find(c => c.id === tid);
-                            if (match) {
-                                if (foundSpot) {
-                                    match.warehouseId = currentWhId;
-                                    match.z_level = currentZLevel;
-                                    match.m_x = Math.round((finalX / cellSize) * 10) / 10;
-                                    match.m_y = Math.round((finalY / cellSize) * 10) / 10;
-                                } else {
-                                    // 若周邊完全塞滿，沒地方可歸正，跳出提示並自動退回待放區
-                                    alert("此區域及周邊已無足夠空間安放，商品將自動放回待放置區。");
-                                    match.warehouseId = `buffer_${currentWhId}_z${currentZLevel}`;
-                                    match.m_x = 0; match.m_y = 0;
-                                }
+                                document.getElementById('cargo-layer').appendChild(target);
+                                target.style.transform = `translate(${localX}px, ${localY}px)`;
+                                target.setAttribute('data-x', localX); target.setAttribute('data-y', localY);
+                                target.setAttribute('data-m-x', Math.round((localX / cellSize) * 10) / 10);
+                                target.setAttribute('data-m-y', Math.round((localY / cellSize) * 10) / 10);
                             }
                         }
                         
                         autoSaveToCloud();
-                        renderCurrentWarehouseCargoes();
                         isDraggingActive = false; 
                     }
                 }
