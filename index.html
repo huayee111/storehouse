@@ -114,7 +114,7 @@
                 <div id="warehouse-grid"></div>
             </div>
             
-            <div class="layer-selector-sidebar">
+            <div class="layer-sidebar layer-selector-sidebar">
                 <div class="layer-tab-btn" id="btn-z3" onclick="switchZLayer(3)"><span>第 3 層</span><span style="font-size:9px;opacity:0.7;">(最上層)</span></div>
                 <div class="layer-tab-btn" id="btn-z2" onclick="switchZLayer(2)"><span>第 2 層</span><span style="font-size:9px;opacity:0.7;">(中層)</span></div>
                 <div class="layer-tab-btn active" id="btn-z1" onclick="switchZLayer(1)"><span>第 1 層</span><span style="font-size:9px;opacity:0.7;">(地面棧板)</span></div>
@@ -196,8 +196,20 @@
         </div>
     </div>
 
+    <!-- 【修復】：將原本遺漏的右鍵選單 HTML 元件完整塞回 Body 內 -->
+    <div id="context-menu">
+        <div class="size-opt" onclick="openEditSizeModal()">📏 修改尺寸</div>
+        <div class="rotate-opt" id="menu-rotate-btn" onclick="rotateCargo90()">🔄 旋轉 90 度</div>
+        <div class="copy-opt" onclick="copyCargoToBuffer()">📋 複製到待放區</div>
+        <div class="memo-opt" onclick="openEditMemoModal()">📝 編輯備註</div>
+        <div class="star-opt" onclick="toggleCargoStar()">⭐ 標記/取消星號</div>
+        <div class="lock-opt" id="menu-lock-btn" onclick="toggleCargoLock()">🔒 鎖定物件</div>
+        <div class="enter-opt" id="menu-enter-btn" onclick="enterWarehouseDirect()">📥 直入倉庫 (0,0)</div>
+        <div class="return-opt" id="menu-return-btn" onclick="returnToBuffer()">📤 退回待放區</div>
+        <div class="delete-opt" onclick="deleteSelectedCargo()">❌ 刪除貨物</div>
+    </div>
+
     <script>
-        // 【已幫忙精準放入網址】：清洗了任何換行字元，確保連線正常
         const GAS_URL = "https://script.google.com/macros/s/AKfycbx-sEY_rLOfnDHPl9YMBzIC3TBUUYuwQUeCP0rQABU_x2bYfOqW_7gS8vB2eY5Mm2hN/exec";
         
         let globalCargoCache = [];
@@ -218,7 +230,20 @@
         }
         function toggleAutoSync(enabled) { if (autoSyncTimer) clearInterval(autoSyncTimer); if (enabled) { autoSyncTimer = setInterval(() => { if (!isDraggingActive && !document.querySelector('.is-dragging')) syncFromCloudSilent(); }, 300000); } }
         function syncFromCloudManual() { if (isDraggingActive || document.querySelector('.is-dragging')) { alert("目前正在操作中，請稍候！"); return; } syncFromCloud(); }
-        function syncFromCloudSilent() { if (isDraggingActive || document.querySelector('.is-dragging')) return; fetch(GAS_URL).then(res => res.json()).then(data => { if (isDraggingActive || document.querySelector('.is-dragging')) return; const whList = data["倉庫設定"] || data.warehouses; const cargoList = data["貨物資料"] || data.cargoItems; if(whList && Object.keys(whList).length > 0) warehouses = whList; globalCargoCache = fixCargoItemsFormat(cargoList && Array.isArray(cargoList) ? cargoList : []); renderCurrentWarehouseCargoes(); }).catch(e => {}); }
+        
+        // 【修復】：同步讀取支援中文鍵值名
+        function syncFromCloudSilent() { 
+            if (isDraggingActive || document.querySelector('.is-dragging')) return; 
+            fetch(GAS_URL).then(res => res.json()).then(data => { 
+                if (isDraggingActive || document.querySelector('.is-dragging')) return; 
+                const whList = data["倉庫設定"] || data.warehouses; 
+                const cargoList = data["貨物資料"] || data.cargoItems; 
+                if(whList && Object.keys(whList).length > 0) warehouses = whList; 
+                globalCargoCache = fixCargoItemsFormat(cargoList && Array.isArray(cargoList) ? cargoList : []); 
+                renderCurrentWarehouseCargoes(); 
+            }).catch(e => {}); 
+        }
+
         function switchZLayer(layerNum) { currentZLevel = parseInt(layerNum); document.querySelectorAll('.layer-tab-btn').forEach((btn) => { btn.classList.remove('active'); }); const activeBtn = document.getElementById(`btn-z${currentZLevel}`); if (activeBtn) activeBtn.classList.add('active'); renderCurrentWarehouseCargoes(); }
         function refreshWarehouseTabs() { const tabsBar = document.getElementById('warehouse-tabs-bar'); tabsBar.innerHTML = ''; for (let id in warehouses) { const btn = document.createElement('button'); btn.className = `wh-tab-btn ${id === currentWhId ? 'active' : ''}`; btn.textContent = warehouses[id].name; btn.onclick = () => { switchWarehouseSelect(id); }; tabsBar.appendChild(btn); } }
         function changeScale(val) { cellSize = parseInt(val); document.getElementById('scale-val').textContent = cellSize; document.documentElement.style.setProperty('--cell-size', cellSize + 'px'); renderCurrentWarehouseCargoes(); }
@@ -237,6 +262,7 @@
             });
         }
 
+        // 【修復】：原封不動補回漏掉的網格繪製邏輯
         function renderGrid() {
             const wh = warehouses[currentWhId] || { name: '倉庫一', width: 30, height: 30 };
             const grid = document.getElementById('warehouse-grid');
@@ -319,6 +345,7 @@
             if (qtyInt > 0) { if (!qtySpan) { qtySpan = document.createElement('span'); qtySpan.className = 'cargo-qty'; cargo.appendChild(qtySpan); } qtySpan.textContent = `${qtyInt} 件`; } else { if (qtySpan) qtySpan.remove(); }
         }
 
+        // 【最核心修正】：將保存 JSON 包裝格式精準替換成與試算表一致的中文分頁標籤
         function autoSaveToCloud() {
             document.getElementById('sync-status').textContent = "⏳ 正在自動儲存至雲端...";
             document.getElementById('sync-status').style.color = "#6c757d";
@@ -384,6 +411,7 @@
         function deleteSelectedCargo() { if(rightClickedElement) { globalCargoCache = globalCargoCache.filter(item => item.id !== rightClickedElement.getAttribute('data-id')); autoSaveToCloud(); renderCurrentWarehouseCargoes(); } }
         function saveWarehouseSettings() { const name = document.getElementById('wh-name').value.trim(); const w = parseInt(document.getElementById('wh-w').value) || 30; const h = parseInt(document.getElementById('wh-h').value) || 30; if(!name) { alert("請輸入倉庫名稱！"); return; } const id = 'wh_' + Date.now(); warehouses[id] = { name: name, width: w, height: h }; switchWarehouseSelect(id, true); autoSaveToCloud(); }
 
+        // 【最核心修正】：初始載入解析（GET）時，同步支援讀取中文分頁屬性
         function syncFromCloud() {
             document.getElementById('sync-status').textContent = "⏳ 正在同步雲端資料...";
             document.getElementById('sync-status').style.color = "#6c757d";
@@ -419,7 +447,34 @@
             }
         }
 
-        function triggerCreateCargo() { const bg = document.getElementById('cargo-color').value; const text = document.getElementById('text-color').value; colorHistory.unshift({bg: bg, text: text}); if (colorHistory.length > 10) colorHistory.pop(); localStorage.setItem('wh_color_memory', JSON.stringify(colorHistory)); const itemData = { id: 'item_' + Date.now(), name: document.getElementById('cargo-name').value, qty: parseInt(document.getElementById('cargo-qty').value) || 0, w_m: parseFloat(document.getElementById('cargo-w').value), h_m: parseFloat(document.getElementById('cargo-h').value), bg: bg, text: text, warehouseId: `buffer_${currentWhId}`, z_level: 1, isLocked: false, isStarred: false, memo: '' }; globalCargoCache.push(itemData); autoSaveToCloud(); renderCurrentWarehouseCargoes(); }
+        // 【修復】：加入重複配色檢查機制，點擊生成時相同的顏色不會再被洗版
+        function triggerCreateCargo() { 
+            const bg = document.getElementById('cargo-color').value; 
+            const text = document.getElementById('text-color').value; 
+            
+            const isColorExist = colorHistory.some(c => c.bg === bg && c.text === text);
+            if (!isColorExist) {
+                colorHistory.unshift({bg: bg, text: text}); 
+                if (colorHistory.length > 10) colorHistory.pop(); 
+                localStorage.setItem('wh_color_memory', JSON.stringify(colorHistory)); 
+                renderColorHistory();
+            }
+
+            const itemData = { 
+                id: 'item_' + Date.now(), 
+                name: document.getElementById('cargo-name').value, 
+                qty: parseInt(document.getElementById('cargo-qty').value) || 0, 
+                w_m: parseFloat(document.getElementById('cargo-w').value), 
+                h_m: parseFloat(document.getElementById('cargo-h').value), 
+                bg: bg, text: text, 
+                warehouseId: `buffer_${currentWhId}`, 
+                z_level: 1, isLocked: false, isStarred: false, memo: '' 
+            }; 
+            globalCargoCache.push(itemData); 
+            autoSaveToCloud(); 
+            renderCurrentWarehouseCargoes(); 
+        }
+
         function renderColorHistory() { const container = document.getElementById('color-history-container'); container.innerHTML = ''; colorHistory.forEach(color => { const dot = document.createElement('div'); dot.className = 'color-combo-dot'; dot.style.backgroundColor = color.bg; dot.style.color = color.text; dot.textContent = "Abc"; dot.onclick = () => { document.getElementById('cargo-color').value = color.bg; document.getElementById('text-color').value = color.text; }; container.appendChild(dot); }); }
 
         function reCreateCargoNode(itemData) {
@@ -432,7 +487,6 @@
                 const isBuf = cargo.parentElement.id === 'cargo-buffer';
                 document.getElementById('menu-enter-btn').style.display = isBuf ? 'block' : 'none';
                 document.getElementById('menu-return-btn').style.display = isBuf ? 'none' : 'block';
-                document.getElementById('menu-rotate-btn').style.display = isBuf ? 'none' : (isL ? 'none' : 'block');
                 menu.style.display = 'block'; menu.style.left = e.pageX + 'px'; menu.style.top = e.pageY + 'px';
             });
             return cargo;
