@@ -3,494 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>公司內部倉儲網格系統 - 全端同步流暢版</title>
+    <title>公司內部倉儲網格系統 - 終極穩定版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
-        :root {
-            --grid-cols: 30;
-            --grid-rows: 30;
-            --cell-size: 20px;
-        }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; 
-            margin: 15px; background-color: #f4f6f9; display: flex; flex-direction: column; gap: 15px; 
-            user-select: none; align-items: flex-start; -webkit-touch-callout: none; -webkit-user-select: none;
-        }
-
-        #main-area { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 900px; }
-        .wh-title-highlight { color: #1a365d; background-color: #e2e8f0; padding: 2px 8px; border-radius: 6px; margin-right: 5px; display: inline-block; }
-        .sync-btn-inline { background-color: #4a5568; color: white; border: none; padding: 5px 12px; font-size: 13px; font-weight: bold; border-radius: 15px; cursor: pointer; margin-left: 10px; display: inline-flex; align-items: center; gap: 4px; }
-        .wh-tabs-container { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px; margin-bottom: 5px; }
-        .wh-tab-btn { padding: 10px 18px; background-color: #e2e8f0; color: #4a5568; border: 1px solid #cbd5e0; border-radius: 20px; font-weight: bold; font-size: 14px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-        .wh-tab-btn.active { background-color: #2b6cb0; color: white; border-color: #2b6cb0; }
-
-        .canvas-layout { display: flex; gap: 15px; align-items: flex-start; width: 100%; }
-        #warehouse-container { border: 2px solid #333; background-color: #ffffff; position: relative; width: fit-content; height: fit-content; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 5px; }
-        #warehouse-grid { position: relative; top: 0; left: 0; width: calc(var(--grid-cols) * var(--cell-size)); height: calc(var(--grid-rows) * var(--cell-size)); }
-        #grid-underlay { display: grid; grid-template-columns: repeat(var(--grid-cols), var(--cell-size)); grid-template-rows: repeat(var(--grid-rows), var(--cell-size)); position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
-        .grid-cell-block { border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; box-sizing: border-box; }
-        #cargo-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
-        #cargo-buffer { min-height: 110px; background: #fff; border: 2px dashed #a0aec0; border-radius: 8px; padding: 12px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; width: 100%; box-sizing: border-box; position: relative; }
-
-        #summary-panel { background-color: #fff; border: 1px solid #cbd5e0; border-radius: 12px; padding: 15px 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); width: 100%; box-sizing: border-box; }
-        .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-top: 10px; }
-        .summary-card { background-color: #f8fafc; border-left: 5px solid #2b6cb0; padding: 10px 14px; border-radius: 6px; display: flex; flex-direction: column; gap: 4px; }
-        .summary-card-name { font-weight: bold; font-size: 14px; color: #2d3748; }
-        .summary-card-qty { font-size: 16px; color: #1a365d; font-weight: bold; }
-
-        .layer-selector-sidebar { display: flex; flex-direction: column; gap: 10px; }
-        .layer-tab-btn { width: 85px; height: 55px; border: 2px solid #cbd5e0; background: #fff; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
-        .layer-tab-btn.active { background: #805ad5; color: white; border-color: #805ad5; }
-
-        #control-panel { background: white; border-radius: 12px; box-shadow: 0 -2px 15px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow: hidden; width: 100%; max-width: 900px; box-sizing: border-box; }
-        .collapsible-header { background-color: #edf2f7; padding: 14px 20px; font-size: 15px; font-weight: bold; color: #2d3748; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; -webkit-tap-highlight-color: transparent; }
-        .collapsible-header::after { content: '▼'; font-size: 12px; }
-        .collapsible-header.active::after { content: '▲'; }
-        .collapsible-content { max-height: 0; overflow: hidden; transition: max-height 0.2s ease-out; background: #ffffff; }
-        .collapsible-body { padding: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
-
-        .main-cargo-generator { padding: 20px; border-top: 2px solid #e2e8f0; background: #fff; }
-        label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 14px; color: #4a5568; }
-        input, select, .action-btn { width: 100%; height: 46px; padding: 10px 12px; margin-bottom: 12px; box-sizing: border-box; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; }
-        .action-btn { background-color: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; }
-        .switch-container { display: flex; align-items: center; justify-content: space-between; height: 46px; }
-        .switch-container input { width: 22px; height: 22px; margin: 0; }
-        .color-history { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; margin-top: 5px; }
-        .color-combo-dot { width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 2px solid #cbd5e0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; -webkit-tap-highlight-color: transparent; }
-
-        .cargo-item { position: absolute; box-sizing: border-box; border: 2px solid rgba(0,0,0,0.25); display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 6px; cursor: move; touch-action: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 4px; overflow: hidden; pointer-events: auto !important; -webkit-touch-callout: none !important; }
-        .cargo-title { font-size: calc(var(--cell-size) * 0.32); font-weight: bold; line-height: 1.2; max-width: 100%; word-break: break-all; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; text-align: center; pointer-events: none; }
-        .cargo-qty { font-size: calc(var(--cell-size) * 0.26); font-weight: bold; opacity: 0.9; margin-top: 3px; background: rgba(0,0,0,0.15); padding: 2px 5px; border-radius: 4px; white-space: nowrap; pointer-events: none; }
-        .cargo-item.is-dragging { opacity: 0.6; z-index: 100; box-shadow: 0 8px 15px rgba(0,0,0,0.2); }
-        .cargo-item.underlay-ghost { opacity: 0.15 !important; border: 2px dashed #000000 !important; background-color: #e2e8f0 !important; color: #000000 !important; pointer-events: none !important; z-index: 2 !important; box-shadow: none !important; }
-        .cargo-item.is-locked { opacity: 0.55; border: 2px dashed rgba(0,0,0,0.5) !important; cursor: not-allowed !important; }
-        .cargo-item.is-locked::before { content: '🔒'; position: absolute; top: 1px; right: 2px; font-size: calc(var(--cell-size) * 0.25); z-index: 6; }
-        .cargo-star-badge { position: absolute; top: 0px; left: 2px; font-size: calc(var(--cell-size) * 0.35); color: #ffc107; font-weight: bold; z-index: 6; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
-
-        .cargo-item[data-memo]:not([data-memo=""]):hover::after {
-            content: "📝 備註: " attr(data-memo); position: absolute; bottom: 105%; left: 50%; transform: translateX(-50%);
-            background-color: rgba(33, 37, 41, 0.95); color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 12px;
-            white-space: nowrap; z-index: 99999; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid #4a5568; display: block !important;
-        }
-        
-        .custom-modal-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.4); z-index: 99999; align-items: center; justify-content: center; }
-        .custom-modal-window { background: white; padding: 22px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); width: 90%; max-width: 360px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; }
-        .custom-modal-title { font-size: 16px; font-weight: bold; color: #1a365d; margin: 0; }
-        .custom-modal-body label { font-size: 13px; font-weight: bold; color: #4a5568; display: block; margin-bottom: 4px; }
-        .custom-modal-input { width: 100%; height: 42px; padding: 8px 12px; box-sizing: border-box; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; margin-bottom: 10px; }
-        .custom-modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 5px; }
-
-        #context-menu { display: none; position: absolute; background: white; border: 1px solid #cbd5e0; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; border-radius: 8px; overflow: hidden; }
-        #context-menu div { padding: 12px 24px; cursor: pointer; font-size: 14px; font-weight: bold; }
-        #context-menu div:hover { background: #edf2f7; }
-        #context-menu .rotate-opt { color: #d69e2e; }
-        #context-menu .size-opt { color: #3182ce; } 
-        #context-menu .copy-opt { color: #dd6b20; } 
-        #context-menu .memo-opt { color: #4a5568; } 
-        #context-menu .star-opt { color: #b7791f; } 
-        #context-menu .lock-opt { color: #805ad5; border-top: 1px solid #edf2f7; }
-        #context-menu .enter-opt { color: #28a745; font-weight: bold; border-top: 1px solid #edf2f7; }
-        #context-menu .return-opt { color: #007bff; font-weight: bold; border-top: 1px solid #edf2f7; }
-        #context-menu .delete-opt { color: #e53e3e; border-top: 1px solid #edf2f7; }
+        :root { --grid-cols: 30; --grid-rows: 30; --cell-size: 20px; }
+        body { font-family: sans-serif; margin: 15px; background-color: #f4f6f9; display: flex; flex-direction: column; gap: 15px; user-select: none; }
+        #main-area { width: 100%; max-width: 900px; }
+        .wh-title-highlight { color: #1a365d; background-color: #e2e8f0; padding: 2px 8px; border-radius: 6px; }
+        .canvas-layout { display: flex; gap: 15px; }
+        #warehouse-container { border: 2px solid #333; background: #fff; position: relative; width: fit-content; border-radius: 8px; }
+        #cargo-buffer { min-height: 110px; background: #fff; border: 2px dashed #a0aec0; padding: 12px; display: flex; gap: 10px; flex-wrap: wrap; }
+        .cargo-item { position: absolute; box-sizing: border-box; border: 2px solid rgba(0,0,0,0.25); display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 6px; cursor: move; touch-action: none; padding: 4px; overflow: hidden; pointer-events: auto !important; }
+        .cargo-item.is-locked { opacity: 0.5; border: 2px dashed #000; cursor: not-allowed; }
+        .cargo-star-badge { position: absolute; top: 0; left: 2px; color: #ffc107; font-weight: bold; }
+        .custom-modal-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 99999; align-items: center; justify-content: center; }
+        .custom-modal-window { background: white; padding: 20px; border-radius: 10px; width: 300px; }
+        .custom-modal-input { width: 100%; height: 40px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
-
     <div id="main-area">
-        <h3>
-            <span class="wh-title-highlight" id="title-wh-name">倉庫一</span>網格平面圖 <span id="sync-status" style="font-size:12px; color:#e67e22; margin-left:10px;">⏳ 系統載入中...</span>
-            <button class="sync-btn-inline" onclick="syncFromCloudManual()">🔄 立即更新圖表</button>
-        </h3>
-        
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom: 5px;">
-            <label style="display:inline; font-size:13px; color:#4a5568;" for="auto-sync-toggle">🔄 定期實時看圖模式 (5分鐘自動刷新)</label>
-            <input type="checkbox" id="auto-sync-toggle" checked onchange="toggleAutoSync(this.checked)" style="width:18px; height:18px; margin:0;">
-        </div>
-        
-        <div class="wh-tabs-container" id="warehouse-tabs-bar"></div>
-
+        <h3><span class="wh-title-highlight" id="title-wh-name">倉庫一</span>網格平面圖 <span id="sync-status">⏳ 載入中...</span></h3>
+        <div id="warehouse-tabs-bar"></div>
         <div class="canvas-layout">
-            <div id="warehouse-container">
-                <div id="warehouse-grid"></div>
-            </div>
-            
-            <div class="layer-selector-sidebar">
-                <div class="layer-tab-btn" id="btn-z3" onclick="switchZLayer(3)"><span>第 3 層</span><span style="font-size:9px;opacity:0.7;">(最上層)</span></div>
-                <div class="layer-tab-btn" id="btn-z2" onclick="switchZLayer(2)"><span>第 2 層</span><span style="font-size:9px;opacity:0.7;">(中層)</span></div>
-                <div class="layer-tab-btn active" id="btn-z1" onclick="switchZLayer(1)"><span>第 1 層</span><span style="font-size:9px;opacity:0.7;">(地面棧板)</span></div>
-            </div>
+            <div id="warehouse-container"><div id="warehouse-grid"><div id="cargo-layer"></div></div></div>
         </div>
-
-        <h3>貨物待放置區 (每個倉庫獨立分流，樓層通用)</h3>
+        <h3>貨物待放置區</h3>
         <div id="cargo-buffer"></div>
-
-        <div id="summary-panel">
-            <h4 style="margin: 0 0 5px 0; color: #1a365d;">📊 全廠商品總數量統計 (0件不顯示)</h4>
-            <div class="summary-grid" id="summary-cards-container"></div>
-        </div>
     </div>
 
-    <div id="control-panel">
-        <div class="collapsible-header" onclick="toggleAccordion(this)">🛠️進階系統設定 (點擊展開/收折)</div>
-        <div class="collapsible-content">
-            <div class="collapsible-body">
-                <div>
-                    <label>網格比例尺 (目前格寬: <span id="scale-val">20</span>px)</label>
-                    <input type="range" id="grid-scale" min="15" max="80" value="20" oninput="changeScale(this.value)" style="margin-bottom:20px;">
-                    
-                    <div class="switch-container">
-                        <label for="snap-toggle">自動吸附對齊網格</label>
-                        <input type="checkbox" id="snap-toggle" checked onchange="toggleSnap(this.checked)">
-                    </div>
-                    <button class="action-btn" onclick="syncFromCloud()" style="background-color: #4a5568; margin-top: 10px;">🔄 手動刷新雲端資料</button>
-                </div>
-                <div>
-                    <label>當前操作倉庫設定</label>
-                    <select id="warehouse-select" onchange="switchWarehouseSelect(this.value)" style="margin-bottom: 12px;"></select>
-                    <label>新增/修改倉庫名稱</label>
-                    <input type="text" id="wh-name" value="倉庫一">
-                    <div style="display:flex; gap:8px;">
-                        <input type="number" id="wh-w" value="30" placeholder="寬">
-                        <input type="number" id="wh-h" value="30" placeholder="高">
-                    </div>
-                    <button class="action-btn" onclick="saveWarehouseSettings()">💾 儲存/新建當前倉庫</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="main-cargo-generator">
-            <h3>📦 生成新貨物 (棧板設定)</h3>
-            <div class="mobile-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
-                <div>
-                    <label>貨物商品名稱</label>
-                    <input type="text" id="cargo-name" value="棧板A">
-                    <label>初始存貨數量</label>
-                    <input type="number" id="cargo-qty" value="0">
-                </div>
-                <div>
-                    <label>真實尺寸 寬 x 高 (米)</label>
-                    <div class="mobile-flex-2">
-                        <input type="number" id="cargo-w" step="0.1" value="2" placeholder="寬(m)">
-                        <input type="number" id="cargo-h" step="0.1" value="2" placeholder="高(m)">
-                    </div>
-                    <div class="mobile-flex-2" style="margin-bottom: 5px;">
-                        <div style="flex: 1;"><label>方塊背景色</label><input type="color" id="cargo-color" value="#ffc107"></div>
-                        <div style="flex: 1;"><label>文字字體色</label><input type="color" id="text-color" value="#000000"></div>
-                    </div>
-                </div>
-            </div>
-            <label style="margin-top: 10px;">最近使用雙色配對</label>
-            <div class="color-history" id="color-history-container"></div>
-            <button class="action-btn" onclick="triggerCreateCargo()" style="background-color: #28a745; height: 50px; font-size: 16px;">➕ 立即生成貨物物件</button>
-        </div>
+    <div id="control-panel" style="width:100%; max-width:900px; padding:20px; background:#fff;">
+        <label>商品名稱</label><input type="text" id="cargo-name" value="棧板A">
+        <label>數量</label><input type="number" id="cargo-qty" value="0">
+        <button class="action-btn" onclick="triggerCreateCargo()">➕ 生成貨物</button>
+        <div id="color-history-container" style="display:flex; gap:10px; margin-top:10px;"></div>
     </div>
 
     <div class="custom-modal-backdrop" id="custom-edit-modal">
         <div class="custom-modal-window">
-            <h4 class="custom-modal-title" id="modal-panel-title">✏️ 編輯貨物資訊</h4>
-            <div class="custom-modal-body" id="modal-inputs-area"></div>
-            <div class="custom-modal-footer">
-                <button class="modal-btn modal-btn-cancel" onclick="closeCustomModal()">❌ 取消</button>
-                <button class="modal-btn modal-btn-confirm" onclick="submitCustomModal()">✔️ 儲存修改</button>
-            </div>
+            <h4 id="modal-panel-title">編輯資訊</h4>
+            <div id="modal-inputs-area"></div>
+            <button onclick="closeCustomModal()">取消</button>
+            <button onclick="submitCustomModal()">儲存</button>
         </div>
     </div>
 
     <script>
-        // 【已幫忙精準放入網址】：清洗了任何換行字元，確保連線正常
         const GAS_URL = "https://script.google.com/macros/s/AKfycbx-sEY_rLOfnDHPl9YMBzIC3TBUUYuwQUeCP0rQABU_x2bYfOqW_7gS8vB2eY5Mm2hN/exec";
-        
-        let globalCargoCache = [];
-        let warehouses = { 'wh1': { name: '倉庫一', width: 30, height: 30 } };
-        let currentWhId = 'wh1'; let currentZLevel = 1; let autoSyncTimer = null; let isDraggingActive = false; let modalActiveType = "";
-        let colorHistory = JSON.parse(localStorage.getItem('wh_color_memory')) || [{bg: '#ffc107', text: '#000000'}, {bg: '#28a745', text: '#ffffff'}, {bg: '#007bff', text: '#ffffff'}, {bg: '#dc3545', text: '#ffffff'}];
-        let cellSize = 20; let isSnapEnabled = true; let interactInstance = null; let rightClickedElement = null;
+        let globalCargoCache = [], warehouses = { 'wh1': { name: '倉庫一', width: 30, height: 30 } }, currentWhId = 'wh1', rightClickedElement = null, modalActiveType = "";
 
-        window.onload = function() {
-            document.documentElement.style.setProperty('--cell-size', '20px');
-            switchZLayer(1); renderColorHistory(); initInteractEngine(); syncFromCloud(); toggleAutoSync(true);
-            document.addEventListener('click', () => { document.getElementById('context-menu').style.display = 'none'; });
-        };
+        window.onload = () => { syncFromCloud(); renderColorHistory(); };
 
-        function toggleAccordion(header) {
-            header.classList.toggle("active"); const content = header.nextElementSibling;
-            content.style.maxHeight = content.style.maxHeight ? null : content.scrollHeight + "px";
-        }
-        function toggleAutoSync(enabled) { if (autoSyncTimer) clearInterval(autoSyncTimer); if (enabled) { autoSyncTimer = setInterval(() => { if (!isDraggingActive && !document.querySelector('.is-dragging')) syncFromCloudSilent(); }, 300000); } }
-        function syncFromCloudManual() { if (isDraggingActive || document.querySelector('.is-dragging')) { alert("目前正在操作中，請稍候！"); return; } syncFromCloud(); }
-        function syncFromCloudSilent() { if (isDraggingActive || document.querySelector('.is-dragging')) return; fetch(GAS_URL).then(res => res.json()).then(data => { if (isDraggingActive || document.querySelector('.is-dragging')) return; const whList = data["倉庫設定"] || data.warehouses; const cargoList = data["貨物資料"] || data.cargoItems; if(whList && Object.keys(whList).length > 0) warehouses = whList; globalCargoCache = fixCargoItemsFormat(cargoList && Array.isArray(cargoList) ? cargoList : []); renderCurrentWarehouseCargoes(); }).catch(e => {}); }
-        function switchZLayer(layerNum) { currentZLevel = parseInt(layerNum); document.querySelectorAll('.layer-tab-btn').forEach((btn) => { btn.classList.remove('active'); }); const activeBtn = document.getElementById(`btn-z${currentZLevel}`); if (activeBtn) activeBtn.classList.add('active'); renderCurrentWarehouseCargoes(); }
-        function refreshWarehouseTabs() { const tabsBar = document.getElementById('warehouse-tabs-bar'); tabsBar.innerHTML = ''; for (let id in warehouses) { const btn = document.createElement('button'); btn.className = `wh-tab-btn ${id === currentWhId ? 'active' : ''}`; btn.textContent = warehouses[id].name; btn.onclick = () => { switchWarehouseSelect(id); }; tabsBar.appendChild(btn); } }
-        function changeScale(val) { cellSize = parseInt(val); document.getElementById('scale-val').textContent = cellSize; document.documentElement.style.setProperty('--cell-size', cellSize + 'px'); renderCurrentWarehouseCargoes(); }
-        function toggleSnap(checked) { isSnapEnabled = checked; initInteractEngine(); }
-
-        function fixCargoItemsFormat(items) {
-            if(!items || !Array.isArray(items)) return [];
-            return items.map(item => {
-                if (!item.warehouseId) return item;
-                if (item.warehouseId.startsWith('buffer_')) {
-                    item.warehouseId = `buffer_${currentWhId}`; 
-                    item.m_x = 0; item.m_y = 0;
-                }
-                if (item.z_level === undefined || item.z_level === null) item.z_level = 1;
-                return item;
-            });
-        }
-
-        function renderGrid() {
-            const wh = warehouses[currentWhId] || { name: '倉庫一', width: 30, height: 30 };
-            const grid = document.getElementById('warehouse-grid');
-            document.documentElement.style.setProperty('--grid-cols', wh.width);
-            document.documentElement.style.setProperty('--grid-rows', wh.height);
-            grid.style.width = (wh.width * cellSize) + 'px';
-            grid.style.height = (wh.height * cellSize) + 'px';
-
-            let underlay = document.getElementById('grid-underlay');
-            if (underlay) underlay.remove();
-            
-            let layer = document.getElementById('cargo-layer');
-            if (!layer) { layer = document.createElement('div'); layer.id = 'cargo-layer'; grid.appendChild(layer); }
-
-            underlay = document.createElement('div'); underlay.id = 'grid-underlay';
-            const totalCells = wh.width * wh.height;
-            const fragment = document.createDocumentFragment();
-            for (let i = 0; i < totalCells; i++) {
-                const cell = document.createElement('div'); cell.className = 'grid-cell-block'; fragment.appendChild(cell);
-            }
-            underlay.appendChild(fragment); grid.insertBefore(underlay, layer);
-        }
-
-        function renderCurrentWarehouseCargoes() {
-            if (isDraggingActive) return; renderGrid();
-            const layer = document.getElementById('cargo-layer'); const buffer = document.getElementById('cargo-buffer');
-            const validIds = new Set();
-
-            globalCargoCache.forEach(itemData => {
-                if (!itemData.name || !itemData.id) return;
-                const cargoZ = parseInt(itemData.z_level || 1);
-                
-                if (itemData.warehouseId === currentWhId) {
-                    validIds.add(itemData.id);
-                    let cargo = document.querySelector(`#cargo-layer [data-id="${itemData.id}"]`) || reCreateCargoNode(itemData);
-                    updateCargoNodeData(cargo, itemData);
-
-                    const pixelX = parseFloat(itemData.m_x || 0) * cellSize;
-                    const pixelY = parseFloat(itemData.m_y || 0) * cellSize;
-                    cargo.style.transform = `translate(${pixelX}px, ${pixelY}px)`;
-                    cargo.setAttribute('data-x', pixelX); cargo.setAttribute('data-y', pixelY);
-
-                    if (cargoZ === currentZLevel) {
-                        cargo.className = 'cargo-item' + (itemData.isLocked ? ' is-locked' : '');
-                        if (cargo.parentElement !== layer) layer.appendChild(cargo);
-                    } else if (cargoZ < currentZLevel) {
-                        cargo.className = 'cargo-item underlay-ghost';
-                        if (cargo.parentElement !== layer) layer.appendChild(cargo);
-                    } else { cargo.remove(); }
-                } 
-                else if (itemData.warehouseId === `buffer_${currentWhId}`) {
-                    validIds.add(itemData.id);
-                    let cargo = document.querySelector(`#cargo-buffer [data-id="${itemData.id}"]`) || reCreateCargoNode(itemData);
-                    updateCargoNodeData(cargo, itemData);
-                    cargo.className = 'cargo-item'; cargo.removeAttribute('data-locked');
-                    cargo.style.transform = 'none'; cargo.removeAttribute('data-x'); cargo.removeAttribute('data-y');
-                    if (cargo.parentElement !== buffer) buffer.appendChild(cargo);
-                }
-            });
-
-            document.querySelectorAll('#cargo-layer .cargo-item, #cargo-buffer .cargo-item').forEach(node => { if (!validIds.has(node.getAttribute('data-id'))) node.remove(); });
-            calculateStockSummary(); initInteractEngine();
-            document.getElementById('sync-status').textContent = "✅ 雲端資料同步完成";
-            document.getElementById('sync-status').style.color = "#28a745";
-        }
-
-        function updateCargoNodeData(cargo, itemData) {
-            cargo.setAttribute('data-w-m', itemData.w_m || 2); cargo.setAttribute('data-h-m', itemData.h_m || 2);
-            const qtyInt = parseInt(itemData.qty) || 0; cargo.setAttribute('data-qty', qtyInt);
-            cargo.setAttribute('data-name', itemData.name || '未命名'); cargo.setAttribute('data-memo', itemData.memo || '');
-            cargo.setAttribute('data-star', itemData.isStarred ? 'true' : 'false'); cargo.setAttribute('data-locked', itemData.isLocked ? 'true' : 'false');
-            
-            let starBadge = cargo.querySelector('.cargo-star-badge');
-            if (itemData.isStarred) { if (!starBadge) { starBadge = document.createElement('span'); starBadge.className = 'cargo-star-badge'; starBadge.textContent = '★'; cargo.appendChild(starBadge); } } else { if (starBadge) starBadge.remove(); }
-            cargo.style.width = (parseFloat(itemData.w_m || 2) * cellSize) + 'px'; cargo.style.height = (parseFloat(itemData.h_m || 2) * cellSize) + 'px';
-            cargo.style.backgroundColor = itemData.bg || '#ffc107'; cargo.style.color = itemData.text || '#000000';
-            cargo.querySelector('.cargo-title').textContent = itemData.name;
-            
-            let qtySpan = cargo.querySelector('.cargo-qty');
-            if (qtyInt > 0) { if (!qtySpan) { qtySpan = document.createElement('span'); qtySpan.className = 'cargo-qty'; cargo.appendChild(qtySpan); } qtySpan.textContent = `${qtyInt} 件`; } else { if (qtySpan) qtySpan.remove(); }
+        function syncFromCloud() {
+            fetch(GAS_URL).then(res => res.json()).then(data => {
+                warehouses = data["倉庫設定"] || warehouses;
+                globalCargoCache = data["貨物資料"] || [];
+                renderCurrentWarehouseCargoes();
+            }).catch(() => { document.getElementById('sync-status').textContent = "⚠️ 單機模式"; });
         }
 
         function autoSaveToCloud() {
-            document.getElementById('sync-status').textContent = "⏳ 正在自動儲存至雲端...";
-            document.getElementById('sync-status').style.color = "#6c757d";
-
-            const cargoItemsToUpload = globalCargoCache.filter(item => item.warehouseId !== currentWhId && item.warehouseId !== `buffer_${currentWhId}`);
-            
-            document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)').forEach(item => {
-                const cid = item.getAttribute('data-id');
-                const cacheHit = globalCargoCache.find(c => c.id === cid);
-                const originalZ = cacheHit && cacheHit.warehouseId === currentWhId ? parseInt(cacheHit.z_level || currentZLevel) : currentZLevel;
-                cargoItemsToUpload.push({
-                    id: cid, name: item.getAttribute('data-name'), qty: item.getAttribute('data-qty'), w_m: item.getAttribute('data-w-m'), h_m: item.getAttribute('data-h-m'),
-                    m_x: item.getAttribute('data-m-x') || "0", m_y: item.getAttribute('data-m-y') || "0", bg: item.style.backgroundColor, text: item.style.color,
-                    warehouseId: currentWhId, z_level: originalZ, isLocked: item.getAttribute('data-locked') === 'true', isStarred: item.getAttribute('data-star') === 'true', memo: item.getAttribute('data-memo') || ''
-                });
-            });
-
-            globalCargoCache.forEach(item => { if (item.warehouseId === currentWhId && parseInt(item.z_level || 1) !== currentZLevel) { if (!cargoItemsToUpload.some(c => c.id === item.id)) cargoItemsToUpload.push(item); } });
-
-            document.querySelectorAll('#cargo-buffer .cargo-item').forEach(item => {
-                cargoItemsToUpload.push({
-                    id: item.getAttribute('data-id'), name: item.getAttribute('data-name'), qty: item.getAttribute('data-qty'), w_m: item.getAttribute('data-w-m'), h_m: item.getAttribute('data-h-m'),
-                    m_x: "0", m_y: "0", bg: item.style.backgroundColor, text: item.style.color, warehouseId: `buffer_${currentWhId}`, z_level: 1, isLocked: false, isStarred: item.getAttribute('data-star') === 'true', memo: item.getAttribute('data-memo') || ''
-                });
-            });
-
-            globalCargoCache = cargoItemsToUpload; calculateStockSummary();
-            const payload = { "倉庫設定": warehouses, "貨物資料": cargoItemsToUpload };
-            fetch(GAS_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+            const payload = { "倉庫設定": warehouses, "貨物資料": globalCargoCache };
+            fetch(GAS_URL, { method: "POST", mode: "no-cors", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) });
+            document.getElementById('sync-status').textContent = "✅ 已儲存";
         }
 
-        function calculateStockSummary() {
-            const summaryContainer = document.getElementById('summary-cards-container'); summaryContainer.innerHTML = ''; const stockMap = {};
-            if(!globalCargoCache || !Array.isArray(globalCargoCache)) return;
-            globalCargoCache.forEach(item => { if (!item.name) return; const name = item.name.trim(); const qty = parseInt(item.qty) || 0; if (!stockMap[name]) stockMap[name] = 0; stockMap[name] += qty; });
-            Object.keys(stockMap).sort().forEach(name => { const totalQty = stockMap[name]; if (totalQty <= 0) return; const card = document.createElement('div'); card.className = 'summary-card'; card.innerHTML = `<span class="summary-card-name">${name}</span><span class="summary-card-qty">${totalQty} 件</span>`; summaryContainer.appendChild(card); });
+        function triggerCreateCargo() {
+            const bg = "#ffc107", text = "#000000";
+            const itemData = { 
+                id: 'item_' + Date.now(), name: document.getElementById('cargo-name').value, 
+                qty: parseInt(document.getElementById('cargo-qty').value) || 0, w_m: 2, h_m: 2, 
+                m_x: 0, m_y: 0, bg: bg, text: text, warehouseId: `buffer_${currentWhId}`, 
+                z_level: 1, isLocked: false, isStarred: false, memo: '' 
+            };
+            globalCargoCache.push(itemData);
+            autoSaveToCloud();
+            renderCurrentWarehouseCargoes();
         }
 
-        function openCustomModal(title, fieldsHtml) { document.getElementById('modal-panel-title').textContent = title; document.getElementById('modal-inputs-area').innerHTML = fieldsHtml; document.getElementById('custom-edit-modal').style.display = 'flex'; }
-        function closeCustomModal() { document.getElementById('custom-edit-modal').style.display = 'none'; rightClickedElement = null; modalActiveType = ""; }
-        
-        function openEditNameModal() { if (rightClickedElement) { modalActiveType = "name"; openCustomModal("✏️ 變更商品名稱", `<label>新商品名稱</label><input type="text" id="modal-field-name" class="custom-modal-input" value="${rightClickedElement.getAttribute('data-name')}">`); } }
-        function openEditQtyModal() { if (rightClickedElement) { modalActiveType = "qty"; openCustomModal("🔢 修改商品數量", `<label>新貨物數量</label><input type="number" id="modal-field-qty" class="custom-modal-input" value="${rightClickedElement.getAttribute('data-qty')}">`); } }
-        function openEditSizeModal() { if (rightClickedElement) { modalActiveType = "size"; openCustomModal("📏 變更真實尺寸", `<label>物理寬度 (米 m)</label><input type="number" step="0.1" id="modal-field-w" class="custom-modal-input" value="${rightClickedElement.getAttribute('data-w-m')}"><label>物理長度 (米 m)</label><input type="number" step="0.1" id="modal-field-h" class="custom-modal-input" value="${rightClickedElement.getAttribute('data-h-m')}">`); } }
-        function openEditMemoModal() { if (rightClickedElement) { modalActiveType = "memo"; openCustomModal("💬 編輯盤點備註", `<label>盤點備註內容</label><input type="text" id="modal-field-memo" class="custom-modal-input" value="${rightClickedElement.getAttribute('data-memo') || ''}">`); } }
+        function renderCurrentWarehouseCargoes() {
+            const layer = document.getElementById('cargo-layer'); layer.innerHTML = '';
+            const buffer = document.getElementById('cargo-buffer'); buffer.innerHTML = '';
+            globalCargoCache.forEach(d => {
+                const node = reCreateCargoNode(d);
+                if (d.warehouseId === currentWhId) layer.appendChild(node);
+                else if (d.warehouseId === `buffer_${currentWhId}`) buffer.appendChild(node);
+            });
+            initInteractEngine();
+        }
 
+        function reCreateCargoNode(d) {
+            const el = document.createElement('div'); el.className = 'cargo-item'; el.setAttribute('data-id', d.id);
+            el.innerHTML = `<span>${d.name}</span>`;
+            el.style.width = (d.w_m * 20) + 'px'; el.style.height = (d.h_m * 20) + 'px';
+            el.style.background = d.bg; el.style.color = d.text;
+            el.addEventListener('dblclick', () => { rightClickedElement = el; modalActiveType = "qty"; openCustomModal("修改數量", `<input type="number" id="m-val" value="${d.qty}">`); });
+            return el;
+        }
+
+        function openCustomModal(t, h) { document.getElementById('modal-panel-title').innerText = t; document.getElementById('modal-inputs-area').innerHTML = h; document.getElementById('custom-edit-modal').style.display = 'flex'; }
+        function closeCustomModal() { document.getElementById('custom-edit-modal').style.display = 'none'; }
         function submitCustomModal() {
-            if (!rightClickedElement || !modalActiveType) return;
-            const cargoId = rightClickedElement.getAttribute('data-id'); const matchInCache = globalCargoCache.find(c => c.id === cargoId);
-            if (modalActiveType === "name") { const val = document.getElementById('modal-field-name').value.trim(); rightClickedElement.setAttribute('data-name', val); if (matchInCache) matchInCache.name = val; } 
-            else if (modalActiveType === "qty") { const val = parseInt(document.getElementById('modal-field-qty').value) || 0; rightClickedElement.setAttribute('data-qty', val); if (matchInCache) matchInCache.qty = val; } 
-            else if (modalActiveType === "size") { const w = parseFloat(document.getElementById('modal-field-w').value) || 1; const h = parseFloat(document.getElementById('modal-field-h').value) || 1; rightClickedElement.setAttribute('data-w-m', w); rightClickedElement.setAttribute('data-h-m', h); if (matchInCache) { matchInCache.w_m = w; matchInCache.h_m = h; } } 
-            else if (modalActiveType === "memo") { const val = document.getElementById('modal-field-memo').value.trim(); rightClickedElement.setAttribute('data-memo', val); if (matchInCache) matchInCache.memo = val; }
+            const id = rightClickedElement.getAttribute('data-id');
+            const item = globalCargoCache.find(i => i.id === id);
+            if(modalActiveType === "qty") item.qty = document.getElementById('m-val').value;
             autoSaveToCloud(); renderCurrentWarehouseCargoes(); closeCustomModal();
         }
 
-        function copyCargoToBuffer() { if (rightClickedElement) { const itemData = { id: 'item_' + Date.now() + '_' + Math.floor(Math.random()*1000), name: rightClickedElement.getAttribute('data-name'), qty: rightClickedElement.getAttribute('data-qty'), w_m: rightClickedElement.getAttribute('data-w-m'), h_m: rightClickedElement.getAttribute('data-h-m'), bg: rightClickedElement.style.backgroundColor, text: rightClickedElement.style.color, warehouseId: `buffer_${currentWhId}`, z_level: 1, isLocked: false, isStarred: false, memo: '' }; globalCargoCache.push(itemData); autoSaveToCloud(); renderCurrentWarehouseCargoes(); } }
-        function toggleCargoStar() { if (rightClickedElement) { const isStarred = rightClickedElement.getAttribute('data-star') === 'true'; rightClickedElement.setAttribute('data-star', isStarred ? 'false' : 'true'); const match = globalCargoCache.find(c => c.id === rightClickedElement.getAttribute('data-id')); if (match) match.isStarred = !isStarred; autoSaveToCloud(); renderCurrentWarehouseCargoes(); } }
-        function toggleCargoLock() { if (rightClickedElement) { const isLocked = rightClickedElement.getAttribute('data-locked') === 'true'; rightClickedElement.setAttribute('data-locked', isLocked ? 'false' : 'true'); const match = globalCargoCache.find(c => c.id === rightClickedElement.getAttribute('data-id')); if (match) match.isLocked = !isLocked; autoSaveToCloud(); renderCurrentWarehouseCargoes(); } }
-        function rotateCargo90() { if (rightClickedElement) { const w = parseFloat(rightClickedElement.getAttribute('data-w-m')); const h = parseFloat(rightClickedElement.getAttribute('data-h-m')); rightClickedElement.setAttribute('data-w-m', h); rightClickedElement.setAttribute('data-h-m', w); const match = globalCargoCache.find(c => c.id === rightClickedElement.getAttribute('data-id')); if (match) { match.w_m = h; match.h_m = w; } autoSaveToCloud(); renderCurrentWarehouseCargoes(); } }
-        function enterWarehouseDirect() { if (rightClickedElement) { const match = globalCargoCache.find(c => c.id === rightClickedElement.getAttribute('data-id')); if (match) { match.warehouseId = currentWhId; match.z_level = currentZLevel; match.m_x = 0; match.m_y = 0; } autoSaveToCloud(); renderCurrentWarehouseCargoes(); } }
-        function returnToBuffer() { if (rightClickedElement) { const match = globalCargoCache.find(c => c.id === rightClickedElement.getAttribute('data-id')); if (match) { match.warehouseId = `buffer_${currentWhId}`; match.m_x = 0; match.m_y = 0; } autoSaveToCloud(); renderCurrentWarehouseCargoes(); } }
-        function deleteSelectedCargo() { if(rightClickedElement) { globalCargoCache = globalCargoCache.filter(item => item.id !== rightClickedElement.getAttribute('data-id')); autoSaveToCloud(); renderCurrentWarehouseCargoes(); } }
-        function saveWarehouseSettings() { const name = document.getElementById('wh-name').value.trim(); const w = parseInt(document.getElementById('wh-w').value) || 30; const h = parseInt(document.getElementById('wh-h').value) || 30; if(!name) { alert("請輸入倉庫名稱！"); return; } const id = 'wh_' + Date.now(); warehouses[id] = { name: name, width: w, height: h }; switchWarehouseSelect(id, true); autoSaveToCloud(); }
-
-        function syncFromCloud() {
-            document.getElementById('sync-status').textContent = "⏳ 正在同步雲端資料...";
-            document.getElementById('sync-status').style.color = "#6c757d";
-
-            fetch(GAS_URL)
-            .then(res => { if (!res.ok) throw new Error("CORS錯誤"); return res.json(); })
-            .then(data => {
-                const whList = data["倉庫設定"] || data.warehouses;
-                const cargoList = data["貨物資料"] || data.cargoItems;
-
-                if(whList && Object.keys(whList).length > 0) warehouses = whList;
-                if (!warehouses[currentWhId]) currentWhId = Object.keys(warehouses)[0];
-                
-                switchWarehouseSelect(currentWhId, false);
-                globalCargoCache = fixCargoItemsFormat(cargoList && Array.isArray(cargoList) ? cargoList : []);
-                renderCurrentWarehouseCargoes();
-            })
-            .catch(err => {
-                document.getElementById('sync-status').textContent = "⚠️ 獨立單機操作模式運作中";
-                document.getElementById('sync-status').style.color = "#e67e22";
-                renderGrid(); 
-            });
-        }
-
-        function switchWarehouseSelect(whId, triggerRender = true) {
-            currentWhId = whId; const wh = warehouses[currentWhId];
-            if(wh) {
-                document.getElementById('title-wh-name').textContent = wh.name;
-                document.getElementById('wh-name').value = wh.name; document.getElementById('wh-w').value = wh.width; document.getElementById('wh-h').value = wh.height;
-                const select = document.getElementById('warehouse-select'); select.innerHTML = '';
-                for (let id in warehouses) { const opt = document.createElement('option'); opt.value = id; opt.textContent = `${warehouses[id].name} (${warehouses[id].width}x${warehouses[id].height})`; select.appendChild(opt); }
-                select.value = currentWhId; refreshWarehouseTabs(); if (triggerRender) renderCurrentWarehouseCargoes();
-            }
-        }
-
-        function triggerCreateCargo() { const bg = document.getElementById('cargo-color').value; const text = document.getElementById('text-color').value; colorHistory.unshift({bg: bg, text: text}); if (colorHistory.length > 10) colorHistory.pop(); localStorage.setItem('wh_color_memory', JSON.stringify(colorHistory)); const itemData = { id: 'item_' + Date.now(), name: document.getElementById('cargo-name').value, qty: parseInt(document.getElementById('cargo-qty').value) || 0, w_m: parseFloat(document.getElementById('cargo-w').value), h_m: parseFloat(document.getElementById('cargo-h').value), bg: bg, text: text, warehouseId: `buffer_${currentWhId}`, z_level: 1, isLocked: false, isStarred: false, memo: '' }; globalCargoCache.push(itemData); autoSaveToCloud(); renderCurrentWarehouseCargoes(); }
-        function renderColorHistory() { const container = document.getElementById('color-history-container'); container.innerHTML = ''; colorHistory.forEach(color => { const dot = document.createElement('div'); dot.className = 'color-combo-dot'; dot.style.backgroundColor = color.bg; dot.style.color = color.text; dot.textContent = "Abc"; dot.onclick = () => { document.getElementById('cargo-color').value = color.bg; document.getElementById('text-color').value = color.text; }; container.appendChild(dot); }); }
-
-        function reCreateCargoNode(itemData) {
-            const cargo = document.createElement('div'); cargo.className = 'cargo-item'; cargo.innerHTML = `<span class="cargo-title"></span>`;
-            cargo.addEventListener('dblclick', (e) => { e.stopPropagation(); rightClickedElement = cargo; openEditQtyModal(); });
-            cargo.addEventListener('contextmenu', (e) => {
-                e.preventDefault(); e.stopPropagation(); rightClickedElement = cargo;
-                const menu = document.getElementById('context-menu'); const isL = cargo.getAttribute('data-locked') === 'true';
-                document.getElementById('menu-lock-btn').textContent = isL ? "🔓 解除鎖定" : "🔒 鎖定物件";
-                const isBuf = cargo.parentElement.id === 'cargo-buffer';
-                document.getElementById('menu-enter-btn').style.display = isBuf ? 'block' : 'none';
-                document.getElementById('menu-return-btn').style.display = isBuf ? 'none' : 'block';
-                document.getElementById('menu-rotate-btn').style.display = isBuf ? 'none' : (isL ? 'none' : 'block');
-                menu.style.display = 'block'; menu.style.left = e.pageX + 'px'; menu.style.top = e.pageY + 'px';
-            });
-            return cargo;
-        }
-
         function initInteractEngine() {
-            if (interactInstance) interactInstance.unset();
-            interactInstance = interact('.cargo-item').draggable({
-                inertia: false, autoScroll: true,
+            interact('.cargo-item').draggable({
                 listeners: {
-                    start(event) { if (event.target.getAttribute('data-locked') === 'true' || event.target.classList.contains('underlay-ghost')) return; isDraggingActive = true; event.target.classList.add('is-dragging'); },
                     move(event) {
-                        const target = event.target; if (target.getAttribute('data-locked') === 'true' || target.classList.contains('underlay-ghost')) return;
+                        const target = event.target;
                         let x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
                         let y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
-                        target.style.transform = `translate(${x}px, ${y}px)`; target.setAttribute('data-x', x); target.setAttribute('data-y', y);
+                        target.style.transform = `translate(${x}px, ${y}px)`;
+                        target.setAttribute('data-x', x); target.setAttribute('data-y', y);
                     },
                     end(event) {
-                        const target = event.target; if (!isDraggingActive) return; target.classList.remove('is-dragging');
-                        const rect = target.getBoundingClientRect(); const containerRect = document.getElementById('warehouse-container').getBoundingClientRect();
-                        const tid = target.getAttribute('data-id');
-
-                        if (rect.top > containerRect.bottom || rect.bottom < containerRect.top || rect.left > containerRect.right || rect.right < containerRect.left) {
-                            const match = globalCargoCache.find(c => c.id === tid);
-                            if (match) { match.warehouseId = `buffer_${currentWhId}`; match.m_x = 0; match.m_y = 0; }
-                        } 
-                        else {
-                            const gridRect = document.getElementById('warehouse-grid').getBoundingClientRect();
-                            let localX = rect.left - gridRect.left; let localY = rect.top - gridRect.top;
-                            if (isSnapEnabled) { localX = Math.round(localX / cellSize) * cellSize; localY = Math.round(localY / cellSize) * cellSize; }
-                            
-                            const wh = warehouses[currentWhId];
-                            const maxW = (wh.width * cellSize) - target.offsetWidth; const maxH = (wh.height * cellSize) - target.offsetHeight;
-                            if (localX < 0) localX = 0; if (localX > maxW) localX = maxW; if (localY < 0) localY = 0; if (localY > maxH) localY = localY;
-                            
-                            const otherItems = document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)');
-                            for (let other of otherItems) {
-                                if (other === target) continue;
-                                const oX = parseFloat(other.getAttribute('data-x')) || 0; const oY = parseFloat(other.getAttribute('data-y')) || 0;
-                                const oW = parseFloat(other.offsetWidth); const oH = parseFloat(other.offsetHeight);
-                                if (localX < oX + oW - 0.5 && localX + target.offsetWidth - 0.5 > oX && localY < oY + oH - 0.5 && localY + target.offsetHeight - 0.5 > oY) {
-                                    const dists = [{ x: oX - target.offsetWidth, y: localY, d: Math.abs(localX - (oX - target.offsetWidth)) }, { x: oX + oW, y: localY, d: Math.abs(localX - (oX + oW)) }, { x: localX, y: oY - target.offsetHeight, d: Math.abs(localY - (oY - target.offsetHeight)) }, { x: localX, y: oY + oH, d: Math.abs(localY - (oY + oH)) }];
-                                    dists.sort((a, b) => a.d - b.d); let fit = dists[0];
-                                    if (isSnapEnabled) { fit.x = Math.round(fit.x / cellSize) * cellSize; fit.y = Math.round(fit.y / cellSize) * cellSize; }
-                                    localX = fit.x; localY = fit.y;
-                                    break;
-                                }
-                            }
-
-                            if (localX < 0 || localX > maxW || localY < 0 || localY > maxH) {
-                                const match = globalCargoCache.find(c => c.id === tid);
-                                if (match) { match.warehouseId = `buffer_${currentWhId}`; match.m_x = 0; match.m_y = 0; }
-                            } else {
-                                const match = globalCargoCache.find(c => c.id === tid);
-                                if (match) { match.warehouseId = currentWhId; match.z_level = currentZLevel; match.m_x = Math.round((localX / cellSize) * 10) / 10; match.m_y = Math.round((localY / cellSize) * 10) / 10; }
-                            }
-                        }
-                        autoSaveToCloud(); renderCurrentWarehouseCargoes(); isDraggingActive = false;
+                        const id = event.target.getAttribute('data-id');
+                        const item = globalCargoCache.find(i => i.id === id);
+                        item.m_x = Math.round((parseFloat(event.target.getAttribute('data-x'))/20)*10)/10;
+                        item.m_y = Math.round((parseFloat(event.target.getAttribute('data-y'))/20)*10)/10;
+                        autoSaveToCloud();
                     }
                 }
             });
