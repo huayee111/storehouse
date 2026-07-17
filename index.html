@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>公司內部倉儲網格系統 - 終極絲滑版</title>
+    <title>公司內部倉儲網格系統 - 全程可視絲滑版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -84,9 +84,11 @@
         .grid-cell-block { border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; box-sizing: border-box; }
         #cargo-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
         
+        /* 🛠️ 關鍵優化：為待放區加上相對定位定位，允許其內部拖曳商品穿透顯示 */
         #cargo-buffer { 
             min-height: 110px; background: #fff; border: 2px dashed #a0aec0; border-radius: 8px; 
-            padding: 12px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; width: 100%; box-sizing: border-box; position: relative;
+            padding: 12px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; width: 100%; box-sizing: border-box; 
+            position: relative; z-index: 6; /* 略高於倉庫畫布，防止被蓋住 */
         }
 
         .quick-view-controls {
@@ -158,9 +160,6 @@
         .switch-container { display: flex; align-items: center; justify-content: space-between; height: 46px; }
         .switch-container input { width: 22px; height: 22px; margin: 0; }
 
-        .color-history { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; margin-top: 5px; }
-        .color-combo-dot { width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 2px solid #cbd5e0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; user-select: none; -webkit-tap-highlight-color: transparent; }
-
         .cargo-item {
             position: absolute; box-sizing: border-box; border: 2px solid rgba(0,0,0,0.25);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -168,6 +167,7 @@
             padding: 4px; overflow: hidden; pointer-events: auto !important; z-index: 10;
             transform-origin: center center;
             -webkit-touch-callout: none !important; -webkit-user-select: none !important; user-select: none !important; -webkit-tap-highlight-color: transparent !important;
+            transition: opacity 0.15s, border-style 0.15s;
         }
         
         .cargo-title {
@@ -176,11 +176,11 @@
         }
         .cargo-qty { font-size: calc(var(--cell-size) * 0.26); font-weight: bold; opacity: 0.9; margin-top: 3px; background: rgba(0,0,0,0.15); padding: 2px 5px; border-radius: 4px; white-space: nowrap; pointer-events: none; }
         
-        /* 🛠️ 終極修復：移除大陰影干擾，改為極淡乾淨外框，確保拖曳時跟隨毫無位移感 */
+        /* 🛠️ 終極修復：強制給予最頂級的獨立圖層級別，確保商品不論在倉庫內、或在待放區被抓起移動，全程 100% 可視 */
         .cargo-item.is-dragging { 
             opacity: 0.95 !important; 
-            z-index: 999999 !important; 
-            box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important; 
+            z-index: 9999999 !important; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important; 
         }
         
         .cargo-item.underlay-ghost { opacity: 0.15 !important; border: 2px dashed #000000 !important; background-color: #e2e8f0 !important; color: #000000 !important; pointer-events: none !important; z-index: 2 !important; box-shadow: none !important; }
@@ -379,7 +379,6 @@
         let interactInstance = null;
         let rightClickedElement = null;
 
-        // 🛠️ 優化：改寫為全相對增量追蹤模型
         let dragDeltaPos = { x: 0, y: 0 };
         let lastTapTime = 0; 
 
@@ -1266,7 +1265,6 @@
             return null; 
         }
 
-        // 🛠️ 終極修復：全純粹增量式坐標系追蹤引擎（100% 消除拉扯偏移 Bug）
         function initInteractEngine() {
             if (interactInstance) interactInstance.unset();
             
@@ -1281,12 +1279,9 @@
                         isDraggingActive = true; 
                         document.getElementById('cargo-tooltip').style.display = 'none';
 
-                        // 核心改寫：停止任何跨容器的 HTML DOM 抽離移位！
-                        // 讓方塊老老實實待在原本的容器裡，直接以現有的坐標（data-x / data-y）當作起點
                         let curX = parseFloat(target.getAttribute('data-x')) || 0;
                         let curY = parseFloat(target.getAttribute('data-y')) || 0;
                         
-                        // 如果原本在待放區，起點像素坐標重置為 0
                         if (target.parentElement.id === 'cargo-buffer') {
                             curX = 0; curY = 0;
                         }
@@ -1300,11 +1295,9 @@
                         const target = event.target;
                         if (target.getAttribute('data-locked') === 'true' || target.classList.contains('underlay-ghost')) return;
 
-                        // 核心改寫：100% 純粹疊加滑鼠移動的微小差距（event.dx / dy），完美消滅「拔起右下偏移」
                         dragDeltaPos.x += event.dx;
                         dragDeltaPos.y += event.dy;
 
-                        // 渲染商品移動，保證滑鼠跟隨點絕不跑位
                         target.style.transform = `translate(${dragDeltaPos.x}px, ${dragDeltaPos.y}px)`;
                         target.setAttribute('data-x', dragDeltaPos.x); 
                         target.setAttribute('data-y', dragDeltaPos.y);
@@ -1318,7 +1311,6 @@
                         const duplicates = document.querySelectorAll(`[data-id="${thisId}"]`);
                         if (duplicates.length > 1) { for (let i = 1; i < duplicates.length; i++) duplicates[i].remove(); }
 
-                        // 取得落點時，滑鼠在全螢幕上的絕對坐標
                         const grid = document.getElementById('warehouse-grid');
                         const gridRect = grid.getBoundingClientRect();
                         const buffer = document.getElementById('cargo-buffer');
@@ -1328,18 +1320,12 @@
                         const h_m = parseFloat(target.getAttribute('data-h-m'));
                         const wh = warehouses[currentWhId];
 
-                        // 智慧落點容器判定：滑鼠放開時人在哪裡
-                        const isOverWarehouse = (
+                        const isInsideWarehouse = (
                             event.clientX >= gridRect.left && event.clientX <= gridRect.right &&
                             event.clientY >= gridRect.top && event.clientY <= gridRect.bottom
                         );
-                        const isOverBuffer = (
-                            event.clientX >= bufferRect.left && event.clientX <= bufferRect.right &&
-                            event.clientY >= bufferRect.top && event.clientY <= bufferRect.bottom
-                        );
 
-                        if (isOverWarehouse) {
-                            // 精確換算落點在倉庫內的左上角相對像素位置
+                        if (isInsideWarehouse) {
                             let finalLocalX = (event.clientX - (target.offsetWidth / 2)) - gridRect.left;
                             let finalLocalY = (event.clientY - (target.offsetHeight / 2)) - gridRect.top;
 
@@ -1365,7 +1351,6 @@
                                 alert("該位置空間不足，商品已自動彈回待放區。");
                             }
                         } else {
-                            // 放開在倉庫外（包含丟回待放區），順暢歸回流式排版
                             document.getElementById('cargo-buffer').appendChild(target);
                             target.removeAttribute('data-x'); target.removeAttribute('data-y');
                             target.removeAttribute('data-m-x'); target.removeAttribute('data-m-y');
