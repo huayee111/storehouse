@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>公司內部倉儲網格系統 - 盤點統計與手動同步版</title>
+    <title>公司內部倉儲網格系統 - 進階版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -42,24 +42,12 @@
             display: inline-block;
         }
 
-        /* 頂部同步按鈕樣式 */
         .sync-btn-inline {
-            background-color: #4a5568;
-            color: white;
-            border: none;
-            padding: 5px 12px;
-            font-size: 13px;
-            font-weight: bold;
-            border-radius: 15px;
-            cursor: pointer;
-            margin-left: 10px;
-            transition: background-color 0.15s;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
+            background-color: #4a5568; color: white; border: none; padding: 5px 12px;
+            font-size: 13px; font-weight: bold; border-radius: 15px; cursor: pointer;
+            margin-left: 10px; transition: background-color 0.15s; display: inline-flex; align-items: center; gap: 4px;
         }
         .sync-btn-inline:hover { background-color: #2d3748; }
-        .sync-btn-inline:active { opacity: 0.8; }
 
         .wh-tabs-container { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px; margin-bottom: 5px; }
         .wh-tab-btn {
@@ -90,33 +78,11 @@
             padding: 12px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; width: 100%; box-sizing: border-box; position: relative;
         }
 
-        /* 統計區面板樣式 */
-        #summary-panel {
-            background-color: #fff;
-            border: 1px solid #cbd5e0;
-            border-radius: 12px;
-            padding: 15px 20px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
-            width: 100%;
-            box-sizing: border-box;
-        }
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            gap: 12px;
-            margin-top: 10px;
-        }
-        .summary-card {
-            background-color: #f8fafc;
-            border-left: 5px solid #2b6cb0;
-            padding: 10px 14px;
-            border-radius: 6px;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
+        #summary-panel { background-color: #fff; border: 1px solid #cbd5e0; border-radius: 12px; padding: 15px 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); width: 100%; box-sizing: border-box; }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-top: 10px; }
+        .summary-card { background-color: #f8fafc; border-left: 5px solid #2b6cb0; padding: 10px 14px; border-radius: 6px; display: flex; flex-direction: column; gap: 4px; }
         .summary-card-name { font-weight: bold; font-size: 14px; color: #2d3748; }
-        .summary-card-qty { font-size: 16px; font-weight: 8px; color: #1a365d; font-weight: bold; }
+        .summary-card-qty { font-size: 16px; color: #1a365d; font-weight: bold; }
 
         .layer-selector-sidebar { display: flex; flex-direction: column; gap: 10px; }
         .layer-tab-btn {
@@ -128,7 +94,7 @@
 
         #control-panel { background: white; border-radius: 12px; box-shadow: 0 -2px 15px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow: hidden; width: 100%; max-width: 900px; box-sizing: border-box; }
         .collapsible-header { background-color: #edf2f7; padding: 14px 20px; font-size: 15px; font-weight: bold; color: #2d3748; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; user-select: none; -webkit-tap-highlight-color: transparent; }
-        .collapsible-header::after { content: '▼'; font-size: 12px; transition: transform 0.2s; }
+        .collapsible-header::after { content: '▼'; font-size: 12px; }
         .collapsible-header.active::after { content: '▲'; }
         .collapsible-content { max-height: 0; overflow: hidden; transition: max-height 0.2s ease-out; background: #ffffff; }
         .collapsible-body { padding: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
@@ -146,6 +112,7 @@
         .color-history { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; margin-top: 5px; }
         .color-combo-dot { width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 2px solid #cbd5e0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; user-select: none; -webkit-tap-highlight-color: transparent; }
 
+        /* 貨物物件 */
         .cargo-item {
             position: absolute; box-sizing: border-box; border: 2px solid rgba(0,0,0,0.25);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -163,7 +130,27 @@
         
         .cargo-item.underlay-ghost { opacity: 0.15 !important; border: 2px dashed #000000 !important; background-color: #e2e8f0 !important; color: #000000 !important; pointer-events: none !important; z-index: 2 !important; box-shadow: none !important; }
         .cargo-item.is-locked { opacity: 0.55; border: 2px dashed rgba(0,0,0,0.5) !important; cursor: not-allowed !important; }
-        .cargo-item.is-locked::before { content: '🔒'; position: absolute; top: 1px; right: 2px; font-size: calc(var(--cell-size) * 0.25); }
+        
+        /* 🔒 鎖定與 ⭐ 星號標記樣式調整 */
+        .cargo-item.is-locked::before { content: '🔒'; position: absolute; top: 1px; right: 2px; font-size: calc(var(--cell-size) * 0.25); z-index: 6; }
+        
+        /* 星號標記樣式 */
+        .cargo-star-badge {
+            position: absolute; top: 0px; left: 2px;
+            font-size: calc(var(--cell-size) * 0.35);
+            color: #ffc107; font-weight: bold; z-index: 6;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        }
+
+        /* 備註懸浮泡泡樣式 */
+        .cargo-item[data-memo]:not([data-memo=""]):hover::after {
+            content: "📝 備註: " attr(data-memo);
+            position: absolute; bottom: 105%; left: 50%; transform: translateX(-50%);
+            background-color: rgba(33, 37, 41, 0.95); color: #fff;
+            padding: 5px 10px; border-radius: 6px; font-size: 11px;
+            white-space: nowrap; z-index: 9999; box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+            pointer-events: none; border: 1px solid #4a5568;
+        }
         
         #cargo-buffer .cargo-item { position: relative !important; transform: none !important; display: inline-flex !important; margin: 0 !important; }
 
@@ -171,10 +158,14 @@
             display: none; position: absolute; background: white; border: 1px solid #cbd5e0;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; border-radius: 8px; overflow: hidden;
         }
-        #context-menu div { padding: 14px 24px; cursor: pointer; font-size: 15px; font-weight: bold; }
+        #context-menu div { padding: 12px 24px; cursor: pointer; font-size: 14px; font-weight: bold; }
         #context-menu div:hover { background: #edf2f7; }
-        #context-menu .rotate-opt { color: #d69e2e; font-weight: bold; }
-        #context-menu .lock-opt { color: #805ad5; font-weight: bold; }
+        #context-menu .rotate-opt { color: #d69e2e; }
+        #context-menu .size-opt { color: #3182ce; } /* 尺寸藍色 */
+        #context-menu .copy-opt { color: #dd6b20; } /* 複製橘色 */
+        #context-menu .memo-opt { color: #4a5568; } /* 備註灰色 */
+        #context-menu .star-opt { color: #b7791f; } /* 標記金色 */
+        #context-menu .lock-opt { color: #805ad5; border-top: 1px solid #edf2f7; }
         #context-menu .enter-opt { color: #28a745; font-weight: bold; border-top: 1px solid #edf2f7; }
         #context-menu .return-opt { color: #007bff; font-weight: bold; border-top: 1px solid #edf2f7; }
         #context-menu .delete-opt { color: #e53e3e; border-top: 1px solid #edf2f7; }
@@ -192,7 +183,7 @@
 <body>
 
     <div id="main-area">
-        <h3>
+        <h3 id="dynamic-title-heading">
             <span class="wh-title-highlight" id="title-wh-name">倉庫一</span>網格平面圖 (1格 = 1m²) 
             <span id="sync-status" style="font-size:12px; color:#e67e22; margin-left:10px;">⏳ 系統載入中...</span>
             <button class="sync-btn-inline" onclick="syncFromCloudManual()">🔄 立即更新圖表</button>
@@ -217,7 +208,7 @@
             </div>
         </div>
 
-        <h3>貨物待放置區 (每個倉庫、每個樓層獨立分流)</h3>
+        <h3>貨物待放置區 (每個倉庫獨立分流，樓層通用)</h3>
         <div id="cargo-buffer"></div>
 
         <div id="summary-panel">
@@ -264,7 +255,8 @@
                     <label>貨物商品名稱</label>
                     <input type="text" id="cargo-name" value="棧板A">
                     <label>初始存貨數量</label>
-                    <input type="number" id="cargo-qty" value="0"> </div>
+                    <input type="number" id="cargo-qty" value="0">
+                </div>
                 <div>
                     <label>真實尺寸 寬 x 高 (米，支援小數點)</label>
                     <div class="mobile-flex-2">
@@ -291,9 +283,14 @@
         </div>
     </div>
 
+    <!-- 右鍵自訂選單面板 -->
     <div id="context-menu">
         <div onclick="editSelectedName()">✏️ 變更名稱</div>
         <div onclick="editSelectedQty()">🔢 修改數量</div>
+        <div class="size-opt" onclick="editSelectedSize()">📏 變更尺寸</div> <!-- 1. 變更尺寸 -->
+        <div class="copy-opt" onclick="copyCargoToBuffer()">📋 複製到待放區</div> <!-- 2. 複製到待放區 -->
+        <div class="memo-opt" onclick="editSelectedMemo()">💬 編輯備註</div> <!-- 3. 編輯備註 -->
+        <div class="star-opt" onclick="toggleCargoStar()">⭐ 標記星號</div> <!-- 4. 標記星號 -->
         <div id="menu-rotate-btn" class="rotate-opt" onclick="rotateCargo90()">🔄 旋轉 90 度</div>
         <div id="menu-lock-btn" class="lock-opt" onclick="toggleCargoLock()">🔒 鎖定物件</div>
         <div id="menu-enter-btn" class="enter-opt" onclick="enterWarehouseDirect()">📥 放進倉庫</div>
@@ -347,22 +344,19 @@
             else { content.style.maxHeight = content.scrollHeight + "px"; }
         }
 
-        // 【優化】：更改自動同步頻率為 5 分鐘
         function toggleAutoSync(enabled) {
             if (autoSyncTimer) clearInterval(autoSyncTimer);
             if (enabled) {
                 autoSyncTimer = setInterval(() => {
                     if (isDraggingActive || document.querySelector('.is-dragging')) return;
                     syncFromCloudSilent();
-                }, 300000); // 300,000毫秒 = 5分鐘
+                }, 300000); // 5分鐘
             }
         }
 
-        // 手動按鈕立即強制重繪更新功能
         function syncFromCloudManual() {
             if (isDraggingActive || document.querySelector('.is-dragging')) {
-                alert("目前同仁正在移動棧板，請稍後再試！");
-                return;
+                alert("目前同仁正在移動棧板，請稍後再試！"); return;
             }
             syncFromCloud();
         }
@@ -424,9 +418,7 @@
             
             let layer = document.getElementById('cargo-layer');
             if (!layer) {
-                layer = document.createElement('div');
-                layer.id = 'cargo-layer';
-                grid.appendChild(layer);
+                layer = document.createElement('div'); layer.id = 'cargo-layer'; grid.appendChild(layer);
             }
 
             underlay = document.createElement('div');
@@ -434,9 +426,7 @@
             const totalCells = wh.width * wh.height;
             const fragment = document.createDocumentFragment();
             for (let i = 0; i < totalCells; i++) {
-                const cell = document.createElement('div');
-                cell.className = 'grid-cell-block';
-                fragment.appendChild(cell);
+                const cell = document.createElement('div'); cell.className = 'grid-cell-block'; fragment.appendChild(cell);
             }
             underlay.appendChild(fragment);
             grid.insertBefore(underlay, layer);
@@ -485,8 +475,7 @@
                 select.value = currentWhId;
                 refreshWarehouseTabs();
                 if (triggerRender) {
-                    const layer = document.getElementById('cargo-layer');
-                    if (layer) layer.innerHTML = '';
+                    const layer = document.getElementById('cargo-layer'); if (layer) layer.innerHTML = '';
                     document.getElementById('cargo-buffer').innerHTML = '';
                     renderCurrentWarehouseCargoes();
                 }
@@ -495,11 +484,9 @@
 
         function renderCurrentWarehouseCargoes() {
             if (isDraggingActive) return; 
-            
             renderGrid();
             const layer = document.getElementById('cargo-layer');
             const buffer = document.getElementById('cargo-buffer');
-
             const validIds = new Set();
 
             globalCargoCache.forEach(itemData => {
@@ -509,12 +496,8 @@
                 if (itemData.warehouseId === currentWhId) {
                     validIds.add(itemData.id);
                     let cargo = document.querySelector(`#cargo-layer [data-id="${itemData.id}"]`);
-                    
-                    if (!cargo) {
-                        cargo = reCreateCargoNode(itemData);
-                    } else {
-                        updateCargoNodeData(cargo, itemData);
-                    }
+                    if (!cargo) cargo = reCreateCargoNode(itemData);
+                    else updateCargoNodeData(cargo, itemData);
 
                     cargo.className = 'cargo-item';
                     if (itemData.isLocked === true || itemData.isLocked === "true") {
@@ -527,26 +510,23 @@
                     const pixelY = parseFloat(itemData.m_y || 0) * cellSize;
                     cargo.style.transform = `translate(${pixelX}px, ${pixelY}px)`;
                     cargo.setAttribute('data-x', pixelX); cargo.setAttribute('data-y', pixelY);
-                    cargo.setAttribute('data-m-x', itemData.m_x || 0); cargo.setAttribute('data-m-y', itemData.m_y || 0);
 
                     if (cargoZ === currentZLevel) {
                         if (cargo.parentElement !== layer) layer.appendChild(cargo);
                     } else if (cargoZ < currentZLevel) {
                         cargo.classList.add('underlay-ghost');
-                        cargo.title = `下方 ${cargoZ} 層墊底商品: ${itemData.name}`;
                         if (cargo.parentElement !== layer) layer.appendChild(cargo);
                     } else {
                         cargo.remove();
                     }
                 } 
-                else if (itemData.warehouseId === `buffer_${currentWhId}_z${currentZLevel}`) {
+                // 【核心修改】：不同層級之間商品通用，不再加上 _z 樓層後綴，僅與廠區綁定
+                else if (itemData.warehouseId === `buffer_${currentWhId}`) {
                     validIds.add(itemData.id);
                     let cargo = document.querySelector(`#cargo-buffer [data-id="${itemData.id}"]`);
-                    if (!cargo) {
-                        cargo = reCreateCargoNode(itemData);
-                    } else {
-                        updateCargoNodeData(cargo, itemData);
-                    }
+                    if (!cargo) cargo = reCreateCargoNode(itemData);
+                    else updateCargoNodeData(cargo, itemData);
+                    
                     cargo.className = 'cargo-item';
                     cargo.removeAttribute('data-locked');
                     cargo.style.transform = 'none';
@@ -556,58 +536,11 @@
 
             document.querySelectorAll('#cargo-layer .cargo-item, #cargo-buffer .cargo-item').forEach(node => {
                 const id = node.getAttribute('data-id');
-                if (id && !validIds.has(id)) {
-                    node.remove();
-                }
+                if (id && !validIds.has(id)) node.remove();
             });
 
-            // 【核心觸發】：只要渲染完畢，即刻進行全廠總商品存量加總計算
             calculateStockSummary();
             initInteractEngine();
-        }
-
-        // 【新增功能】：跨庫全域相同名字商品數量加總統計演算法
-        function calculateStockSummary() {
-            const summaryContainer = document.getElementById('summary-cards-container');
-            summaryContainer.innerHTML = '';
-
-            // 使用物件進行大歸類累加
-            const stockMap = {};
-
-            globalCargoCache.forEach(item => {
-                if (!item.name) return;
-                const name = item.name.trim();
-                const qty = parseInt(item.qty) || 0;
-
-                if (!stockMap[name]) {
-                    stockMap[name] = 0;
-                }
-                stockMap[name] += qty;
-            });
-
-            // 將對應數據轉成陣列排序輸出
-            const sortedItems = Object.keys(stockMap).sort();
-            let hasVisibleStock = false;
-
-            sortedItems.forEach(name => {
-                const totalQty = stockMap[name];
-                
-                // 【核心要求】：商品總數量為 0 的商品，直接過濾不要顯示
-                if (totalQty <= 0) return;
-
-                hasVisibleStock = true;
-                const card = document.createElement('div');
-                card.className = 'summary-card';
-                card.innerHTML = `
-                    <span class="summary-card-name">${name}</span>
-                    <span class="summary-card-qty">${totalQty} 件</span>
-                `;
-                summaryContainer.appendChild(card);
-            });
-
-            if (!hasVisibleStock) {
-                summaryContainer.innerHTML = `<div style="color: #a0aec0; font-size: 13px;">目前無任何大於 0 件的商品庫存</div>`;
-            }
         }
 
         function updateCargoNodeData(cargo, itemData) {
@@ -616,7 +549,19 @@
             const qtyInt = parseInt(itemData.qty) || 0;
             cargo.setAttribute('data-qty', qtyInt);
             cargo.setAttribute('data-name', itemData.name || '未命名');
+            cargo.setAttribute('data-memo', itemData.memo || ''); // 更新備註屬性
             
+            // 恢復星號狀態
+            const hasStar = itemData.isStarred === true || itemData.isStar === "true" || itemData.isStarred === "true";
+            cargo.setAttribute('data-star', hasStar ? 'true' : 'false');
+            let starBadge = cargo.querySelector('.cargo-star-badge');
+            if (hasStar) {
+                if (!starBadge) {
+                    starBadge = document.createElement('span'); starBadge.className = 'cargo-star-badge'; starBadge.textContent = '★';
+                    cargo.appendChild(starBadge);
+                }
+            } else { if (starBadge) starBadge.remove(); }
+
             cargo.style.width = (parseFloat(itemData.w_m || 2) * cellSize) + 'px';
             cargo.style.height = (parseFloat(itemData.h_m || 2) * cellSize) + 'px';
             cargo.style.backgroundColor = itemData.bg || '#ffc107';
@@ -628,27 +573,27 @@
             let qtySpan = cargo.querySelector('.cargo-qty');
             if (qtyInt > 0) {
                 if (!qtySpan) {
-                    qtySpan = document.createElement('span');
-                    qtySpan.className = 'cargo-qty';
-                    cargo.appendChild(qtySpan);
+                    qtySpan = document.createElement('span'); qtySpan.className = 'cargo-qty'; cargo.appendChild(qtySpan);
                 }
                 qtySpan.textContent = `${qtyInt} 件`;
-            } else {
-                if (qtySpan) qtySpan.remove();
-            }
+            } else { if (qtySpan) qtySpan.remove(); }
         }
 
         function autoSaveToCloud() {
             document.getElementById('sync-status').textContent = "⏳ 正在自動儲存至雲端...";
             document.getElementById('sync-status').style.color = "#6c757d";
 
+            // 過濾並保留「非本倉庫」的資料
             const cargoItemsToUpload = globalCargoCache.filter(item => {
-                const isCurrentWh = item.warehouseId === currentWhId;
-                const isCurrentBuffer = item.warehouseId === `buffer_${currentWhId}_z${currentZLevel}`;
-                return !isCurrentBuffer && !(isCurrentWh && parseInt(item.z_level || 1) === currentZLevel);
+                return item.warehouseId !== currentWhId && item.warehouseId !== `buffer_${currentWhId}`;
             });
             
+            // 目前倉庫內的物件
             document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)').forEach(item => {
+                // 為了保留原本其他樓層的資料，需要去快取撈出其 z_level
+                const cacheHit = globalCargoCache.find(c => c.id === item.getAttribute('data-id'));
+                const originalZ = cacheHit ? parseInt(cacheHit.z_level || currentZLevel) : currentZLevel;
+
                 cargoItemsToUpload.push({
                     id: item.getAttribute('data-id'),
                     name: item.getAttribute('data-name'),
@@ -660,11 +605,24 @@
                     bg: item.style.backgroundColor,
                     text: item.style.color,
                     warehouseId: currentWhId,
-                    z_level: currentZLevel,
-                    isLocked: item.getAttribute('data-locked') === 'true'
+                    z_level: originalZ, 
+                    isLocked: item.getAttribute('data-locked') === 'true',
+                    isStarred: item.getAttribute('data-star') === 'true',
+                    memo: item.getAttribute('data-memo') || ''
                 });
             });
 
+            // 補回目前倉庫其他樓層沒被渲染到的原本快取資料 (防止跨樓層覆蓋)
+            globalCargoCache.forEach(item => {
+                if (item.warehouseId === currentWhId && parseInt(item.z_level || 1) !== currentZLevel) {
+                    // 檢查是否不小心重複
+                    if (!cargoItemsToUpload.some(c => c.id === item.id)) {
+                        cargoItemsToUpload.push(item);
+                    }
+                }
+            });
+
+            // 待放置區的物件（僅依據倉庫名稱分流，跨層通用）
             document.querySelectorAll('#cargo-buffer .cargo-item').forEach(item => {
                 cargoItemsToUpload.push({
                     id: item.getAttribute('data-id'),
@@ -675,14 +633,15 @@
                     m_x: "0", m_y: "0",
                     bg: item.style.backgroundColor,
                     text: item.style.color,
-                    warehouseId: `buffer_${currentWhId}_z${currentZLevel}`,
-                    z_level: currentZLevel, 
-                    isLocked: false
+                    warehouseId: `buffer_${currentWhId}`, 
+                    z_level: 1, 
+                    isLocked: false,
+                    isStarred: item.getAttribute('data-star') === 'true',
+                    memo: item.getAttribute('data-memo') || ''
                 });
             });
 
             globalCargoCache = cargoItemsToUpload;
-            // 本地刷新統計
             calculateStockSummary();
 
             fetch(GAS_URL, {
@@ -694,22 +653,127 @@
             });
         }
 
+        function calculateStockSummary() {
+            const summaryContainer = document.getElementById('summary-cards-container');
+            summaryContainer.innerHTML = '';
+            const stockMap = {};
+
+            globalCargoCache.forEach(item => {
+                if (!item.name) return;
+                const name = item.name.trim();
+                const qty = parseInt(item.qty) || 0;
+                if (!stockMap[name]) stockMap[name] = 0;
+                stockMap[name] += qty;
+            });
+
+            const sortedItems = Object.keys(stockMap).sort();
+            let hasVisibleStock = false;
+
+            sortedItems.forEach(name => {
+                const totalQty = stockMap[name];
+                if (totalQty <= 0) return;
+                hasVisibleStock = true;
+                const card = document.createElement('div'); card.className = 'summary-card';
+                card.innerHTML = `<span class="summary-card-name">${name}</span><span class="summary-card-qty">${totalQty} 件</span>`;
+                summaryContainer.appendChild(card);
+            });
+
+            if (!hasVisibleStock) {
+                summaryContainer.innerHTML = `<div style="color: #a0aec0; font-size: 13px;">目前無任何大於 0 件的商品庫存</div>`;
+            }
+        }
+
+        // 【新增功能 1】：右鍵調整大小
+        function editSelectedSize() {
+            if (rightClickedElement) {
+                if (rightClickedElement.getAttribute('data-locked') === 'true') return;
+                const oldW = rightClickedElement.getAttribute('data-w-m');
+                const oldH = rightClickedElement.getAttribute('data-h-m');
+                
+                const newW = prompt("請輸入新的物理【寬度】(公尺 m):", oldW);
+                if (newW === null || newW.trim() === "") return;
+                const newH = prompt("請輸入新的物理【高度】(公尺 m):", oldH);
+                if (newH === null || newH.trim() === "") return;
+
+                const parsedW = parseFloat(newW) || 1;
+                const parsedH = parseFloat(newH) || 1;
+
+                rightClickedElement.setAttribute('data-w-m', parsedW);
+                rightClickedElement.setAttribute('data-h-m', parsedH);
+                rightClickedElement.style.width = (parsedW * cellSize) + 'px';
+                rightClickedElement.style.height = (parsedH * cellSize) + 'px';
+
+                autoSaveToCloud();
+            }
+        }
+
+        // 【新增功能 2】：商品右鍵選擇複製到待放置區
+        function copyCargoToBuffer() {
+            if (rightClickedElement) {
+                const name = rightClickedElement.getAttribute('data-name');
+                const qty = rightClickedElement.getAttribute('data-qty');
+                const w_m = rightClickedElement.getAttribute('data-w-m');
+                const h_m = rightClickedElement.getAttribute('data-h-m');
+                const bg = rightClickedElement.style.backgroundColor;
+                const text = rightClickedElement.style.color;
+                const memo = rightClickedElement.getAttribute('data-memo') || '';
+                const star = rightClickedElement.getAttribute('data-star') || 'false';
+
+                const itemData = {
+                    id: 'item_' + Date.now() + '_' + Math.floor(Math.random()*1000), // 亂數防重複
+                    name: name, qty: qty, w_m: w_m, h_m: h_m, bg: bg, text: text,
+                    warehouseId: `buffer_${currentWhId}`, // 固定複製至當前倉庫的待放區
+                    z_level: 1, isLocked: false, isStarred: star === 'true', memo: memo
+                };
+
+                const newCargo = reCreateCargoNode(itemData);
+                document.getElementById('cargo-buffer').appendChild(newCargo);
+                globalCargoCache.push(itemData);
+                
+                autoSaveToCloud();
+            }
+        }
+
+        // 【新增功能 3】：編輯備註
+        function editSelectedMemo() {
+            if (rightClickedElement) {
+                const oldMemo = rightClickedElement.getAttribute('data-memo') || '';
+                const newMemo = prompt("請輸入該貨物的盤點備註內容 (滑鼠懸浮時會跳出顯示)：", oldMemo);
+                if (newMemo !== null) {
+                    rightClickedElement.setAttribute('data-memo', newMemo.trim());
+                    autoSaveToCloud();
+                }
+            }
+        }
+
+        // 【新增功能 4】：切換星號標記
+        function toggleCargoStar() {
+            if (rightClickedElement) {
+                const isStarred = rightClickedElement.getAttribute('data-star') === 'true';
+                rightClickedElement.setAttribute('data-star', isStarred ? 'false' : 'true');
+                
+                let starBadge = rightClickedElement.querySelector('.cargo-star-badge');
+                if (!isStarred) {
+                    if (!starBadge) {
+                        starBadge = document.createElement('span'); starBadge.className = 'cargo-star-badge'; starBadge.textContent = '★';
+                        rightClickedElement.appendChild(starBadge);
+                    }
+                } else { if (starBadge) starBadge.remove(); }
+                
+                rightClickedElement = null;
+                autoSaveToCloud();
+            }
+        }
+
         function rotateCargo90() {
             if (rightClickedElement) {
-                const isLocked = rightClickedElement.getAttribute('data-locked') === 'true';
-                if (isLocked) return;
-
+                if (rightClickedElement.getAttribute('data-locked') === 'true') return;
                 const currentWM = parseFloat(rightClickedElement.getAttribute('data-w-m'));
                 const currentHM = parseFloat(rightClickedElement.getAttribute('data-h-m'));
+                const newWM = currentHM; const newHM = currentWM;
 
-                const newWM = currentHM;
-                const newHM = currentWM;
-
-                rightClickedElement.setAttribute('data-w-m', newWM);
-                rightClickedElement.setAttribute('data-h-m', newHM);
-
-                rightClickedElement.style.width = (newWM * cellSize) + 'px';
-                rightClickedElement.style.height = (newHM * cellSize) + 'px';
+                rightClickedElement.setAttribute('data-w-m', newWM); rightClickedElement.setAttribute('data-h-m', newHM);
+                rightClickedElement.style.width = (newWM * cellSize) + 'px'; rightClickedElement.style.height = (newHM * cellSize) + 'px';
 
                 if (rightClickedElement.parentElement.id === 'cargo-layer') {
                     let lx = parseFloat(rightClickedElement.getAttribute('data-x')) || 0;
@@ -721,14 +785,9 @@
                     if (ly > maxH) ly = Math.max(0, Math.round(maxH / cellSize) * cellSize);
                     
                     rightClickedElement.style.transform = `translate(${lx}px, ${ly}px)`;
-                    rightClickedElement.setAttribute('data-x', lx);
-                    rightClickedElement.setAttribute('data-y', ly);
-                    rightClickedElement.setAttribute('data-m-x', lx / cellSize);
-                    rightClickedElement.setAttribute('data-m-y', ly / cellSize);
+                    rightClickedElement.setAttribute('data-x', lx); rightClickedElement.setAttribute('data-y', ly);
                 }
-
-                rightClickedElement = null;
-                autoSaveToCloud();
+                rightClickedElement = null; autoSaveToCloud();
             }
         }
 
@@ -738,8 +797,7 @@
             const h = parseInt(document.getElementById('wh-h').value);
             const id = 'wh_' + Date.now();
             warehouses[id] = { name: name, width: w, height: h };
-            switchWarehouseSelect(id, true);
-            autoSaveToCloud();
+            switchWarehouseSelect(id, true); autoSaveToCloud();
         }
 
         function triggerCreateCargo() {
@@ -747,21 +805,16 @@
             const text = document.getElementById('text-color').value;
             const exists = colorHistory.some(c => c.bg === bg && c.text === text);
             if (!exists) {
-                colorHistory.unshift({bg: bg, text: text});
-                if (colorHistory.length > 10) colorHistory.pop();
-                localStorage.setItem('wh_color_memory', JSON.stringify(colorHistory));
-                renderColorHistory();
+                colorHistory.unshift({bg: bg, text: text}); if (colorHistory.length > 10) colorHistory.pop();
+                localStorage.setItem('wh_color_memory', JSON.stringify(colorHistory)); renderColorHistory();
             }
-            createNewCargo();
-            autoSaveToCloud();
+            createNewCargo(); autoSaveToCloud();
         }
 
         function renderColorHistory() {
-            const container = document.getElementById('color-history-container');
-            container.innerHTML = '';
+            const container = document.getElementById('color-history-container'); container.innerHTML = '';
             colorHistory.forEach(color => {
-                const dot = document.createElement('div');
-                dot.className = 'color-combo-dot'; dot.style.backgroundColor = color.bg; dot.style.color = color.text; dot.textContent = "Abc";
+                const dot = document.createElement('div'); dot.className = 'color-combo-dot'; dot.style.backgroundColor = color.bg; dot.style.color = color.text; dot.textContent = "Abc";
                 dot.onclick = () => { document.getElementById('cargo-color').value = color.bg; document.getElementById('text-color').value = color.text; };
                 container.appendChild(dot);
             });
@@ -775,11 +828,11 @@
             const bgColor = document.getElementById('cargo-color').value;
             const textColor = document.getElementById('text-color').value;
 
-            const itemData = { id: 'item_' + Date.now(), name: name, qty: qty, w_m: w, h_m: h, bg: bgColor, text: textColor, warehouseId: `buffer_${currentWhId}_z${currentZLevel}`, z_level: currentZLevel, isLocked: false };
+            // 【核心修改】：待放區分流不加上樓層後綴，維持跨樓層通用
+            const itemData = { id: 'item_' + Date.now(), name: name, qty: qty, w_m: w, h_m: h, bg: bgColor, text: textColor, warehouseId: `buffer_${currentWhId}`, z_level: currentZLevel, isLocked: false, isStarred: false, memo: '' };
             const cargo = reCreateCargoNode(itemData);
             document.getElementById('cargo-buffer').appendChild(cargo);
             globalCargoCache.push(itemData);
-            calculateStockSummary();
         }
 
         function reCreateCargoNode(itemData) {
@@ -801,17 +854,22 @@
             cargo.setAttribute('data-name', itemData.name || '未命名');
             cargo.setAttribute('data-id', itemData.id);
             cargo.setAttribute('data-locked', itemData.isLocked ? 'true' : 'false');
+            cargo.setAttribute('data-memo', itemData.memo || ''); // 綁定備註
+            
+            // 恢復星號狀態
+            const hasStar = itemData.isStarred === true || itemData.isStar === "true" || itemData.isStarred === "true";
+            cargo.setAttribute('data-star', hasStar ? 'true' : 'false');
+            if (hasStar) {
+                const starBadge = document.createElement('span'); starBadge.className = 'cargo-star-badge'; starBadge.textContent = '★';
+                cargo.appendChild(starBadge);
+            }
 
             cargo.addEventListener('click', (e) => {
-                e.stopPropagation(); 
-                rightClickedElement = cargo; 
-                editSelectedQty();
+                e.stopPropagation(); rightClickedElement = cargo; editSelectedQty();
             });
 
             cargo.addEventListener('contextmenu', (e) => {
-                e.preventDefault(); 
-                e.stopPropagation(); 
-                rightClickedElement = cargo;
+                e.preventDefault(); e.stopPropagation(); rightClickedElement = cargo;
                 
                 const menu = document.getElementById('context-menu');
                 const enterBtn = document.getElementById('menu-enter-btn');
@@ -917,11 +975,8 @@
                 listeners: {
                     start(event) { 
                         const target = event.target;
-                        if (target.getAttribute('data-locked') === 'true' || target.classList.contains('underlay-ghost')) {
-                            return;
-                        }
-                        isDraggingActive = true; 
-                        target.classList.add('is-dragging'); 
+                        if (target.getAttribute('data-locked') === 'true' || target.classList.contains('underlay-ghost')) return;
+                        isDraggingActive = true; target.classList.add('is-dragging'); 
                     },
                     move(event) {
                         const target = event.target;
@@ -943,7 +998,6 @@
                         const wh = warehouses[currentWhId];
                         const maxW = (wh.width * cellSize) - target.offsetWidth;
                         const maxH = (wh.height * cellSize) - target.offsetHeight;
-                        
                         if (x < 0) x = 0; if (x > maxW) x = maxW;
                         if (y < 0) y = 0; if (y > maxH) y = maxH;
 
@@ -953,12 +1007,10 @@
                     end(event) {
                         const target = event.target;
                         if (!isDraggingActive) return; 
-                        
                         target.classList.remove('is-dragging');
                         
                         const rect = target.getBoundingClientRect();
                         const containerRect = document.getElementById('warehouse-container').getBoundingClientRect();
-                        
                         const thisId = target.getAttribute('data-id');
                         const duplicates = document.querySelectorAll(`[data-id="${thisId}"]`);
                         if (duplicates.length > 1) { for (let i = 1; i < duplicates.length; i++) duplicates[i].remove(); }
@@ -978,7 +1030,6 @@
                             const wh = warehouses[currentWhId];
                             const maxW = (wh.width * cellSize) - target.offsetWidth;
                             const maxH = (wh.height * cellSize) - target.offsetHeight;
-                            
                             if (localX < 0) localX = 0; if (localX > maxW) localX = maxW;
                             if (localY < 0) localY = 0; if (localY > maxH) localY = maxH;
                             
@@ -1014,7 +1065,6 @@
                                 target.setAttribute('data-m-y', Math.round((localY / cellSize) * 10) / 10);
                             }
                         }
-                        
                         autoSaveToCloud();
                         isDraggingActive = false; 
                     }
