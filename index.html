@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>公司內部倉儲網格系統 - 終極修復流暢版</title>
+    <title>公司內部倉儲網格系統 - 終極資料修復相容版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -13,70 +13,24 @@
         }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; 
-            margin: 15px; 
-            background-color: #f4f6f9; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 15px; 
-            user-select: none;
-            align-items: flex-start;
-            -webkit-touch-callout: none; 
-            -webkit-user-select: none;   
-            user-select: none;             
+            margin: 15px; background-color: #f4f6f9; display: flex; flex-direction: column; gap: 15px; 
+            user-select: none; align-items: flex-start; -webkit-touch-callout: none; -webkit-user-select: none;
         }
 
-        #main-area { 
-            display: flex; 
-            flex-direction: column; 
-            gap: 10px; 
-            width: 100%; 
-            max-width: 900px; 
-        }
-        
-        .wh-title-highlight {
-            color: #1a365d; 
-            background-color: #e2e8f0;
-            padding: 2px 8px;
-            border-radius: 6px;
-            margin-right: 5px;
-            display: inline-block;
-        }
-
-        .sync-btn-inline {
-            background-color: #4a5568; color: white; border: none; padding: 5px 12px;
-            font-size: 13px; font-weight: bold; border-radius: 15px; cursor: pointer;
-            margin-left: 10px; transition: background-color 0.15s; display: inline-flex; align-items: center; gap: 4px;
-        }
-        .sync-btn-inline:hover { background-color: #2d3748; }
-
+        #main-area { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 900px; }
+        .wh-title-highlight { color: #1a365d; background-color: #e2e8f0; padding: 2px 8px; border-radius: 6px; margin-right: 5px; display: inline-block; }
+        .sync-btn-inline { background-color: #4a5568; color: white; border: none; padding: 5px 12px; font-size: 13px; font-weight: bold; border-radius: 15px; cursor: pointer; margin-left: 10px; display: inline-flex; align-items: center; gap: 4px; }
         .wh-tabs-container { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px; margin-bottom: 5px; }
-        .wh-tab-btn {
-            padding: 10px 18px; background-color: #e2e8f0; color: #4a5568; border: 1px solid #cbd5e0;
-            border-radius: 20px; font-weight: bold; font-size: 14px; cursor: pointer; transition: all 0.2s ease;
-            -webkit-tap-highlight-color: transparent;
-        }
+        .wh-tab-btn { padding: 10px 18px; background-color: #e2e8f0; color: #4a5568; border: 1px solid #cbd5e0; border-radius: 20px; font-weight: bold; font-size: 14px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         .wh-tab-btn.active { background-color: #2b6cb0; color: white; border-color: #2b6cb0; }
 
         .canvas-layout { display: flex; gap: 15px; align-items: flex-start; width: 100%; }
-        #warehouse-container { 
-            border: 2px solid #333; background-color: #ffffff; position: relative; 
-            width: fit-content; height: fit-content; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 5px;
-        }
-        #warehouse-grid {
-            position: relative; top: 0; left: 0;
-            width: calc(var(--grid-cols) * var(--cell-size)); height: calc(var(--grid-rows) * var(--cell-size));
-        }
-        #grid-underlay {
-            display: grid; grid-template-columns: repeat(var(--grid-cols), var(--cell-size)); grid-template-rows: repeat(var(--grid-rows), var(--cell-size));
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;
-        }
+        #warehouse-container { border: 2px solid #333; background-color: #ffffff; position: relative; width: fit-content; height: fit-content; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 5px; }
+        #warehouse-grid { position: relative; top: 0; left: 0; width: calc(var(--grid-cols) * var(--cell-size)); height: calc(var(--grid-rows) * var(--cell-size)); }
+        #grid-underlay { display: grid; grid-template-columns: repeat(var(--grid-cols), var(--cell-size)); grid-template-rows: repeat(var(--grid-rows), var(--cell-size)); position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
         .grid-cell-block { border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; box-sizing: border-box; }
         #cargo-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
-        
-        #cargo-buffer { 
-            min-height: 110px; background: #fff; border: 2px dashed #a0aec0; border-radius: 8px; 
-            padding: 12px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; width: 100%; box-sizing: border-box; position: relative;
-        }
+        #cargo-buffer { min-height: 110px; background: #fff; border: 2px dashed #a0aec0; border-radius: 8px; padding: 12px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; width: 100%; box-sizing: border-box; position: relative; }
 
         #summary-panel { background-color: #fff; border: 1px solid #cbd5e0; border-radius: 12px; padding: 15px 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); width: 100%; box-sizing: border-box; }
         .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-top: 10px; }
@@ -85,15 +39,11 @@
         .summary-card-qty { font-size: 16px; color: #1a365d; font-weight: bold; }
 
         .layer-selector-sidebar { display: flex; flex-direction: column; gap: 10px; }
-        .layer-tab-btn {
-            width: 85px; height: 55px; border: 2px solid #cbd5e0; background: #fff; border-radius: 8px;
-            font-weight: bold; font-size: 13px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: all 0.15s; -webkit-tap-highlight-color: transparent;
-        }
-        .layer-tab-btn.active { background: #805ad5; color: white; border-color: #805ad5; box-shadow: 0 4px 10px rgba(128, 90, 213, 0.3); }
+        .layer-tab-btn { width: 85px; height: 55px; border: 2px solid #cbd5e0; background: #fff; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
+        .layer-tab-btn.active { background: #805ad5; color: white; border-color: #805ad5; }
 
         #control-panel { background: white; border-radius: 12px; box-shadow: 0 -2px 15px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow: hidden; width: 100%; max-width: 900px; box-sizing: border-box; }
-        .collapsible-header { background-color: #edf2f7; padding: 14px 20px; font-size: 15px; font-weight: bold; color: #2d3748; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; user-select: none; -webkit-tap-highlight-color: transparent; }
+        .collapsible-header { background-color: #edf2f7; padding: 14px 20px; font-size: 15px; font-weight: bold; color: #2d3748; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; -webkit-tap-highlight-color: transparent; }
         .collapsible-header::after { content: '▼'; font-size: 12px; }
         .collapsible-header.active::after { content: '▲'; }
         .collapsible-content { max-height: 0; overflow: hidden; transition: max-height 0.2s ease-out; background: #ffffff; }
@@ -101,59 +51,37 @@
 
         .main-cargo-generator { padding: 20px; border-top: 2px solid #e2e8f0; background: #fff; }
         label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 14px; color: #4a5568; }
-        
         input, select, .action-btn { width: 100%; height: 46px; padding: 10px 12px; margin-bottom: 12px; box-sizing: border-box; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; }
-        input[type="range"] { height: auto; }
-        input[type="color"] { padding: 2px; cursor: pointer; }
-        .action-btn { background-color: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
+        .action-btn { background-color: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; }
         .switch-container { display: flex; align-items: center; justify-content: space-between; height: 46px; }
         .switch-container input { width: 22px; height: 22px; margin: 0; }
-
         .color-history { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; margin-top: 5px; }
-        .color-combo-dot { width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 2px solid #cbd5e0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; user-select: none; -webkit-tap-highlight-color: transparent; }
+        .color-combo-dot { width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 2px solid #cbd5e0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; -webkit-tap-highlight-color: transparent; }
 
-        .cargo-item {
-            position: absolute; box-sizing: border-box; border: 2px solid rgba(0,0,0,0.25);
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            border-radius: 6px; cursor: move; touch-action: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            padding: 4px; overflow: hidden; pointer-events: auto !important;
-            -webkit-touch-callout: none !important; -webkit-user-select: none !important; user-select: none !important; -webkit-tap-highlight-color: transparent !important;
-        }
-        
-        .cargo-title {
-            font-size: calc(var(--cell-size) * 0.32); font-weight: bold; line-height: 1.2; max-width: 100%;
-            word-break: break-all; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; text-align: center; pointer-events: none;
-        }
+        .cargo-item { position: absolute; box-sizing: border-box; border: 2px solid rgba(0,0,0,0.25); display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 6px; cursor: move; touch-action: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 4px; overflow: hidden; pointer-events: auto !important; -webkit-touch-callout: none !important; }
+        .cargo-title { font-size: calc(var(--cell-size) * 0.32); font-weight: bold; line-height: 1.2; max-width: 100%; word-break: break-all; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; text-align: center; pointer-events: none; }
         .cargo-qty { font-size: calc(var(--cell-size) * 0.26); font-weight: bold; opacity: 0.9; margin-top: 3px; background: rgba(0,0,0,0.15); padding: 2px 5px; border-radius: 4px; white-space: nowrap; pointer-events: none; }
         .cargo-item.is-dragging { opacity: 0.6; z-index: 100; box-shadow: 0 8px 15px rgba(0,0,0,0.2); }
-        
         .cargo-item.underlay-ghost { opacity: 0.15 !important; border: 2px dashed #000000 !important; background-color: #e2e8f0 !important; color: #000000 !important; pointer-events: none !important; z-index: 2 !important; box-shadow: none !important; }
         .cargo-item.is-locked { opacity: 0.55; border: 2px dashed rgba(0,0,0,0.5) !important; cursor: not-allowed !important; }
         .cargo-item.is-locked::before { content: '🔒'; position: absolute; top: 1px; right: 2px; font-size: calc(var(--cell-size) * 0.25); z-index: 6; }
-        
-        .cargo-star-badge {
-            position: absolute; top: 0px; left: 2px;
-            font-size: calc(var(--cell-size) * 0.35);
-            color: #ffc107; font-weight: bold; z-index: 6;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-        }
+        .cargo-star-badge { position: absolute; top: 0px; left: 2px; font-size: calc(var(--cell-size) * 0.35); color: #ffc107; font-weight: bold; z-index: 6; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
 
-        /* 【強效懸浮泡泡】：利用 CSS 強制開啟渲染 */
+        /* 備註懸浮泡泡強制開啟 */
         .cargo-item[data-memo]:not([data-memo=""]):hover::after {
-            content: "📝 備註: " attr(data-memo);
-            position: absolute; bottom: 105%; left: 50%; transform: translateX(-50%);
-            background-color: rgba(33, 37, 41, 0.95); color: #fff;
-            padding: 6px 12px; border-radius: 6px; font-size: 12px;
-            white-space: nowrap; z-index: 99999; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            pointer-events: none; border: 1px solid #4a5568; display: block !important;
+            content: "📝 備註: " attr(data-memo); position: absolute; bottom: 105%; left: 50%; transform: translateX(-50%);
+            background-color: rgba(33, 37, 41, 0.95); color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 12px;
+            white-space: nowrap; z-index: 99999; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid #4a5568; display: block !important;
         }
         
-        #cargo-buffer .cargo-item { position: relative !important; transform: none !important; display: inline-flex !important; margin: 0 !important; }
+        .custom-modal-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.4); z-index: 99999; align-items: center; justify-content: center; }
+        .custom-modal-window { background: white; padding: 22px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); width: 90%; max-width: 360px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; }
+        .custom-modal-title { font-size: 16px; font-weight: bold; color: #1a365d; margin: 0; }
+        .custom-modal-body label { font-size: 13px; font-weight: bold; color: #4a5568; display: block; margin-bottom: 4px; }
+        .custom-modal-input { width: 100%; height: 42px; padding: 8px 12px; box-sizing: border-box; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; margin-bottom: 10px; }
+        .custom-modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 5px; }
 
-        #context-menu {
-            display: none; position: absolute; background: white; border: 1px solid #cbd5e0;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; border-radius: 8px; overflow: hidden;
-        }
+        #context-menu { display: none; position: absolute; background: white; border: 1px solid #cbd5e0; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; border-radius: 8px; overflow: hidden; }
         #context-menu div { padding: 12px 24px; cursor: pointer; font-size: 14px; font-weight: bold; }
         #context-menu div:hover { background: #edf2f7; }
         #context-menu .rotate-opt { color: #d69e2e; }
@@ -165,48 +93,13 @@
         #context-menu .enter-opt { color: #28a745; font-weight: bold; border-top: 1px solid #edf2f7; }
         #context-menu .return-opt { color: #007bff; font-weight: bold; border-top: 1px solid #edf2f7; }
         #context-menu .delete-opt { color: #e53e3e; border-top: 1px solid #edf2f7; }
-
-        /* 互動式小彈窗 (Custom Modal UI) */
-        .custom-modal-backdrop {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0, 0, 0, 0.4); z-index: 99999; align-items: center; justify-content: center;
-        }
-        .custom-modal-window {
-            background: white; padding: 22px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.25);
-            width: 90%; max-width: 360px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px;
-            animation: modalFadeIn 0.15s ease-out;
-        }
-        @keyframes modalFadeIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        .custom-modal-title { font-size: 16px; font-weight: bold; color: #1a365d; margin: 0; }
-        .custom-modal-body label { font-size: 13px; font-weight: bold; color: #4a5568; display: block; margin-bottom: 4px; }
-        .custom-modal-input {
-            width: 100%; height: 42px; padding: 8px 12px; box-sizing: border-box;
-            border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; margin-bottom: 10px;
-        }
-        .custom-modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 5px; }
-        .modal-btn {
-            height: 42px; padding: 0 18px; border-radius: 6px; font-size: 14px; font-weight: bold;
-            cursor: pointer; display: inline-flex; align-items: center; justify-content: center; border: none;
-        }
-        .modal-btn-confirm { background-color: #28a745; color: white; }
-        .modal-btn-cancel { background-color: #edf2f7; color: #4a5568; border: 1px solid #cbd5e0; }
-
-        @media (max-width: 600px) {
-            .canvas-layout { flex-direction: column; }
-            .layer-selector-sidebar { flex-direction: row; width: 100%; }
-            .layer-tab-btn { flex: 1; height: 46px; }
-            .mobile-row { display: flex; flex-direction: column; gap: 0; }
-            .mobile-flex-2 { display: flex; gap: 8px; }
-            .collapsible-body { grid-template-columns: 1fr; padding: 15px; }
-        }
     </style>
 </head>
 <body>
 
     <div id="main-area">
         <h3>
-            <span class="wh-title-highlight" id="title-wh-name">倉庫一</span>網格平面圖 (1格 = 1m²) 
-            <span id="sync-status" style="font-size:12px; color:#e67e22; margin-left:10px;">⏳ 系統載入中...</span>
+            <span class="wh-title-highlight" id="title-wh-name">倉庫一</span>網格平面圖 <span id="sync-status" style="font-size:12px; color:#e67e22; margin-left:10px;">⏳ 系統載入中...</span>
             <button class="sync-btn-inline" onclick="syncFromCloudManual()">🔄 立即更新圖表</button>
         </h3>
         
@@ -233,10 +126,8 @@
         <div id="cargo-buffer"></div>
 
         <div id="summary-panel">
-            <h4 style="margin: 0 0 5px 0; color: #1a365d;">📊 全廠商品總數量統計 (自動加總相同名稱商品，0件不顯示)</h4>
-            <div class="summary-grid" id="summary-cards-container">
-                <div style="color: #a0aec0; font-size: 13px;">暫無庫存資料</div>
-            </div>
+            <h4 style="margin: 0 0 5px 0; color: #1a365d;">📊 全廠商品總數量統計 (0件不顯示)</h4>
+            <div class="summary-grid" id="summary-cards-container"></div>
         </div>
     </div>
 
@@ -257,7 +148,6 @@
                 <div>
                     <label>當前操作倉庫設定</label>
                     <select id="warehouse-select" onchange="switchWarehouseSelect(this.value)" style="margin-bottom: 12px;"></select>
-                    
                     <label>新增/修改倉庫名稱</label>
                     <input type="text" id="wh-name" value="倉庫一">
                     <div style="display:flex; gap:8px;">
@@ -279,32 +169,23 @@
                     <input type="number" id="cargo-qty" value="0">
                 </div>
                 <div>
-                    <label>真實尺寸 寬 x 高 (米，支援小數點)</label>
+                    <label>真實尺寸 寬 x 高 (米)</label>
                     <div class="mobile-flex-2">
                         <input type="number" id="cargo-w" step="0.1" value="2" placeholder="寬(m)">
                         <input type="number" id="cargo-h" step="0.1" value="2" placeholder="高(m)">
                     </div>
                     <div class="mobile-flex-2" style="margin-bottom: 5px;">
-                        <div style="flex: 1;">
-                            <label>方塊背景色</label>
-                            <input type="color" id="cargo-color" value="#ffc107">
-                        </div>
-                        <div style="flex: 1;">
-                            <label>文字字體色</label>
-                            <input type="color" id="text-color" value="#000000">
-                        </div>
+                        <div style="flex: 1;"><label>方塊背景色</label><input type="color" id="cargo-color" value="#ffc107"></div>
+                        <div style="flex: 1;"><label>文字字體色</label><input type="color" id="text-color" value="#000000"></div>
                     </div>
                 </div>
             </div>
-            
-            <label style="margin-top: 10px;">最近使用雙色配對 (永久記憶)</label>
+            <label style="margin-top: 10px;">最近使用雙色配對</label>
             <div class="color-history" id="color-history-container"></div>
-            
-            <button class="action-btn" onclick="triggerCreateCargo()" style="background-color: #28a745; height: 50px; font-size: 16px; margin-bottom:0;">➕ 立即生成貨物物件</button>
+            <button class="action-btn" onclick="triggerCreateCargo()" style="background-color: #28a745; height: 50px; font-size: 16px;">➕ 立即生成貨物物件</button>
         </div>
     </div>
 
-    <!-- 內建輸入小彈窗 -->
     <div class="custom-modal-backdrop" id="custom-edit-modal">
         <div class="custom-modal-window">
             <h4 class="custom-modal-title" id="modal-panel-title">✏️ 編輯貨物資訊</h4>
@@ -316,223 +197,47 @@
         </div>
     </div>
 
-    <!-- 右鍵選單 -->
-    <div id="context-menu">
-        <div onclick="openEditNameModal()">✏️ 變更名稱</div>
-        <div onclick="openEditQtyModal()">🔢 修改數量</div>
-        <div class="size-opt" onclick="openEditSizeModal()">📏 變更尺寸</div> 
-        <div class="copy-opt" onclick="copyCargoToBuffer()">📋 複製到待放區</div> 
-        <div class="memo-opt" onclick="openEditMemoModal()">💬 編輯備註</div> 
-        <div class="star-opt" onclick="toggleCargoStar()">⭐ 標記星號</div> 
-        <div id="menu-rotate-btn" class="rotate-opt" onclick="rotateCargo90()">🔄 旋轉 90 度</div>
-        <div id="menu-lock-btn" class="lock-opt" onclick="toggleCargoLock()">🔒 鎖定物件</div>
-        <div id="menu-enter-btn" class="enter-opt" onclick="enterWarehouseDirect()">📥 放進倉庫</div>
-        <div id="menu-return-btn" class="return-opt" onclick="returnToBuffer()">↩️ 放回待放區</div>
-        <div class="delete-opt" onclick="deleteSelectedCargo()">❌ 刪除貨物</div>
-    </div>
-
     <script>
         const GAS_URL = "https://script.google.com/macros/s/AKfycbx-sEY_rLOfnDHPl9YMBzIC3TBUUYuwQUeCP0rQABU_x2bYfOqW_7gS8vB2eY5Mm2hN/exec";
-
         let globalCargoCache = [];
         let warehouses = { 'wh1': { name: '倉庫一', width: 30, height: 30 } };
-        let currentWhId = 'wh1';
-        let currentZLevel = 1; 
-        let autoSyncTimer = null;
-        let isDraggingActive = false;
-        let modalActiveType = "";
-
-        let colorHistory = JSON.parse(localStorage.getItem('wh_color_memory')) || [
-            {bg: '#ffc107', text: '#000000'},
-            {bg: '#28a745', text: '#ffffff'},
-            {bg: '#007bff', text: '#ffffff'},
-            {bg: '#dc3545', text: '#ffffff'}
-        ];
-        
-        let cellSize = 20; 
-        let isSnapEnabled = true;
-        let interactInstance = null;
-        let rightClickedElement = null;
+        let currentWhId = 'wh1'; let currentZLevel = 1; let autoSyncTimer = null; let isDraggingActive = false; let modalActiveType = "";
+        let colorHistory = JSON.parse(localStorage.getItem('wh_color_memory')) || [{bg: '#ffc107', text: '#000000'}, {bg: '#28a745', text: '#ffffff'}, {bg: '#007bff', text: '#ffffff'}, {bg: '#dc3545', text: '#ffffff'}];
+        let cellSize = 20; let isSnapEnabled = true; let interactInstance = null; let rightClickedElement = null;
 
         window.onload = function() {
-            document.documentElement.style.setProperty('--cell-size', '20px');
-            switchZLayer(1); 
-            renderColorHistory();
-            initInteractEngine();
-            syncFromCloud(); 
-            toggleAutoSync(true);
-
-            document.addEventListener('click', () => {
-                document.getElementById('context-menu').style.display = 'none';
-            });
-            
-            document.addEventListener('touchstart', function (event) {
-                if (event.touches.length > 1) event.preventDefault();
-            }, { passive: false });
+            switchZLayer(1); renderColorHistory(); initInteractEngine(); syncFromCloud(); toggleAutoSync(true);
+            document.addEventListener('click', () => { document.getElementById('context-menu').style.display = 'none'; });
         };
 
         function toggleAccordion(header) {
-            header.classList.toggle("active");
-            const content = header.nextElementSibling;
-            if (content.style.maxHeight) { content.style.maxHeight = null; } 
-            else { content.style.maxHeight = content.scrollHeight + "px"; }
+            header.classList.toggle("active"); const content = header.nextElementSibling;
+            content.style.maxHeight = content.style.maxHeight ? null : content.scrollHeight + "px";
         }
+        function toggleAutoSync(enabled) { if (autoSyncTimer) clearInterval(autoSyncTimer); if (enabled) { autoSyncTimer = setInterval(() => { if (!isDraggingActive && !document.querySelector('.is-dragging')) syncFromCloudSilent(); }, 300000); } }
+        function syncFromCloudManual() { if (isDraggingActive || document.querySelector('.is-dragging')) { alert("目前正在操作中，請稍候！"); return; } syncFromCloud(); }
+        function syncFromCloudSilent() { if (isDraggingActive || document.querySelector('.is-dragging')) return; fetch(GAS_URL).then(res => res.json()).then(data => { if (isDraggingActive || document.querySelector('.is-dragging')) return; if(data && data.warehouses) warehouses = data.warehouses; globalCargoCache = fixCargoItemsFormat(data && Array.isArray(data.cargoItems) ? data.cargoItems : []); renderCurrentWarehouseCargoes(); }).catch(e => {}); }
+        function switchZLayer(layerNum) { currentZLevel = parseInt(layerNum); document.querySelectorAll('.layer-tab-btn').forEach((btn) => { btn.classList.remove('active'); }); const activeBtn = document.getElementById(`btn-z${currentZLevel}`); if (activeBtn) activeBtn.classList.add('active'); renderCurrentWarehouseCargoes(); }
+        function refreshWarehouseTabs() { const tabsBar = document.getElementById('warehouse-tabs-bar'); tabsBar.innerHTML = ''; for (let id in warehouses) { const btn = document.createElement('button'); btn.className = `wh-tab-btn ${id === currentWhId ? 'active' : ''}`; btn.textContent = warehouses[id].name; btn.onclick = () => { switchWarehouseSelect(id); }; tabsBar.appendChild(btn); } }
+        function changeScale(val) { cellSize = parseInt(val); document.getElementById('scale-val').textContent = cellSize; document.documentElement.style.setProperty('--cell-size', cellSize + 'px'); renderCurrentWarehouseCargoes(); }
+        function toggleSnap(checked) { isSnapEnabled = checked; initInteractEngine(); }
 
-        function toggleAutoSync(enabled) {
-            if (autoSyncTimer) clearInterval(autoSyncTimer);
-            if (enabled) {
-                autoSyncTimer = setInterval(() => {
-                    if (isDraggingActive || document.querySelector('.is-dragging')) return;
-                    syncFromCloudSilent();
-                }, 300000); 
-            }
-        }
-
-        function syncFromCloudManual() {
-            if (isDraggingActive || document.querySelector('.is-dragging')) {
-                alert("目前同仁正在移動棧板，請稍後再試！"); return;
-            }
-            syncFromCloud();
-        }
-
-        function syncFromCloudSilent() {
-            if (isDraggingActive || document.querySelector('.is-dragging')) return;
-            fetch(GAS_URL)
-            .then(res => res.json())
-            .then(data => {
-                if (isDraggingActive || document.querySelector('.is-dragging')) return;
-                if(data && data.warehouses) warehouses = data.warehouses;
-                globalCargoCache = fixCargoItemsFormat(data && Array.isArray(data.cargoItems) ? data.cargoItems : []);
-                renderCurrentWarehouseCargoes();
-            }).catch(e => console.log("同步延遲"));
-        }
-
-        function switchZLayer(layerNum) {
-            currentZLevel = parseInt(layerNum);
-            document.querySelectorAll('.layer-tab-btn').forEach((btn) => { btn.classList.remove('active'); });
-            const activeBtn = document.getElementById(`btn-z${currentZLevel}`);
-            if (activeBtn) activeBtn.classList.add('active');
-            renderCurrentWarehouseCargoes();
-        }
-
-        function refreshWarehouseTabs() {
-            const tabsBar = document.getElementById('warehouse-tabs-bar');
-            tabsBar.innerHTML = '';
-            for (let id in warehouses) {
-                const btn = document.createElement('button');
-                btn.className = `wh-tab-btn ${id === currentWhId ? 'active' : ''}`;
-                btn.textContent = warehouses[id].name;
-                btn.onclick = () => { switchWarehouseSelect(id); };
-                tabsBar.appendChild(btn);
-            }
-        }
-
-        function changeScale(val) {
-            cellSize = parseInt(val);
-            document.getElementById('scale-val').textContent = cellSize;
-            document.documentElement.style.setProperty('--cell-size', cellSize + 'px');
-            renderCurrentWarehouseCargoes();
-        }
-
+        // 【大維修】：徹底修正清洗邏輯，區隔實體平面圖 (currentWhId) 與待放置區 (buffer_currentWhId)
         function fixCargoItemsFormat(items) {
             return items.map(item => {
                 if (!item.warehouseId) return item;
                 if (item.warehouseId.startsWith('buffer_')) {
-                    const cleanWhId = item.warehouseId.replace(/_z[1-3]$/, '').replace('buffer_', '');
-                    item.warehouseId = `buffer_${cleanWhId}`; 
+                    item.warehouseId = `buffer_${currentWhId}`; 
+                    item.m_x = 0; item.m_y = 0; // 待放區強制歸零
                 }
                 if (item.z_level === undefined || item.z_level === null) item.z_level = 1;
                 return item;
             });
         }
 
-        function toggleSnap(checked) {
-            isSnapEnabled = checked;
-            initInteractEngine();
-        }
-
-        function renderGrid() {
-            const wh = warehouses[currentWhId] || { name: '倉庫一', width: 30, height: 30 };
-            const grid = document.getElementById('warehouse-grid');
-            document.documentElement.style.setProperty('--grid-cols', wh.width);
-            document.documentElement.style.setProperty('--grid-rows', wh.height);
-            grid.style.width = (wh.width * cellSize) + 'px';
-            grid.style.height = (wh.height * cellSize) + 'px';
-
-            let underlay = document.getElementById('grid-underlay');
-            if (underlay) underlay.remove();
-            
-            let layer = document.getElementById('cargo-layer');
-            if (!layer) {
-                layer = document.createElement('div'); layer.id = 'cargo-layer'; grid.appendChild(layer);
-            }
-
-            underlay = document.createElement('div');
-            underlay.id = 'grid-underlay';
-            const totalCells = wh.width * wh.height;
-            const fragment = document.createDocumentFragment();
-            for (let i = 0; i < totalCells; i++) {
-                const cell = document.createElement('div'); cell.className = 'grid-cell-block'; fragment.appendChild(cell);
-            }
-            underlay.appendChild(fragment);
-            grid.insertBefore(underlay, layer);
-        }
-
-        function syncFromCloud() {
-            document.getElementById('sync-status').textContent = "⏳ 正在同步雲端資料...";
-            document.getElementById('sync-status').style.color = "#6c757d";
-
-            fetch(GAS_URL)
-            .then(res => { if (!res.ok) throw new Error("網絡不通"); return res.json(); })
-            .then(data => {
-                if(data && data.warehouses && Object.keys(data.warehouses).length > 0) warehouses = data.warehouses;
-                if (!warehouses[currentWhId]) currentWhId = Object.keys(warehouses)[0];
-                
-                switchWarehouseSelect(currentWhId, false);
-                globalCargoCache = fixCargoItemsFormat(data && Array.isArray(data.cargoItems) ? data.cargoItems : []);
-                renderCurrentWarehouseCargoes();
-                
-                document.getElementById('sync-status').textContent = "✅ 雲端資料同步完成";
-                document.getElementById('sync-status').style.color = "#28a745";
-            })
-            .catch(err => {
-                document.getElementById('sync-status').textContent = "⚠️ 獨立單機操作模式運作中";
-                document.getElementById('sync-status').style.color = "#e67e22";
-                renderGrid(); 
-            });
-        }
-
-        function switchWarehouseSelect(whId, triggerRender = true) {
-            currentWhId = whId;
-            const wh = warehouses[currentWhId];
-            if(wh) {
-                document.getElementById('title-wh-name').textContent = wh.name;
-                document.getElementById('wh-name').value = wh.name;
-                document.getElementById('wh-w').value = wh.width;
-                document.getElementById('wh-h').value = wh.height;
-                
-                const select = document.getElementById('warehouse-select');
-                select.innerHTML = '';
-                for (let id in warehouses) {
-                    const opt = document.createElement('option');
-                    opt.value = id; opt.textContent = `${warehouses[id].name} (${warehouses[id].width}x${warehouses[id].height})`;
-                    select.appendChild(opt);
-                }
-                select.value = currentWhId;
-                refreshWarehouseTabs();
-                if (triggerRender) {
-                    const layer = document.getElementById('cargo-layer'); if (layer) layer.innerHTML = '';
-                    document.getElementById('cargo-buffer').innerHTML = '';
-                    renderCurrentWarehouseCargoes();
-                }
-            }
-        }
-
         function renderCurrentWarehouseCargoes() {
-            if (isDraggingActive) return; 
-            renderGrid();
-            const layer = document.getElementById('cargo-layer');
-            const buffer = document.getElementById('cargo-buffer');
+            if (isDraggingActive) return; renderGrid();
+            const layer = document.getElementById('cargo-layer'); const buffer = document.getElementById('cargo-buffer');
             const validIds = new Set();
 
             globalCargoCache.forEach(itemData => {
@@ -541,16 +246,8 @@
                 
                 if (itemData.warehouseId === currentWhId) {
                     validIds.add(itemData.id);
-                    let cargo = document.querySelector(`#cargo-layer [data-id="${itemData.id}"]`);
-                    if (!cargo) cargo = reCreateCargoNode(itemData);
-                    else updateCargoNodeData(cargo, itemData);
-
-                    cargo.className = 'cargo-item';
-                    if (itemData.isLocked === true || itemData.isLocked === "true") {
-                        cargo.classList.add('is-locked'); cargo.setAttribute('data-locked', 'true');
-                    } else {
-                        cargo.setAttribute('data-locked', 'false');
-                    }
+                    let cargo = document.querySelector(`#cargo-layer [data-id="${itemData.id}"]`) || reCreateCargoNode(itemData);
+                    updateCargoNodeData(cargo, itemData);
 
                     const pixelX = parseFloat(itemData.m_x || 0) * cellSize;
                     const pixelY = parseFloat(itemData.m_y || 0) * cellSize;
@@ -558,599 +255,180 @@
                     cargo.setAttribute('data-x', pixelX); cargo.setAttribute('data-y', pixelY);
 
                     if (cargoZ === currentZLevel) {
+                        cargo.className = 'cargo-item' + (itemData.isLocked ? ' is-locked' : '');
                         if (cargo.parentElement !== layer) layer.appendChild(cargo);
                     } else if (cargoZ < currentZLevel) {
-                        cargo.classList.add('underlay-ghost');
+                        cargo.className = 'cargo-item underlay-ghost';
                         if (cargo.parentElement !== layer) layer.appendChild(cargo);
-                    } else {
-                        cargo.remove();
-                    }
+                    } else { cargo.remove(); }
                 } 
                 else if (itemData.warehouseId === `buffer_${currentWhId}`) {
                     validIds.add(itemData.id);
-                    let cargo = document.querySelector(`#cargo-buffer [data-id="${itemData.id}"]`);
-                    if (!cargo) cargo = reCreateCargoNode(itemData);
-                    else updateCargoNodeData(cargo, itemData);
-                    
-                    cargo.className = 'cargo-item';
-                    cargo.removeAttribute('data-locked');
-                    cargo.style.transform = 'none';
-                    cargo.removeAttribute('data-x'); cargo.removeAttribute('data-y');
-
+                    let cargo = document.querySelector(`#cargo-buffer [data-id="${itemData.id}"]`) || reCreateCargoNode(itemData);
+                    updateCargoNodeData(cargo, itemData);
+                    cargo.className = 'cargo-item'; cargo.removeAttribute('data-locked');
+                    cargo.style.transform = 'none'; cargo.removeAttribute('data-x'); cargo.removeAttribute('data-y');
                     if (cargo.parentElement !== buffer) buffer.appendChild(cargo);
                 }
             });
 
-            document.querySelectorAll('#cargo-layer .cargo-item, #cargo-buffer .cargo-item').forEach(node => {
-                const id = node.getAttribute('data-id');
-                if (id && !validIds.has(id)) node.remove();
-            });
-
-            calculateStockSummary();
-            initInteractEngine();
+            document.querySelectorAll('#cargo-layer .cargo-item, #cargo-buffer .cargo-item').forEach(node => { if (!validIds.has(node.getAttribute('data-id'))) node.remove(); });
+            calculateStockSummary(); initInteractEngine();
+            document.getElementById('sync-status').textContent = "✅ 雲端資料同步完成";
+            document.getElementById('sync-status').style.color = "#28a745";
         }
 
-        // 【強效更新修復器】：將備註、星號屬性全面同步灌入 HTML 原生節點，確保重新整理讀得到！
         function updateCargoNodeData(cargo, itemData) {
-            cargo.setAttribute('data-w-m', itemData.w_m || 2);
-            cargo.setAttribute('data-h-m', itemData.h_m || 2);
-            const qtyInt = parseInt(itemData.qty) || 0;
-            cargo.setAttribute('data-qty', qtyInt);
-            cargo.setAttribute('data-name', itemData.name || '未命名');
-            
-            // 【修復核心】：寫入原生 attr，供 CSS 的 attr(data-memo) 呼叫跳出泡泡
-            cargo.setAttribute('data-memo', itemData.memo || ''); 
-            
-            const hasStar = itemData.isStarred === true || itemData.isStar === "true" || itemData.isStarred === "true";
-            cargo.setAttribute('data-star', hasStar ? 'true' : 'false');
+            cargo.setAttribute('data-w-m', itemData.w_m || 2); cargo.setAttribute('data-h-m', itemData.h_m || 2);
+            const qtyInt = parseInt(itemData.qty) || 0; cargo.setAttribute('data-qty', qtyInt);
+            cargo.setAttribute('data-name', itemData.name || '未命名'); cargo.setAttribute('data-memo', itemData.memo || '');
+            cargo.setAttribute('data-star', itemData.isStarred ? 'true' : 'false'); cargo.setAttribute('data-locked', itemData.isLocked ? 'true' : 'false');
             
             let starBadge = cargo.querySelector('.cargo-star-badge');
-            if (hasStar) {
-                if (!starBadge) {
-                    starBadge = document.createElement('span'); starBadge.className = 'cargo-star-badge'; starBadge.textContent = '★';
-                    cargo.appendChild(starBadge);
-                }
-            } else { if (starBadge) starBadge.remove(); }
-
-            cargo.style.width = (parseFloat(itemData.w_m || 2) * cellSize) + 'px';
-            cargo.style.height = (parseFloat(itemData.h_m || 2) * cellSize) + 'px';
-            cargo.style.backgroundColor = itemData.bg || '#ffc107';
-            cargo.style.color = itemData.text || '#000000';
-
-            const titleEl = cargo.querySelector('.cargo-title');
-            if (titleEl) titleEl.textContent = itemData.name;
+            if (itemData.isStarred) { if (!starBadge) { starBadge = document.createElement('span'); starBadge.className = 'cargo-star-badge'; starBadge.textContent = '★'; cargo.appendChild(starBadge); } } else { if (starBadge) starBadge.remove(); }
+            cargo.style.width = (parseFloat(itemData.w_m || 2) * cellSize) + 'px'; cargo.style.height = (parseFloat(itemData.h_m || 2) * cellSize) + 'px';
+            cargo.style.backgroundColor = itemData.bg || '#ffc107'; cargo.style.color = itemData.text || '#000000';
+            cargo.querySelector('.cargo-title').textContent = itemData.name;
             
             let qtySpan = cargo.querySelector('.cargo-qty');
-            if (qtyInt > 0) {
-                if (!qtySpan) {
-                    qtySpan = document.createElement('span'); qtySpan.className = 'cargo-qty'; cargo.appendChild(qtySpan);
-                }
-                qtySpan.textContent = `${qtyInt} 件`;
-            } else { if (qtySpan) qtySpan.remove(); }
+            if (qtyInt > 0) { if (!qtySpan) { qtySpan = document.createElement('span'); qtySpan.className = 'cargo-qty'; cargo.appendChild(qtySpan); } qtySpan.textContent = `${qtyInt} 件`; } else { if (qtySpan) qtySpan.remove(); }
         }
 
-        // 【強效雲端封包】：確保跨樓層、備註與星號不覆蓋遺失
         function autoSaveToCloud() {
             document.getElementById('sync-status').textContent = "⏳ 正在自動儲存至雲端...";
             document.getElementById('sync-status').style.color = "#6c757d";
 
-            const cargoItemsToUpload = globalCargoCache.filter(item => {
-                return item.warehouseId !== currentWhId && item.warehouseId !== `buffer_${currentWhId}`;
-            });
+            const cargoItemsToUpload = globalCargoCache.filter(item => item.warehouseId !== currentWhId && item.warehouseId !== `buffer_${currentWhId}`);
             
-            // 畫布上的貨物
+            // 當前畫面平面圖
             document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)').forEach(item => {
-                const cacheHit = globalCargoCache.find(c => c.id === item.getAttribute('data-id'));
+                const cid = item.getAttribute('data-id');
+                const cacheHit = globalCargoCache.find(c => c.id === cid);
                 const originalZ = cacheHit && cacheHit.warehouseId === currentWhId ? parseInt(cacheHit.z_level || currentZLevel) : currentZLevel;
-
                 cargoItemsToUpload.push({
-                    id: item.getAttribute('data-id'),
-                    name: item.getAttribute('data-name'),
-                    qty: item.getAttribute('data-qty'),
-                    w_m: item.getAttribute('data-w-m'),
-                    h_m: item.getAttribute('data-h-m'),
-                    m_x: item.getAttribute('data-m-x') || "0",
-                    m_y: item.getAttribute('data-m-y') || "0",
-                    bg: item.style.backgroundColor,
-                    text: item.style.color,
-                    warehouseId: currentWhId,
-                    z_level: originalZ, 
-                    isLocked: item.getAttribute('data-locked') === 'true',
-                    isStarred: item.getAttribute('data-star') === 'true',
-                    memo: item.getAttribute('data-memo') || ''
+                    id: cid, name: item.getAttribute('data-name'), qty: item.getAttribute('data-qty'), w_m: item.getAttribute('data-w-m'), h_m: item.getAttribute('data-h-m'),
+                    m_x: item.getAttribute('data-m-x') || "0", m_y: item.getAttribute('data-m-y') || "0", bg: item.style.backgroundColor, text: item.style.color,
+                    warehouseId: currentWhId, z_level: originalZ, isLocked: item.getAttribute('data-locked') === 'true', isStarred: item.getAttribute('data-star') === 'true', memo: item.getAttribute('data-memo') || ''
                 });
             });
 
-            // 補回畫布上沒顯示出來的其他樓層舊資料，防覆蓋
-            globalCargoCache.forEach(item => {
-                if (item.warehouseId === currentWhId && parseInt(item.z_level || 1) !== currentZLevel) {
-                    if (!cargoItemsToUpload.some(c => c.id === item.id)) cargoItemsToUpload.push(item);
-                }
-            });
+            // 保留其他樓層
+            globalCargoCache.forEach(item => { if (item.warehouseId === currentWhId && parseInt(item.z_level || 1) !== currentZLevel) { if (!cargoItemsToUpload.some(c => c.id === item.id)) cargoItemsToUpload.push(item); } });
 
-            // 待放置區的貨物
+            // 待放置區
             document.querySelectorAll('#cargo-buffer .cargo-item').forEach(item => {
                 cargoItemsToUpload.push({
-                    id: item.getAttribute('data-id'),
-                    name: item.getAttribute('data-name'),
-                    qty: item.getAttribute('data-qty'),
-                    w_m: item.getAttribute('data-w-m'),
-                    h_m: item.getAttribute('data-h-m'),
-                    m_x: "0", m_y: "0",
-                    bg: item.style.backgroundColor,
-                    text: item.style.color,
-                    warehouseId: `buffer_${currentWhId}`, 
-                    z_level: 1, 
-                    isLocked: false,
-                    isStarred: item.getAttribute('data-star') === 'true',
-                    memo: item.getAttribute('data-memo') || ''
+                    id: item.getAttribute('data-id'), name: item.getAttribute('data-name'), qty: item.getAttribute('data-qty'), w_m: item.getAttribute('data-w-m'), h_m: item.getAttribute('data-h-m'),
+                    m_x: "0", m_y: "0", bg: item.style.backgroundColor, text: item.style.color, warehouseId: `buffer_${currentWhId}`, z_level: 1, isLocked: false, isStarred: item.getAttribute('data-star') === 'true', memo: item.getAttribute('data-memo') || ''
                 });
             });
 
-            globalCargoCache = cargoItemsToUpload;
-            calculateStockSummary();
-
-            fetch(GAS_URL, {
-                method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ warehouses: warehouses, cargoItems: cargoItemsToUpload })
-            }).then(() => {
-                document.getElementById('sync-status').textContent = "✅ 雲端儲存成功！";
-                document.getElementById('sync-status').style.color = "#28a745";
-            });
+            globalCargoCache = cargoItemsToUpload; calculateStockSummary();
+            fetch(GAS_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ warehouses: warehouses, cargoItems: cargoItemsToUpload }) });
         }
 
         function calculateStockSummary() {
-            const summaryContainer = document.getElementById('summary-cards-container');
-            summaryContainer.innerHTML = '';
-            const stockMap = {};
-
-            globalCargoCache.forEach(item => {
-                if (!item.name) return;
-                const name = item.name.trim();
-                const qty = parseInt(item.qty) || 0;
-                if (!stockMap[name]) stockMap[name] = 0;
-                stockMap[name] += qty;
-            });
-
-            const sortedItems = Object.keys(stockMap).sort();
-            let hasVisibleStock = false;
-
-            sortedItems.forEach(name => {
-                const totalQty = stockMap[name];
-                if (totalQty <= 0) return;
-                hasVisibleStock = true;
-                const card = document.createElement('div'); card.className = 'summary-card';
-                card.innerHTML = `<span class="summary-card-name">${name}</span><span class="summary-card-qty">${totalQty} 件</span>`;
-                summaryContainer.appendChild(card);
-            });
-
-            if (!hasVisibleStock) {
-                summaryContainer.innerHTML = `<div style="color: #a0aec0; font-size: 13px;">目前無任何大於 0 件的商品庫存</div>`;
-            }
+            const summaryContainer = document.getElementById('summary-cards-container'); summaryContainer.innerHTML = ''; const stockMap = {};
+            globalCargoCache.forEach(item => { if (!item.name) return; const name = item.name.trim(); const qty = parseInt(item.qty) || 0; if (!stockMap[name]) stockMap[name] = 0; stockMap[name] += qty; });
+            Object.keys(stockMap).sort().forEach(name => { const totalQty = stockMap[name]; if (totalQty <= 0) return; const card = document.createElement('div'); card.className = 'summary-card'; card.innerHTML = `<span class="summary-card-name">${name}</span><span class="summary-card-qty">${totalQty} 件</span>`; summaryContainer.appendChild(card); });
         }
 
-        /* 自訂互動輸入小彈窗管理 */
-        function openCustomModal(title, fieldsHtml) {
-            document.getElementById('modal-panel-title').textContent = title;
-            document.getElementById('modal-inputs-area').innerHTML = fieldsHtml;
-            document.getElementById('custom-edit-modal').style.display = 'flex';
-        }
-
-        function closeCustomModal() {
-            document.getElementById('custom-edit-modal').style.display = 'none';
-            rightClickedElement = null;
-            modalActiveType = "";
-        }
-
-        function openEditNameModal() {
-            if (rightClickedElement) {
-                modalActiveType = "name";
-                const currentName = rightClickedElement.getAttribute('data-name');
-                openCustomModal("✏️ 變更商品名稱", `<label>新商品名稱</label><input type="text" id="modal-field-name" class="custom-modal-input" value="${currentName}">`);
-                document.getElementById('modal-field-name').focus();
-            }
-        }
-
-        function openEditQtyModal() {
-            if (rightClickedElement) {
-                modalActiveType = "qty";
-                const currentQty = rightClickedElement.getAttribute('data-qty');
-                openCustomModal("🔢 修改商品數量", `<label>新貨物數量 (輸入 0 隱藏標籤)</label><input type="number" id="modal-field-qty" class="custom-modal-input" value="${currentQty}">`);
-                document.getElementById('modal-field-qty').focus();
-            }
-        }
-
-        function openEditSizeModal() {
-            if (rightClickedElement) {
-                if (rightClickedElement.getAttribute('data-locked') === 'true') return;
-                modalActiveType = "size";
-                const currentW = rightClickedElement.getAttribute('data-w-m');
-                const currentH = rightClickedElement.getAttribute('data-h-m');
-                openCustomModal("📏 變更真實尺寸", `<label>物理寬度寬 (米 m)</label><input type="number" step="0.1" id="modal-field-w" class="custom-modal-input" value="${currentW}"><label>物理長度高 (米 m)</label><input type="number" step="0.1" id="modal-field-h" class="custom-modal-input" value="${currentH}">`);
-                document.getElementById('modal-field-w').focus();
-            }
-        }
-
-        function openEditMemoModal() {
-            if (rightClickedElement) {
-                modalActiveType = "memo";
-                const currentMemo = rightClickedElement.getAttribute('data-memo') || '';
-                openCustomModal("💬 編輯盤點備註", `<label>盤點備註內容 (滑鼠移入時懸浮顯示)</label><input type="text" id="modal-field-memo" class="custom-modal-input" value="${currentMemo}" placeholder="例如：急件、棧板破損...">`);
-                document.getElementById('modal-field-memo').focus();
-            }
-        }
+        function openCustomModal(title, fieldsHtml) { document.getElementById('modal-panel-title').textContent = title; document.getElementById('modal-inputs-area').innerHTML = fieldsHtml; document.getElementById('custom-edit-modal').style.display = 'flex'; }
+        function closeCustomModal() { document.getElementById('custom-edit-modal').style.display = 'none'; rightClickedElement = null; modalActiveType = ""; }
+        function openEditNameModal() { if (rightClickedElement) { modalActiveType = "name"; openCustomModal("✏️ 變更商品名稱", `<label>新商品名稱</label><input type="text" id="modal-field-name" class="custom-modal-input" value="${rightClickedElement.getAttribute('data-name']}">`); } }
+        function openEditQtyModal() { if (rightClickedElement) { modalActiveType = "qty"; openCustomModal("🔢 修改商品數量", `<label>新貨物數量</label><input type="number" id="modal-field-qty" class="custom-modal-input" value="${rightClickedElement.getAttribute('data-qty']}">`); } }
+        function openEditSizeModal() { if (rightClickedElement) { modalActiveType = "size"; openCustomModal("📏 變更真實尺寸", `<label>物理寬度 (米 m)</label><input type="number" step="0.1" id="modal-field-w" class="custom-modal-input" value="${rightClickedElement.getAttribute('data-w-m')}"><label>物理長度 (米 m)</label><input type="number" step="0.1" id="modal-field-h" class="custom-modal-input" value="${rightClickedElement.getAttribute('data-h-m')}">`); } }
+        function openEditMemoModal() { if (rightClickedElement) { modalActiveType = "memo"; openCustomModal("💬 編輯盤點備註", `<label>盤點備註內容</label><input type="text" id="modal-field-memo" class="custom-modal-input" value="${rightClickedElement.getAttribute('data-memo') || ''}">`); } }
 
         function submitCustomModal() {
             if (!rightClickedElement || !modalActiveType) return;
-            const cargoId = rightClickedElement.getAttribute('data-id');
-            const matchInCache = globalCargoCache.find(c => c.id === cargoId);
-
-            if (modalActiveType === "name") {
-                const val = document.getElementById('modal-field-name').value.trim();
-                if (val) {
-                    rightClickedElement.setAttribute('data-name', val);
-                    rightClickedElement.querySelector('.cargo-title').textContent = val;
-                    if (matchInCache) matchInCache.name = val;
-                }
-            } 
-            else if (modalActiveType === "qty") {
-                const val = parseInt(document.getElementById('modal-field-qty').value) || 0;
-                rightClickedElement.setAttribute('data-qty', val);
-                if (matchInCache) matchInCache.qty = val;
-                
-                let qtySpan = rightClickedElement.querySelector('.cargo-qty');
-                if (val > 0) {
-                    if (!qtySpan) {
-                        qtySpan = document.createElement('span'); qtySpan.className = 'cargo-qty';
-                        rightClickedElement.appendChild(qtySpan);
-                    }
-                    qtySpan.textContent = `${val} 件`;
-                } else { if (qtySpan) qtySpan.remove(); }
-            } 
-            else if (modalActiveType === "size") {
-                const w = parseFloat(document.getElementById('modal-field-w').value) || 1;
-                const h = parseFloat(document.getElementById('modal-field-h').value) || 1;
-                rightClickedElement.setAttribute('data-w-m', w); rightClickedElement.setAttribute('data-h-m', h);
-                if (matchInCache) { matchInCache.w_m = w; matchInCache.h_m = h; }
-                rightClickedElement.style.width = (w * cellSize) + 'px'; rightClickedElement.style.height = (h * cellSize) + 'px';
-            } 
-            else if (modalActiveType === "memo") {
-                const val = document.getElementById('modal-field-memo').value.trim();
-                rightClickedElement.setAttribute('data-memo', val);
-                if (matchInCache) matchInCache.memo = val;
-            }
-
-            autoSaveToCloud();
-            closeCustomModal();
+            const cargoId = rightClickedElement.getAttribute('data-id'); const matchInCache = globalCargoCache.find(c => c.id === cargoId);
+            if (modalActiveType === "name") { const val = document.getElementById('modal-field-name').value.trim(); rightClickedElement.setAttribute('data-name', val); if (matchInCache) matchInCache.name = val; } 
+            else if (modalActiveType === "qty") { const val = parseInt(document.getElementById('modal-field-qty').value) || 0; rightClickedElement.setAttribute('data-qty', val); if (matchInCache) matchInCache.qty = val; } 
+            else if (modalActiveType === "size") { const w = parseFloat(document.getElementById('modal-field-w').value) || 1; const h = parseFloat(document.getElementById('modal-field-h').value) || 1; rightClickedElement.setAttribute('data-w-m', w); rightClickedElement.setAttribute('data-h-m', h); if (matchInCache) { matchInCache.w_m = w; matchInCache.h_m = h; } } 
+            else if (modalActiveType === "memo") { const val = document.getElementById('modal-field-memo').value.trim(); rightClickedElement.setAttribute('data-memo', val); if (matchInCache) matchInCache.memo = val; }
+            autoSaveToCloud(); renderCurrentWarehouseCargoes(); closeCustomModal();
         }
 
         function copyCargoToBuffer() {
             if (rightClickedElement) {
-                const name = rightClickedElement.getAttribute('data-name');
-                const qty = rightClickedElement.getAttribute('data-qty');
-                const w_m = rightClickedElement.getAttribute('data-w-m');
-                const h_m = rightClickedElement.getAttribute('data-h-m');
-                const bg = rightClickedElement.style.backgroundColor;
-                const text = rightClickedElement.style.color;
-                const memo = rightClickedElement.getAttribute('data-memo') || '';
-                const star = rightClickedElement.getAttribute('data-star') || 'false';
-
-                const itemData = {
-                    id: 'item_' + Date.now() + '_' + Math.floor(Math.random()*1000), 
-                    name: name, qty: qty, w_m: w_m, h_m: h_m, bg: bg, text: text,
-                    warehouseId: `buffer_${currentWhId}`, z_level: 1, isLocked: false, isStarred: star === 'true', memo: memo
-                };
-
-                const newCargo = reCreateCargoNode(itemData);
-                document.getElementById('cargo-buffer').appendChild(newCargo);
-                globalCargoCache.push(itemData);
-                autoSaveToCloud();
+                const itemData = { id: 'item_' + Date.now() + '_' + Math.floor(Math.random()*1000), name: rightClickedElement.getAttribute('data-name'), qty: rightClickedElement.getAttribute('data-qty'), w_m: rightClickedElement.getAttribute('data-w-m'), h_m: rightClickedElement.getAttribute('data-h-m'), bg: rightClickedElement.style.backgroundColor, text: rightClickedElement.style.color, warehouseId: `buffer_${currentWhId}`, z_level: 1, isLocked: false, isStarred: false, memo: '' };
+                globalCargoCache.push(itemData); autoSaveToCloud(); renderCurrentWarehouseCargoes();
             }
         }
-
-        function toggleCargoStar() {
-            if (rightClickedElement) {
-                const isStarred = rightClickedElement.getAttribute('data-star') === 'true';
-                rightClickedElement.setAttribute('data-star', isStarred ? 'false' : 'true');
-                let starBadge = rightClickedElement.querySelector('.cargo-star-badge');
-                if (!isStarred) {
-                    if (!starBadge) {
-                        starBadge = document.createElement('span'); starBadge.className = 'cargo-star-badge'; starBadge.textContent = '★';
-                        rightClickedElement.appendChild(starBadge);
-                    }
-                } else { if (starBadge) starBadge.remove(); }
-                rightClickedElement = null; autoSaveToCloud();
-            }
-        }
-
-        function rotateCargo90() {
-            if (rightClickedElement) {
-                if (rightClickedElement.getAttribute('data-locked') === 'true') return;
-                const currentWM = parseFloat(rightClickedElement.getAttribute('data-w-m'));
-                const currentHM = parseFloat(rightClickedElement.getAttribute('data-h-m'));
-                const newWM = currentHM; const newHM = currentWM;
-
-                rightClickedElement.setAttribute('data-w-m', newWM); rightClickedElement.setAttribute('data-h-m', newHM);
-                rightClickedElement.style.width = (newWM * cellSize) + 'px'; rightClickedElement.style.height = (newHM * cellSize) + 'px';
-
-                if (rightClickedElement.parentElement.id === 'cargo-layer') {
-                    let lx = parseFloat(rightClickedElement.getAttribute('data-x')) || 0;
-                    let ly = parseFloat(rightClickedElement.getAttribute('data-y')) || 0;
-                    const wh = warehouses[currentWhId];
-                    const maxW = (wh.width * cellSize) - rightClickedElement.offsetWidth;
-                    const maxH = (wh.height * cellSize) - rightClickedElement.offsetHeight;
-                    if (lx > maxW) lx = Math.max(0, Math.round(maxW / cellSize) * cellSize);
-                    if (ly > maxH) ly = Math.max(0, Math.round(maxH / cellSize) * cellSize);
-                    
-                    rightClickedElement.style.transform = `translate(${lx}px, ${ly}px)`;
-                    rightClickedElement.setAttribute('data-x', lx); rightClickedElement.setAttribute('data-y', ly);
-                }
-                rightClickedElement = null; autoSaveToCloud();
-            }
-        }
-
-        function saveWarehouseSettings() {
-            const name = document.getElementById('wh-name').value.trim();
-            const w = parseInt(document.getElementById('wh-w').value);
-            const h = parseInt(document.getElementById('wh-h').value);
-            const id = 'wh_' + Date.now();
-            warehouses[id] = { name: name, width: w, height: h };
-            switchWarehouseSelect(id, true); autoSaveToCloud();
-        }
-
-        function triggerCreateCargo() {
-            const bg = document.getElementById('cargo-color').value;
-            const text = document.getElementById('text-color').value;
-            const exists = colorHistory.some(c => c.bg === bg && c.text === text);
-            if (!exists) {
-                colorHistory.unshift({bg: bg, text: text}); if (colorHistory.length > 10) colorHistory.pop();
-                localStorage.setItem('wh_color_memory', JSON.stringify(colorHistory)); renderColorHistory();
-            }
-            createNewCargo(); autoSaveToCloud();
-        }
-
-        function renderColorHistory() {
-            const container = document.getElementById('color-history-container'); container.innerHTML = '';
-            colorHistory.forEach(color => {
-                const dot = document.createElement('div'); dot.className = 'color-combo-dot'; dot.style.backgroundColor = color.bg; dot.style.color = color.text; dot.textContent = "Abc";
-                dot.onclick = () => { document.getElementById('cargo-color').value = color.bg; document.getElementById('text-color').value = color.text; };
-                container.appendChild(dot);
-            });
-        }
-
-        function createNewCargo() {
-            const name = document.getElementById('cargo-name').value;
-            const qty = parseInt(document.getElementById('cargo-qty').value) || 0;
-            const w = parseFloat(document.getElementById('cargo-w').value);
-            const h = parseFloat(document.getElementById('cargo-h').value);
-            const bgColor = document.getElementById('cargo-color').value;
-            const textColor = document.getElementById('text-color').value;
-
-            const itemData = { id: 'item_' + Date.now(), name: name, qty: qty, w_m: w, h_m: h, bg: bgColor, text: textColor, warehouseId: `buffer_${currentWhId}`, z_level: currentZLevel, isLocked: false, isStarred: false, memo: '' };
-            const cargo = reCreateCargoNode(itemData);
-            document.getElementById('cargo-buffer').appendChild(cargo);
-            globalCargoCache.push(itemData);
-        }
+        function toggleCargoStar() { if (rightClickedElement) { const isStarred = rightClickedElement.getAttribute('data-star') === 'true'; rightClickedElement.setAttribute('data-star', isStarred ? 'false' : 'true'); const match = globalCargoCache.find(c => c.id === rightClickedElement.getAttribute('data-id')); if (match) match.isStarred = !isStarred; autoSaveToCloud(); renderCurrentWarehouseCargoes(); } }
+        function toggleCargoLock() { if (rightClickedElement) { const isLocked = rightClickedElement.getAttribute('data-locked') === 'true'; rightClickedElement.setAttribute('data-locked', isLocked ? 'false' : 'true'); const match = globalCargoCache.find(c => c.id === rightClickedElement.getAttribute('data-id')); if (match) match.isLocked = !isLocked; autoSaveToCloud(); renderCurrentWarehouseCargoes(); } }
+        function rotateCargo90() { if (rightClickedElement) { const w = parseFloat(rightClickedElement.getAttribute('data-w-m')); const h = parseFloat(rightClickedElement.getAttribute('data-h-m')); rightClickedElement.setAttribute('data-w-m', h); rightClickedElement.setAttribute('data-h-m', w); const match = globalCargoCache.find(c => c.id === rightClickedElement.getAttribute('data-id')); if (match) { match.w_m = h; match.h_m = w; } autoSaveToCloud(); renderCurrentWarehouseCargoes(); } }
+        function enterWarehouseDirect() { if (rightClickedElement) { const match = globalCargoCache.find(c => c.id === rightClickedElement.getAttribute('data-id')); if (match) { match.warehouseId = currentWhId; match.z_level = currentZLevel; match.m_x = 0; match.m_y = 0; } autoSaveToCloud(); renderCurrentWarehouseCargoes(); } }
+        function returnToBuffer() { if (rightClickedElement) { const match = globalCargoCache.find(c => c.id === rightClickedElement.getAttribute('data-id')); if (match) { match.warehouseId = `buffer_${currentWhId}`; match.m_x = 0; match.m_y = 0; } autoSaveToCloud(); renderCurrentWarehouseCargoes(); } }
+        function deleteSelectedCargo() { if(rightClickedElement) { globalCargoCache = globalCargoCache.filter(item => item.id !== rightClickedElement.getAttribute('data-id')); autoSaveToCloud(); renderCurrentWarehouseCargoes(); } }
+        function saveWarehouseSettings() { const name = document.getElementById('wh-name').value.trim(); const w = parseInt(document.getElementById('wh-w').value); const h = parseInt(document.getElementById('wh-h').value); const id = 'wh_' + Date.now(); warehouses[id] = { name: name, width: w, height: h }; switchWarehouseSelect(id, true); autoSaveToCloud(); }
+        function switchWarehouseSelect(whId, triggerRender = true) { currentWhId = whId; const wh = warehouses[currentWhId]; if(wh) { document.getElementById('title-wh-name').textContent = wh.name; document.getElementById('wh-name').value = wh.name; document.getElementById('wh-w').value = wh.width; document.getElementById('wh-h').value = wh.height; refreshWarehouseTabs(); if (triggerRender) renderCurrentWarehouseCargoes(); } }
+        function triggerCreateCargo() { const bg = document.getElementById('cargo-color').value; const text = document.getElementById('text-color').value; colorHistory.unshift({bg: bg, text: text}); if (colorHistory.length > 10) colorHistory.pop(); localStorage.setItem('wh_color_memory', JSON.stringify(colorHistory)); const itemData = { id: 'item_' + Date.now(), name: document.getElementById('cargo-name').value, qty: parseInt(document.getElementById('cargo-qty').value) || 0, w_m: parseFloat(document.getElementById('cargo-w').value), h_m: parseFloat(document.getElementById('cargo-h').value), bg: bg, text: text, warehouseId: `buffer_${currentWhId}`, z_level: 1, isLocked: false, isStarred: false, memo: '' }; globalCargoCache.push(itemData); autoSaveToCloud(); renderCurrentWarehouseCargoes(); }
+        function renderColorHistory() { const container = document.getElementById('color-history-container'); container.innerHTML = ''; colorHistory.forEach(color => { const dot = document.createElement('div'); dot.className = 'color-combo-dot'; dot.style.backgroundColor = color.bg; dot.style.color = color.text; dot.textContent = "Abc"; dot.onclick = () => { document.getElementById('cargo-color').value = color.bg; document.getElementById('text-color').value = color.text; }; container.appendChild(dot); }); }
 
         function reCreateCargoNode(itemData) {
             const cargo = document.createElement('div'); cargo.className = 'cargo-item';
-            const qtyInt = parseInt(itemData.qty) || 0;
-            const qtyHtml = qtyInt > 0 ? `<span class="cargo-qty">${qtyInt} 件</span>` : '';
-            cargo.innerHTML = `<span class="cargo-title">${itemData.name}</span>${qtyHtml}`;
-            
-            cargo.style.width = (parseFloat(itemData.w_m || 2) * cellSize) + 'px';
-            cargo.style.height = (parseFloat(itemData.h_m || 2) * cellSize) + 'px';
-            cargo.style.backgroundColor = itemData.bg || '#ffc107';
-            cargo.style.color = itemData.text || '#000000';
-            
-            cargo.setAttribute('data-w-m', itemData.w_m || 2); cargo.setAttribute('data-h-m', itemData.h_m || 2);
-            cargo.setAttribute('data-qty', qtyInt); cargo.setAttribute('data-name', itemData.name || '未命名');
-            cargo.setAttribute('data-id', itemData.id); cargo.setAttribute('data-locked', itemData.isLocked ? 'true' : 'false');
-            
-            // 【核心修復】：初始化節點時，強效貼上備註與星號標籤
-            cargo.setAttribute('data-memo', itemData.memo || ''); 
-            const hasStar = itemData.isStarred === true || itemData.isStar === "true" || itemData.isStarred === "true";
-            cargo.setAttribute('data-star', hasStar ? 'true' : 'false');
-            if (hasStar) {
-                const starBadge = document.createElement('span'); starBadge.className = 'cargo-star-badge'; starBadge.textContent = '★'; cargo.appendChild(starBadge);
-            }
-
-            // 【核心修正】：徹底拔除單擊事件！改用「dblclick」雙點擊，全面防止拖移誤觸
-            cargo.addEventListener('dblclick', (e) => {
-                e.stopPropagation(); rightClickedElement = cargo; openEditQtyModal();
-            });
-
+            cargo.innerHTML = `<span class="cargo-title"></span>`;
+            cargo.addEventListener('dblclick', (e) => { e.stopPropagation(); rightClickedElement = cargo; openEditQtyModal(); });
             cargo.addEventListener('contextmenu', (e) => {
                 e.preventDefault(); e.stopPropagation(); rightClickedElement = cargo;
-                const menu = document.getElementById('context-menu');
-                const enterBtn = document.getElementById('menu-enter-btn');
-                const returnBtn = document.getElementById('menu-return-btn');
-                const lockBtn = document.getElementById('menu-lock-btn');
-                const rotateBtn = document.getElementById('menu-rotate-btn');
-                
-                const isLocked = cargo.getAttribute('data-locked') === 'true';
-                lockBtn.textContent = isLocked ? "🔓 解除鎖定" : "🔒 鎖定物件";
-
-                if (cargo.parentElement.id === 'cargo-buffer') {
-                    enterBtn.style.display = isLocked ? 'none' : 'block';
-                    returnBtn.style.display = 'none'; lockBtn.style.display = 'none'; rotateBtn.style.display = 'none';
-                } else {
-                    enterBtn.style.display = 'none';
-                    returnBtn.style.display = isLocked ? 'none' : 'block';
-                    rotateBtn.style.display = isLocked ? 'none' : 'block'; lockBtn.style.display = 'block';
-                }
+                const menu = document.getElementById('context-menu'); const isL = cargo.getAttribute('data-locked') === 'true';
+                document.getElementById('menu-lock-btn').textContent = isL ? "🔓 解除鎖定" : "🔒 鎖定物件";
+                const isBuf = cargo.parentElement.id === 'cargo-buffer';
+                document.getElementById('menu-enter-btn').style.display = isBuf ? 'block' : 'none';
+                document.getElementById('menu-return-btn').style.display = isBuf ? 'none' : 'block';
+                document.getElementById('menu-rotate-btn').style.display = isBuf ? 'none' : (isL ? 'none' : 'block');
                 menu.style.display = 'block'; menu.style.left = e.pageX + 'px'; menu.style.top = e.pageY + 'px';
             });
             return cargo;
         }
 
-        function toggleCargoLock() {
-            if (rightClickedElement) {
-                const isLocked = rightClickedElement.getAttribute('data-locked') === 'true';
-                rightClickedElement.setAttribute('data-locked', isLocked ? 'false' : 'true');
-                if (isLocked) rightClickedElement.classList.remove('is-locked');
-                else rightClickedElement.classList.add('is-locked');
-                rightClickedElement = null;
-                initInteractEngine(); autoSaveToCloud();
-            }
-        }
-
-        function enterWarehouseDirect() {
-            if (rightClickedElement) {
-                const w_m = parseFloat(rightClickedElement.getAttribute('data-w-m'));
-                const h_m = parseFloat(rightClickedElement.getAttribute('data-h-m'));
-                rightClickedElement.style.width = (w_m * cellSize) + 'px';
-                rightClickedElement.style.height = (h_m * cellSize) + 'px';
-                
-                const cacheHit = globalCargoCache.find(c => c.id === rightClickedElement.getAttribute('data-id'));
-                if (cacheHit) {
-                    cacheHit.z_level = currentZLevel;
-                    cacheHit.warehouseId = currentWhId;
-                }
-
-                document.getElementById('cargo-layer').appendChild(rightClickedElement);
-                rightClickedElement.style.transform = `translate(0px, 0px)`;
-                rightClickedElement.setAttribute('data-x', 0); rightClickedElement.setAttribute('data-y', 0);
-                rightClickedElement.setAttribute('data-m-x', 0); rightClickedElement.setAttribute('data-m-y', 0);
-                rightClickedElement = null; autoSaveToCloud();
-            }
-        }
-
-        function returnToBuffer() {
-            if (rightClickedElement) {
-                document.getElementById('cargo-buffer').appendChild(rightClickedElement);
-                rightClickedElement.removeAttribute('data-x'); rightClickedElement.removeAttribute('data-y');
-                rightClickedElement.removeAttribute('data-m-x'); rightClickedElement.removeAttribute('data-m-y');
-                rightClickedElement.removeAttribute('data-locked'); rightClickedElement.classList.remove('is-locked');
-                
-                const cacheHit = globalCargoCache.find(c => c.id === rightClickedElement.getAttribute('data-id'));
-                if (cacheHit) cacheHit.warehouseId = `buffer_${currentWhId}`;
-
-                rightClickedElement = null; initInteractEngine(); autoSaveToCloud();
-            }
-        }
-
-        function deleteSelectedCargo() { 
-            if(rightClickedElement) { 
-                const targetId = rightClickedElement.getAttribute('data-id');
-                rightClickedElement.remove(); rightClickedElement = null;
-                globalCargoCache = globalCargoCache.filter(item => item.id !== targetId);
-                autoSaveToCloud();
-            } 
-        }
-
+        // 【大維修】：放手時允許拉到外面，並正確將快取轉換為 `buffer_倉庫名` 狀態，完美解決無法拉回的問題
         function initInteractEngine() {
             if (interactInstance) interactInstance.unset();
-            
             interactInstance = interact('.cargo-item').draggable({
                 inertia: false, autoScroll: true,
                 listeners: {
-                    start(event) { 
-                        const target = event.target;
-                        if (target.getAttribute('data-locked') === 'true' || target.classList.contains('underlay-ghost')) return;
-                        isDraggingActive = true; target.classList.add('is-dragging'); 
-                    },
+                    start(event) { if (event.target.getAttribute('data-locked') === 'true' || event.target.classList.contains('underlay-ghost')) return; isDraggingActive = true; event.target.classList.add('is-dragging'); },
                     move(event) {
-                        const target = event.target;
-                        if (target.getAttribute('data-locked') === 'true' || target.classList.contains('underlay-ghost')) return;
-
-                        if (target.parentElement.id === 'cargo-buffer') {
-                            const rect = target.getBoundingClientRect();
-                            const gridRect = document.getElementById('warehouse-grid').getBoundingClientRect();
-                            const initX = rect.left - gridRect.left; const initY = rect.top - gridRect.top;
-                            const w_m = parseFloat(target.getAttribute('data-w-m'));
-                            const h_m = parseFloat(target.getAttribute('data-h-m'));
-                            target.style.width = (w_m * cellSize) + 'px'; target.style.height = (h_m * cellSize) + 'px';
-                            document.getElementById('cargo-layer').appendChild(target);
-                            target.setAttribute('data-x', initX); target.setAttribute('data-y', initY);
-                        }
+                        const target = event.target; if (target.getAttribute('data-locked') === 'true' || target.classList.contains('underlay-ghost')) return;
+                        // 移除了 move 邊界限制，允許拖到大黑框外面
                         let x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
                         let y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
-                        
-                        const wh = warehouses[currentWhId];
-                        const maxW = (wh.width * cellSize) - target.offsetWidth;
-                        const maxH = (wh.height * cellSize) - target.offsetHeight;
-                        if (x < 0) x = 0; if (x > maxW) x = maxW;
-                        if (y < 0) y = 0; if (y > maxH) y = maxH;
-
-                        target.style.transform = `translate(${x}px, ${y}px)`;
-                        target.setAttribute('data-x', x); target.setAttribute('data-y', y);
+                        target.style.transform = `translate(${x}px, ${y}px)`; target.setAttribute('data-x', x); target.setAttribute('data-y', y);
                     },
                     end(event) {
-                        const target = event.target;
-                        if (!isDraggingActive) return; 
-                        target.classList.remove('is-dragging');
-                        
-                        const rect = target.getBoundingClientRect();
-                        const containerRect = document.getElementById('warehouse-container').getBoundingClientRect();
-                        const thisId = target.getAttribute('data-id');
-                        const duplicates = document.querySelectorAll(`[data-id="${thisId}"]`);
-                        if (duplicates.length > 1) { for (let i = 1; i < duplicates.length; i++) duplicates[i].remove(); }
+                        const target = event.target; if (!isDraggingActive) return; target.classList.remove('is-dragging');
+                        const rect = target.getBoundingClientRect(); const containerRect = document.getElementById('warehouse-container').getBoundingClientRect();
+                        const tid = target.getAttribute('data-id');
 
+                        // 判斷 1：如果真的拉出黑框邊界外面了 ➡️ 判定為退回待放置區！
                         if (rect.top > containerRect.bottom || rect.bottom < containerRect.top || rect.left > containerRect.right || rect.right < containerRect.left) {
-                            document.getElementById('cargo-buffer').appendChild(target);
-                            target.removeAttribute('data-x'); target.removeAttribute('data-y');
-                            target.removeAttribute('data-m-x'); target.removeAttribute('data-m-y');
-                            target.removeAttribute('data-locked'); target.classList.remove('is-locked');
-                            target.style.transform = 'none';
-                            
-                            const cacheHit = globalCargoCache.find(c => c.id === thisId);
-                            if (cacheHit) cacheHit.warehouseId = `buffer_${currentWhId}`;
+                            const match = globalCargoCache.find(c => c.id === tid);
+                            if (match) {
+                                match.warehouseId = `buffer_${currentWhId}`;
+                                match.m_x = 0; match.m_y = 0;
+                            }
                         } 
                         else {
+                            // 判斷 2：還在框框內，執行吸附與推擠
                             const gridRect = document.getElementById('warehouse-grid').getBoundingClientRect();
-                            let localX = rect.left - gridRect.left; let localY = rect.top - gridRect.top;
-                            if (isSnapEnabled) { localX = Math.round(localX / cellSize) * cellSize; localY = Math.round(localY / cellSize) * cellSize; }
+                            let lx = rect.left - gridRect.left; let ly = rect.top - gridRect.top;
+                            if (isSnapEnabled) { lx = Math.round(lx / cellSize) * cellSize; ly = Math.round(ly / cellSize) * cellSize; }
                             
                             const wh = warehouses[currentWhId];
-                            const maxW = (wh.width * cellSize) - target.offsetWidth;
-                            const maxH = (wh.height * cellSize) - target.offsetHeight;
-                            if (localX < 0) localX = 0; if (localX > maxW) localX = maxW;
-                            if (localY < 0) localY = 0; if (localY > maxH) localY = maxH;
+                            const maxW = (wh.width * cellSize) - target.offsetWidth; const maxH = (wh.height * cellSize) - target.offsetHeight;
+                            if (lx < 0) lx = 0; if (lx > maxW) lx = maxW; if (ly < 0) ly = 0; if (ly > maxH) ly = maxH;
                             
-                            const otherItems = document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)');
-                            for (let other of otherItems) {
-                                if (other === target) continue;
-                                const oX = parseFloat(other.getAttribute('data-x')) || 0; const oY = parseFloat(other.getAttribute('data-y')) || 0;
-                                const oW = parseFloat(other.offsetWidth); const oH = parseFloat(other.offsetHeight);
-                                
-                                if (localX < oX + oW - 0.5 && localX + target.offsetWidth - 0.5 > oX && localY < oY + oH - 0.5 && localY + target.offsetHeight - 0.5 > oY) {
-                                    const dists = [
-                                        { x: oX - target.offsetWidth, y: localY, d: Math.abs(localX - (oX - target.offsetWidth)) },
-                                        { x: oX + oW, y: localY, d: Math.abs(localX - (oX + oW)) },
-                                        { x: localX, y: oY - target.offsetHeight, d: Math.abs(localY - (oY - target.offsetHeight)) },
-                                        { x: localX, y: oY + oH, d: Math.abs(localY - (oY + oH)) }
-                                    ];
-                                    dists.sort((a, b) => a.d - b.d); let fit = dists[0];
-                                    if (isSnapEnabled) { fit.x = Math.round(fit.x / cellSize) * cellSize; fit.y = Math.round(fit.y / cellSize) * cellSize; }
-                                    localX = fit.x; localY = fit.y;
-                                }
-                            }
-                            
-                            if (localX < 0 || localX > maxW || localY < 0 || localY > maxH) {
-                                document.getElementById('cargo-buffer').appendChild(target);
-                                target.removeAttribute('data-x'); target.removeAttribute('data-y');
-                                target.removeAttribute('data-m-x'); target.removeAttribute('data-m-y');
-                                target.style.transform = 'none';
-                                
-                                const cacheHit = globalCargoCache.find(c => c.id === thisId);
-                                if (cacheHit) cacheHit.warehouseId = `buffer_${currentWhId}`;
-                            } else {
-                                document.getElementById('cargo-layer').appendChild(target);
-                                target.style.transform = `translate(${localX}px, ${localY}px)`;
-                                target.setAttribute('data-x', localX); target.setAttribute('data-y', ly = localY);
-                                target.setAttribute('data-m-x', Math.round((localX / cellSize) * 10) / 10);
-                                target.setAttribute('data-m-y', Math.round((localY / cellSize) * 10) / 10);
-                                
-                                const cacheHit = globalCargoCache.find(c => c.id === thisId);
-                                if (cacheHit) {
-                                    cacheHit.z_level = currentZLevel;
-                                    cacheHit.warehouseId = currentWhId;
-                                }
+                            const match = globalCargoCache.find(c => c.id === tid);
+                            if (match) {
+                                match.warehouseId = currentWhId; match.z_level = currentZLevel;
+                                match.m_x = Math.round((lx / cellSize) * 10) / 10;
+                                match.m_y = Math.round((ly / cellSize) * 10) / 10;
                             }
                         }
-                        autoSaveToCloud();
-                        isDraggingActive = false; 
+                        autoSaveToCloud(); renderCurrentWarehouseCargoes(); isDraggingActive = false;
                     }
                 }
             });
