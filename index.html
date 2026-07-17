@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>公司內部倉儲網格系統 - 全端同步流暢版</title>
+    <title>公司內部倉儲網格系統 - 內建彈窗優化版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -148,7 +148,6 @@
                     <label>當前操作倉庫設定</label>
                     <select id="warehouse-select" onchange="switchWarehouseSelect(this.value)" style="margin-bottom: 12px;"></select>
                     <label>新增/修改倉庫名稱</label>
-                    <!-- 【修復】：修正原本漏寫 type="text" 的語法錯誤 -->
                     <input type="text" id="wh-name" value="倉庫一">
                     <div style="display:flex; gap:8px;">
                         <input type="number" id="wh-w" value="30" placeholder="寬">
@@ -183,17 +182,6 @@
             <label style="margin-top: 10px;">最近使用雙色配對</label>
             <div class="color-history" id="color-history-container"></div>
             <button class="action-btn" onclick="triggerCreateCargo()" style="background-color: #28a745; height: 50px; font-size: 16px;">➕ 立即生成貨物物件</button>
-        </div>
-    </div>
-
-    <div class="custom-modal-backdrop" id="custom-edit-modal">
-        <div class="custom-modal-window">
-            <h4 class="custom-modal-title" id="modal-panel-title">✏️ 編輯貨物資訊</h4>
-            <div class="custom-modal-body" id="modal-inputs-area"></div>
-            <div class="custom-modal-footer">
-                <button class="modal-btn modal-btn-cancel" onclick="closeCustomModal()">❌ 取消</button>
-                <button class="modal-btn modal-btn-confirm" onclick="submitCustomModal()">✔️ 儲存修改</button>
-            </div>
         </div>
     </div>
 
@@ -234,6 +222,33 @@
                 if (item.z_level === undefined || item.z_level === null) item.z_level = 1;
                 return item;
             });
+        }
+
+        function renderGrid() {
+            const wh = warehouses[currentWhId] || { name: '倉庫一', width: 30, height: 30 };
+            const grid = document.getElementById('warehouse-grid');
+            document.documentElement.style.setProperty('--grid-cols', wh.width);
+            document.documentElement.style.setProperty('--grid-rows', wh.height);
+            grid.style.width = (wh.width * cellSize) + 'px';
+            grid.style.height = (wh.height * cellSize) + 'px';
+
+            let underlay = document.getElementById('grid-underlay');
+            if (underlay) underlay.remove();
+            
+            let layer = document.getElementById('cargo-layer');
+            if (!layer) {
+                layer = document.createElement('div'); layer.id = 'cargo-layer'; grid.appendChild(layer);
+            }
+
+            underlay = document.createElement('div');
+            underlay.id = 'grid-underlay';
+            const totalCells = wh.width * wh.height;
+            const fragment = document.createDocumentFragment();
+            for (let i = 0; i < totalCells; i++) {
+                const cell = document.createElement('div'); cell.className = 'grid-cell-block'; fragment.appendChild(cell);
+            }
+            underlay.appendChild(fragment);
+            grid.insertBefore(underlay, layer);
         }
 
         function renderCurrentWarehouseCargoes() {
@@ -335,7 +350,7 @@
         function openCustomModal(title, fieldsHtml) { document.getElementById('modal-panel-title').textContent = title; document.getElementById('modal-inputs-area').innerHTML = fieldsHtml; document.getElementById('custom-edit-modal').style.display = 'flex'; }
         function closeCustomModal() { document.getElementById('custom-edit-modal').style.display = 'none'; rightClickedElement = null; modalActiveType = ""; }
         
-        // 【修復】：修正原本方括號拼錯的 SyntaxError 語法死鎖
+        // 【終極修復】：將原本拼錯的 rightClickedElement.getAttribute('data-name'] 括號錯字全部校正回來！
         function openEditNameModal() { if (rightClickedElement) { modalActiveType = "name"; openCustomModal("✏️ 變更商品名稱", `<label>新商品名稱</label><input type="text" id="modal-field-name" class="custom-modal-input" value="${rightClickedElement.getAttribute('data-name')}">`); } }
         function openEditQtyModal() { if (rightClickedElement) { modalActiveType = "qty"; openCustomModal("🔢 修改商品數量", `<label>新貨物數量</label><input type="number" id="modal-field-qty" class="custom-modal-input" value="${rightClickedElement.getAttribute('data-qty')}">`); } }
         function openEditSizeModal() { if (rightClickedElement) { modalActiveType = "size"; openCustomModal("📏 變更真實尺寸", `<label>物理寬度 (米 m)</label><input type="number" step="0.1" id="modal-field-w" class="custom-modal-input" value="${rightClickedElement.getAttribute('data-w-m')}"><label>物理長度 (米 m)</label><input type="number" step="0.1" id="modal-field-h" class="custom-modal-input" value="${rightClickedElement.getAttribute('data-h-m')}">`); } }
@@ -372,7 +387,7 @@
             const cargo = document.createElement('div'); cargo.className = 'cargo-item';
             cargo.innerHTML = `<span class="cargo-title"></span>`;
             
-            // 【修正】：雙擊修改數量
+            // 雙擊修改數量
             cargo.addEventListener('dblclick', (e) => { e.stopPropagation(); rightClickedElement = cargo; openEditQtyModal(); });
             cargo.addEventListener('contextmenu', (e) => {
                 e.preventDefault(); e.stopPropagation(); rightClickedElement = cargo;
@@ -395,6 +410,7 @@
                     start(event) { if (event.target.getAttribute('data-locked') === 'true' || event.target.classList.contains('underlay-ghost')) return; isDraggingActive = true; event.target.classList.add('is-dragging'); },
                     move(event) {
                         const target = event.target; if (target.getAttribute('data-locked') === 'true' || target.classList.contains('underlay-ghost')) return;
+                        // 【優化手感】：在 move 移動期間不限制邊界，允許自由拖離畫布大框，以方便拉回待放置區
                         let x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
                         let y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
                         target.style.transform = `translate(${x}px, ${y}px)`; target.setAttribute('data-x', x); target.setAttribute('data-y', y);
@@ -404,6 +420,7 @@
                         const rect = target.getBoundingClientRect(); const containerRect = document.getElementById('warehouse-container').getBoundingClientRect();
                         const tid = target.getAttribute('data-id');
 
+                        // 判斷：拉出倉庫大黑框外 ➡️ 判定為回彈待放置區
                         if (rect.top > containerRect.bottom || rect.bottom < containerRect.top || rect.left > containerRect.right || rect.right < containerRect.left) {
                             const match = globalCargoCache.find(c => c.id === tid);
                             if (match) {
@@ -412,6 +429,7 @@
                             }
                         } 
                         else {
+                            // 否則仍在框內，執行吸附計算
                             const gridRect = document.getElementById('warehouse-grid').getBoundingClientRect();
                             let lx = rect.left - gridRect.left; let ly = rect.top - gridRect.top;
                             if (isSnapEnabled) { lx = Math.round(lx / cellSize) * cellSize; ly = Math.round(ly / cellSize) * cellSize; }
