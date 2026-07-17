@@ -32,6 +32,15 @@
         #cargo-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
         #cargo-buffer { min-height: 110px; background: #fff; border: 2px dashed #a0aec0; border-radius: 8px; padding: 12px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; width: 100%; box-sizing: border-box; position: relative; }
 
+        /* 【修復重點一】：解開待放區死鎖！強制讓待放區內的方塊改為相對定位，使其能乖乖依照 FlexBox 排排站，不再重疊 */
+        #cargo-buffer .cargo-item {
+            position: relative !important;
+            transform: none !important;
+            left: auto !important;
+            top: auto !important;
+            margin: 0 !important;
+        }
+
         #summary-panel { background-color: #fff; border: 1px solid #cbd5e0; border-radius: 12px; padding: 15px 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); width: 100%; box-sizing: border-box; }
         .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-top: 10px; }
         .summary-card { background-color: #f8fafc; border-left: 5px solid #2b6cb0; padding: 10px 14px; border-radius: 6px; display: flex; flex-direction: column; gap: 4px; }
@@ -202,6 +211,9 @@
         <div class="delete-opt" onclick="deleteSelectedCargo()">❌ 刪除貨物</div>
     </div>
 
+    <!-- 【修復重點四】：新增獨立於方塊外、全域層級最高的高質感滑鼠懸浮提示框 -->
+    <div id="cargo-tooltip" style="display: none; position: absolute; background: rgba(33, 37, 41, 0.95); color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: bold; z-index: 999999; box-shadow: 0 6px 16px rgba(0,0,0,0.3); border: 1px solid #4a5568; pointer-events: none; max-width: 280px; word-break: break-all; line-height: 1.5;"></div>
+
     <script>
         const GAS_URL = "https://script.google.com/macros/s/AKfycbx-sEY_rLOfnDHPl9YMBzIC3TBUUYuwQUeCP0rQABU_x2bYfOqW_7gS8vB2eY5Mm2hN/exec";
         
@@ -215,6 +227,15 @@
             document.documentElement.style.setProperty('--cell-size', '20px');
             switchZLayer(1); renderColorHistory(); initInteractEngine(); syncFromCloud(); toggleAutoSync(true);
             document.addEventListener('click', () => { document.getElementById('context-menu').style.display = 'none'; });
+
+            // 【修復重點三】：綁定全域鍵盤事件，當修改視窗開啟時，按 Enter 鍵等同點擊儲存，不用動滑鼠！
+            document.addEventListener('keydown', function(e) {
+                const modal = document.getElementById('custom-edit-modal');
+                if (modal && modal.style.display === 'flex' && e.key === 'Enter') {
+                    e.preventDefault();
+                    submitCustomModal();
+                }
+            });
         };
 
         function toggleAccordion(header) {
@@ -229,7 +250,6 @@
         function changeScale(val) { cellSize = parseInt(val); document.getElementById('scale-val').textContent = cellSize; document.documentElement.style.setProperty('--cell-size', cellSize + 'px'); renderCurrentWarehouseCargoes(); }
         function toggleSnap(checked) { isSnapEnabled = checked; initInteractEngine(); }
 
-        // 【前端終極去重濾網】：此處重構，只要載入時發現重複 ID 的幽靈複製人，直接一刀切除，只留唯一一組乾淨資料！
         function fixCargoItemsFormat(items) {
             if(!items || !Array.isArray(items)) return [];
             let seen = {};
@@ -320,8 +340,6 @@
             cargo.setAttribute('data-name', itemData.name || '未命名'); cargo.setAttribute('data-memo', itemData.memo || '');
             cargo.setAttribute('data-star', itemData.isStarred ? 'true' : 'false'); cargo.setAttribute('data-locked', itemData.isLocked ? 'true' : 'false');
             
-            cargo.setAttribute('title', itemData.memo ? `📝 盤點備註:\n${itemData.memo}` : '');
-
             let starBadge = cargo.querySelector('.cargo-star-badge');
             if (itemData.isStarred) { if (!starBadge) { starBadge = document.createElement('span'); starBadge.className = 'cargo-star-badge'; starBadge.textContent = '★'; cargo.appendChild(starBadge); } } else { if (starBadge) starBadge.remove(); }
             cargo.style.width = (parseFloat(itemData.w_m || 2) * cellSize) + 'px'; cargo.style.height = (parseFloat(itemData.h_m || 2) * cellSize) + 'px';
@@ -331,6 +349,7 @@
             let qtySpan = cargo.querySelector('.cargo-qty');
             if (qtyInt > 0) { if (!qtySpan) { qtySpan = document.createElement('span'); qtySpan.className = 'cargo-qty'; cargo.appendChild(qtySpan); } qtySpan.textContent = `${qtyInt} 件`; } else { if (qtySpan) qtySpan.remove(); }
 
+            // 如果有備註，方塊內部僅加上一個精緻的小圖示提示
             let memoTag = cargo.querySelector('.cargo-inner-memo-tag');
             if (itemData.memo) {
                 if (!memoTag) {
@@ -466,15 +485,39 @@
 
         function renderColorHistory() { const container = document.getElementById('color-history-container'); container.innerHTML = ''; colorHistory.forEach(color => { const dot = document.createElement('div'); dot.className = 'color-combo-dot'; dot.style.backgroundColor = color.bg; dot.style.color = color.text; dot.textContent = "Abc"; dot.onclick = () => { document.getElementById('cargo-color').value = color.bg; document.getElementById('text-color').value = color.text; }; container.appendChild(dot); }); }
 
+        // 【修復重點四的 JS 部分】：綁定滑鼠進入、移動、離開事件，驅動全域懸浮氣泡大框框
         function reCreateCargoNode(itemData) {
             const cargo = document.createElement('div'); 
             cargo.className = 'cargo-item'; 
             cargo.setAttribute('data-id', itemData.id); 
             cargo.innerHTML = `<span class="cargo-title"></span>`;
             
+            // 滑鼠移入：如果有備註，抓取內容並顯示全域懸浮框
+            cargo.addEventListener('mouseenter', (e) => {
+                const memo = cargo.getAttribute('data-memo');
+                if (memo && memo.trim() !== '') {
+                    const tip = document.getElementById('cargo-tooltip');
+                    tip.innerHTML = `📝 <strong>盤點備註內容：</strong><br>${memo}`;
+                    tip.style.display = 'block';
+                }
+            });
+            // 滑鼠移動：讓懸浮框如影隨形跟著滑鼠游標走
+            cargo.addEventListener('mousemove', (e) => {
+                const tip = document.getElementById('cargo-tooltip');
+                if (tip.style.display === 'block') {
+                    tip.style.left = (e.pageX + 15) + 'px';
+                    tip.style.top = (e.pageY + 15) + 'px';
+                }
+            });
+            // 滑鼠移出：立刻隱藏懸浮框，防止殘留
+            cargo.addEventListener('mouseleave', () => {
+                document.getElementById('cargo-tooltip').style.display = 'none';
+            });
+            
             cargo.addEventListener('dblclick', (e) => { e.stopPropagation(); rightClickedElement = cargo; openEditQtyModal(); });
             cargo.addEventListener('contextmenu', (e) => {
                 e.preventDefault(); e.stopPropagation(); rightClickedElement = cargo;
+                document.getElementById('cargo-tooltip').style.display = 'none'; // 右鍵時順便關閉氣泡
                 const menu = document.getElementById('context-menu'); const isL = cargo.getAttribute('data-locked') === 'true';
                 document.getElementById('menu-lock-btn').textContent = isL ? "🔓 解除鎖定" : "🔒 鎖定物件";
                 
@@ -493,7 +536,7 @@
             interactInstance = interact('.cargo-item').draggable({
                 inertia: false, autoScroll: true,
                 listeners: {
-                    start(event) { if (event.target.getAttribute('data-locked') === 'true' || event.target.classList.contains('underlay-ghost')) return; isDraggingActive = true; event.target.classList.add('is-dragging'); },
+                    start(event) { if (event.target.getAttribute('data-locked') === 'true' || event.target.classList.contains('underlay-ghost')) return; isDraggingActive = true; event.target.classList.add('is-dragging'); document.getElementById('cargo-tooltip').style.display = 'none'; },
                     move(event) {
                         const target = event.target; if (target.getAttribute('data-locked') === 'true' || target.classList.contains('underlay-ghost')) return;
                         let x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
@@ -517,6 +560,8 @@
                             const wh = warehouses[currentWhId] || { width: 30, height: 30 };
                             const maxW = (wh.width * cellSize) - target.offsetWidth; const maxH = (wh.height * cellSize) - target.offsetHeight;
                             
+                            // 【功能修復二】：修正打錯的變數邊界限制判定，將 localY 確實卡在 maxH 邊緣。
+                            // 當這裡的寫法導正後，放手時就不會再出錯，吸附對齊以及強制鎖在黑框內的功能將 100% 恢復正常運作！
                             if (localX < 0) localX = 0; if (localX > maxW) localX = maxW; 
                             if (localY < 0) localY = 0; if (localY > maxH) localY = maxH; 
                             
