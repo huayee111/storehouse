@@ -114,7 +114,7 @@
                 <div id="warehouse-grid"></div>
             </div>
             
-            <div class="layer-sidebar layer-selector-sidebar">
+            <div class="layer-selector-sidebar">
                 <div class="layer-tab-btn" id="btn-z3" onclick="switchZLayer(3)"><span>第 3 層</span><span style="font-size:9px;opacity:0.7;">(最上層)</span></div>
                 <div class="layer-tab-btn" id="btn-z2" onclick="switchZLayer(2)"><span>第 2 層</span><span style="font-size:9px;opacity:0.7;">(中層)</span></div>
                 <div class="layer-tab-btn active" id="btn-z1" onclick="switchZLayer(1)"><span>第 1 層</span><span style="font-size:9px;opacity:0.7;">(地面棧板)</span></div>
@@ -196,7 +196,6 @@
         </div>
     </div>
 
-    <!-- 【修復】：將原本遺漏的右鍵選單 HTML 元件完整塞回 Body 內 -->
     <div id="context-menu">
         <div class="size-opt" onclick="openEditSizeModal()">📏 修改尺寸</div>
         <div class="rotate-opt" id="menu-rotate-btn" onclick="rotateCargo90()">🔄 旋轉 90 度</div>
@@ -230,20 +229,7 @@
         }
         function toggleAutoSync(enabled) { if (autoSyncTimer) clearInterval(autoSyncTimer); if (enabled) { autoSyncTimer = setInterval(() => { if (!isDraggingActive && !document.querySelector('.is-dragging')) syncFromCloudSilent(); }, 300000); } }
         function syncFromCloudManual() { if (isDraggingActive || document.querySelector('.is-dragging')) { alert("目前正在操作中，請稍候！"); return; } syncFromCloud(); }
-        
-        // 【修復】：同步讀取支援中文鍵值名
-        function syncFromCloudSilent() { 
-            if (isDraggingActive || document.querySelector('.is-dragging')) return; 
-            fetch(GAS_URL).then(res => res.json()).then(data => { 
-                if (isDraggingActive || document.querySelector('.is-dragging')) return; 
-                const whList = data["倉庫設定"] || data.warehouses; 
-                const cargoList = data["貨物資料"] || data.cargoItems; 
-                if(whList && Object.keys(whList).length > 0) warehouses = whList; 
-                globalCargoCache = fixCargoItemsFormat(cargoList && Array.isArray(cargoList) ? cargoList : []); 
-                renderCurrentWarehouseCargoes(); 
-            }).catch(e => {}); 
-        }
-
+        function syncFromCloudSilent() { if (isDraggingActive || document.querySelector('.is-dragging')) return; fetch(GAS_URL).then(res => res.json()).then(data => { if (isDraggingActive || document.querySelector('.is-dragging')) return; const whList = data["倉庫設定"] || data.warehouses; const cargoList = data["貨物資料"] || data.cargoItems; if(whList && Object.keys(whList).length > 0) warehouses = whList; globalCargoCache = fixCargoItemsFormat(cargoList && Array.isArray(cargoList) ? cargoList : []); renderCurrentWarehouseCargoes(); }).catch(e => {}); }
         function switchZLayer(layerNum) { currentZLevel = parseInt(layerNum); document.querySelectorAll('.layer-tab-btn').forEach((btn) => { btn.classList.remove('active'); }); const activeBtn = document.getElementById(`btn-z${currentZLevel}`); if (activeBtn) activeBtn.classList.add('active'); renderCurrentWarehouseCargoes(); }
         function refreshWarehouseTabs() { const tabsBar = document.getElementById('warehouse-tabs-bar'); tabsBar.innerHTML = ''; for (let id in warehouses) { const btn = document.createElement('button'); btn.className = `wh-tab-btn ${id === currentWhId ? 'active' : ''}`; btn.textContent = warehouses[id].name; btn.onclick = () => { switchWarehouseSelect(id); }; tabsBar.appendChild(btn); } }
         function changeScale(val) { cellSize = parseInt(val); document.getElementById('scale-val').textContent = cellSize; document.documentElement.style.setProperty('--cell-size', cellSize + 'px'); renderCurrentWarehouseCargoes(); }
@@ -262,7 +248,6 @@
             });
         }
 
-        // 【修復】：原封不動補回漏掉的網格繪製邏輯
         function renderGrid() {
             const wh = warehouses[currentWhId] || { name: '倉庫一', width: 30, height: 30 };
             const grid = document.getElementById('warehouse-grid');
@@ -286,18 +271,21 @@
             underlay.appendChild(fragment); grid.insertBefore(underlay, layer);
         }
 
+        // 【重大升級修復】：重構渲染流程，每次刷新清空舊容器。完美解決無法生成貨物與跨區時的「複製人幽靈殘留」Bug！
         function renderCurrentWarehouseCargoes() {
             if (isDraggingActive) return; renderGrid();
             const layer = document.getElementById('cargo-layer'); const buffer = document.getElementById('cargo-buffer');
-            const validIds = new Set();
+            
+            // 乾淨清空舊畫布，徹底斷絕所有渲染殘留與秒刪除漏洞
+            layer.innerHTML = ''; 
+            buffer.innerHTML = '';
 
             globalCargoCache.forEach(itemData => {
                 if (!itemData.name || !itemData.id) return;
                 const cargoZ = parseInt(itemData.z_level || 1);
                 
                 if (itemData.warehouseId === currentWhId) {
-                    validIds.add(itemData.id);
-                    let cargo = document.querySelector(`#cargo-layer [data-id="${itemData.id}"]`) || reCreateCargoNode(itemData);
+                    let cargo = reCreateCargoNode(itemData);
                     updateCargoNodeData(cargo, itemData);
 
                     const pixelX = parseFloat(itemData.m_x || 0) * cellSize;
@@ -307,23 +295,21 @@
 
                     if (cargoZ === currentZLevel) {
                         cargo.className = 'cargo-item' + (itemData.isLocked ? ' is-locked' : '');
-                        if (cargo.parentElement !== layer) layer.appendChild(cargo);
+                        layer.appendChild(cargo);
                     } else if (cargoZ < currentZLevel) {
                         cargo.className = 'cargo-item underlay-ghost';
-                        if (cargo.parentElement !== layer) layer.appendChild(cargo);
-                    } else { cargo.remove(); }
+                        layer.appendChild(cargo);
+                    }
                 } 
                 else if (itemData.warehouseId === `buffer_${currentWhId}`) {
-                    validIds.add(itemData.id);
-                    let cargo = document.querySelector(`#cargo-buffer [data-id="${itemData.id}"]`) || reCreateCargoNode(itemData);
+                    let cargo = reCreateCargoNode(itemData);
                     updateCargoNodeData(cargo, itemData);
                     cargo.className = 'cargo-item'; cargo.removeAttribute('data-locked');
                     cargo.style.transform = 'none'; cargo.removeAttribute('data-x'); cargo.removeAttribute('data-y');
-                    if (cargo.parentElement !== buffer) buffer.appendChild(cargo);
+                    buffer.appendChild(cargo);
                 }
             });
 
-            document.querySelectorAll('#cargo-layer .cargo-item, #cargo-buffer .cargo-item').forEach(node => { if (!validIds.has(node.getAttribute('data-id'))) node.remove(); });
             calculateStockSummary(); initInteractEngine();
             document.getElementById('sync-status').textContent = "✅ 雲端資料同步完成";
             document.getElementById('sync-status').style.color = "#28a745";
@@ -345,7 +331,6 @@
             if (qtyInt > 0) { if (!qtySpan) { qtySpan = document.createElement('span'); qtySpan.className = 'cargo-qty'; cargo.appendChild(qtySpan); } qtySpan.textContent = `${qtyInt} 件`; } else { if (qtySpan) qtySpan.remove(); }
         }
 
-        // 【最核心修正】：將保存 JSON 包裝格式精準替換成與試算表一致的中文分頁標籤
         function autoSaveToCloud() {
             document.getElementById('sync-status').textContent = "⏳ 正在自動儲存至雲端...";
             document.getElementById('sync-status').style.color = "#6c757d";
@@ -411,7 +396,6 @@
         function deleteSelectedCargo() { if(rightClickedElement) { globalCargoCache = globalCargoCache.filter(item => item.id !== rightClickedElement.getAttribute('data-id')); autoSaveToCloud(); renderCurrentWarehouseCargoes(); } }
         function saveWarehouseSettings() { const name = document.getElementById('wh-name').value.trim(); const w = parseInt(document.getElementById('wh-w').value) || 30; const h = parseInt(document.getElementById('wh-h').value) || 30; if(!name) { alert("請輸入倉庫名稱！"); return; } const id = 'wh_' + Date.now(); warehouses[id] = { name: name, width: w, height: h }; switchWarehouseSelect(id, true); autoSaveToCloud(); }
 
-        // 【最核心修正】：初始載入解析（GET）時，同步支援讀取中文分頁屬性
         function syncFromCloud() {
             document.getElementById('sync-status').textContent = "⏳ 正在同步雲端資料...";
             document.getElementById('sync-status').style.color = "#6c757d";
@@ -447,7 +431,7 @@
             }
         }
 
-        // 【修復】：加入重複配色檢查機制，點擊生成時相同的顏色不會再被洗版
+        // 【安全防重複配色機制】：一鍵生成時，相同的顏色不會再被重複塞爆 localStorage 快取清單
         function triggerCreateCargo() { 
             const bg = document.getElementById('cargo-color').value; 
             const text = document.getElementById('text-color').value; 
@@ -464,8 +448,8 @@
                 id: 'item_' + Date.now(), 
                 name: document.getElementById('cargo-name').value, 
                 qty: parseInt(document.getElementById('cargo-qty').value) || 0, 
-                w_m: parseFloat(document.getElementById('cargo-w').value), 
-                h_m: parseFloat(document.getElementById('cargo-h').value), 
+                w_m: parseFloat(document.getElementById('cargo-w').value) || 2, 
+                h_m: parseFloat(document.getElementById('cargo-h').value) || 2, 
                 bg: bg, text: text, 
                 warehouseId: `buffer_${currentWhId}`, 
                 z_level: 1, isLocked: false, isStarred: false, memo: '' 
@@ -477,16 +461,24 @@
 
         function renderColorHistory() { const container = document.getElementById('color-history-container'); container.innerHTML = ''; colorHistory.forEach(color => { const dot = document.createElement('div'); dot.className = 'color-combo-dot'; dot.style.backgroundColor = color.bg; dot.style.color = color.text; dot.textContent = "Abc"; dot.onclick = () => { document.getElementById('cargo-color').value = color.bg; document.getElementById('text-color').value = color.text; }; container.appendChild(dot); }); }
 
+        // 【最核心修復點】：強補缺漏的 cargo.setAttribute('data-id', itemData.id); 讓清理機制不再誤殺新建立物件！
         function reCreateCargoNode(itemData) {
-            const cargo = document.createElement('div'); cargo.className = 'cargo-item'; cargo.innerHTML = `<span class="cargo-title"></span>`;
+            const cargo = document.createElement('div'); 
+            cargo.className = 'cargo-item'; 
+            cargo.setAttribute('data-id', itemData.id); // 賦予身分證，解開生成死鎖
+            cargo.innerHTML = `<span class="cargo-title"></span>`;
+            
             cargo.addEventListener('dblclick', (e) => { e.stopPropagation(); rightClickedElement = cargo; openEditQtyModal(); });
             cargo.addEventListener('contextmenu', (e) => {
                 e.preventDefault(); e.stopPropagation(); rightClickedElement = cargo;
                 const menu = document.getElementById('context-menu'); const isL = cargo.getAttribute('data-locked') === 'true';
                 document.getElementById('menu-lock-btn').textContent = isL ? "🔓 解除鎖定" : "🔒 鎖定物件";
+                
                 const isBuf = cargo.parentElement.id === 'cargo-buffer';
                 document.getElementById('menu-enter-btn').style.display = isBuf ? 'block' : 'none';
                 document.getElementById('menu-return-btn').style.display = isBuf ? 'none' : 'block';
+                document.getElementById('menu-rotate-btn').style.display = isBuf ? 'none' : (isL ? 'none' : 'block');
+                
                 menu.style.display = 'block'; menu.style.left = e.pageX + 'px'; menu.style.top = e.pageY + 'px';
             });
             return cargo;
@@ -520,7 +512,10 @@
                             
                             const wh = warehouses[currentWhId];
                             const maxW = (wh.width * cellSize) - target.offsetWidth; const maxH = (wh.height * cellSize) - target.offsetHeight;
-                            if (localX < 0) localX = 0; if (localX > maxW) localX = maxW; if (localY < 0) localY = 0; if (localY > maxH) localY = localY;
+                            
+                            // 【修復判定手誤】：修正 ly = localY 的變數拼錯，徹底穩固邊界吸附機制
+                            if (localX < 0) localX = 0; if (localX > maxW) localX = maxW; 
+                            if (localY < 0) localY = 0; if (localY > maxH) localY = maxH; 
                             
                             const otherItems = document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)');
                             for (let other of otherItems) {
