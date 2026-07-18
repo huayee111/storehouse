@@ -1070,7 +1070,7 @@
                 const memo = cargo.getAttribute('data-memo');
                 if (memo && memo.trim() !== '') {
                     const tip = document.getElementById('cargo-tooltip');
-                    tip.innerHTML = `📝</strong><br>${memo}`;
+                    tip.innerHTML = `${memo}`;
                     tip.style.display = 'block';
                 }
             });
