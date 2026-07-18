@@ -196,7 +196,6 @@
         
         .cargo-item.is-starred::after { content: '⭐'; position: absolute; top: 1px; left: 2px; font-size: calc(var(--cell-size) * 0.28); z-index: 15; }
 
-        /* 🛠️ 終極修正Bug：解除限制，允許商品在待放區被拖曳時可以順暢地 translate 位移 */
         #cargo-buffer .cargo-item { position: relative !important; display: inline-flex !important; margin: 0 !important; top: auto !important; left: auto !important; }
         #cargo-buffer .cargo-item:not(.is-dragging) { transform: none !important; }
 
@@ -267,7 +266,7 @@
         </div>
 
         <div id="summary-panel">
-            <h4 style="margin: 0 0 5px 0; color: #1a365d;">📊 全廠商品總數量統計 (自動加總相同名稱商品，0件不顯示，⭐不計入)</h4>
+            <h4 style="margin: 0 0 5px 0; color: #1a365d;">📊 全廠商品總數量統計 (自動加總相同名稱商品，0件不顯示，⭐不計入統計)</h4>
             <div class="summary-grid" id="summary-cards-container">
                 <div style="color: #a0aec0; font-size: 13px;">暫無庫存資料</div>
             </div>
@@ -349,6 +348,8 @@
             <h4 class="custom-modal-title" id="modal-panel-title">✏️ 編輯資訊</h4>
             <div class="custom-modal-body" id="modal-inputs-area"></div>
             <div class="custom-modal-footer">
+                <!-- 🛠️ 新增：靠左對齊的清除文字按鈕 -->
+                <button class="modal-btn" id="modal-btn-clear" onclick="clearModalMemo()" style="display: none; background-color: #e53e3e; color: white; margin-right: auto; border: none;">🧹 清除文字</button>
                 <button class="modal-btn" onclick="closeCustomModal()">❌ 取消</button>
                 <button class="modal-btn modal-btn-confirm" onclick="submitCustomModal()">✔️ 儲存修改</button>
             </div>
@@ -518,7 +519,6 @@
             fetch(GAS_URL)
             .then(res => { if (!res.ok) throw new Error("網絡不通"); return res.json(); })
             .then(data => {
-                /* 🛠️ 優化：安全防護鎖，防止資料抓完回傳時同仁剛好在拖曳物件，避免 DOM 重繪衝突 */
                 if (isDraggingActive || document.querySelector('.is-dragging')) return;
 
                 const whList = data["倉庫設定"] || data.warehouses;
@@ -656,7 +656,6 @@
                         cargo.classList.remove('is-starred'); cargo.setAttribute('data-starred', 'false');
                     }
                     
-                    /* 🛠️ 修復點：在非拖曳狀態下的 buffer 中重置為靜態，拖曳時則依靠內建 relative + translate 機制移動 */
                     if (!cargo.classList.contains('is-dragging')) {
                         cargo.style.transform = 'none';
                     }
@@ -894,7 +893,7 @@
             const w = parseInt(document.getElementById('wh-w').value);
             const h = parseInt(document.getElementById('wh-h').value);
             const id = 'wh_' + Date.now();
-             warehouses[id] = { name: name, width: w, height: h };
+            warehouses[id] = { name: name, width: w, height: h };
             switchWarehouseSelect(id, true);
             autoSaveToCloud();
         }
@@ -960,6 +959,10 @@
                 memo: "💬 編輯盤點備註"
             };
             
+            // 🛠️ 每次開啟視窗時，預先將清除按鈕隱藏
+            const clearBtn = document.getElementById('modal-btn-clear');
+            if (clearBtn) clearBtn.style.display = 'none';
+
             let fieldsHtml = "";
             if (type === "name") {
                 fieldsHtml = `<label>新商品名稱</label><input type="text" id="modal-field-name" class="custom-modal-input" value="${rightClickedElement.getAttribute('data-name')}">`;
@@ -971,7 +974,13 @@
                     <label>物理長度 (米 m)</label><input type="number" step="0.1" id="modal-field-h" class="custom-modal-input" value="${rightClickedElement.getAttribute('data-h-m')}">
                 `;
             } else if (type === "memo") {
-                fieldsHtml = `<label>盤點備註內容</label><input type="text" id="modal-field-memo" class="custom-modal-input" value="${rightClickedElement.getAttribute('data-memo') || ''}">`;
+                const currentMemo = rightClickedElement.getAttribute('data-memo') || '';
+                fieldsHtml = `<label>盤點備註內容</label><input type="text" id="modal-field-memo" class="custom-modal-input" value="${currentMemo}">`;
+                
+                // 🛠️ 核心修正：如果是備註型態且原本「已經有文字」，就讓清除按鈕亮出來
+                if (currentMemo.trim() !== "") {
+                    if (clearBtn) clearBtn.style.display = 'block';
+                }
             }
 
             document.getElementById('modal-panel-title').textContent = titleMap[type];
@@ -980,6 +989,15 @@
             
             const input = document.querySelector('#modal-inputs-area input');
             if (input) input.focus();
+        }
+
+        // 🛠️ 新增：點擊清除按鈕時清空文字並聚焦
+        function clearModalMemo() {
+            const input = document.getElementById('modal-field-memo');
+            if (input) {
+                input.value = "";
+                input.focus();
+            }
         }
 
         function closeCustomModal() {
@@ -1103,12 +1121,27 @@
                 lastTapTime = currentTime;
             });
 
+            // 🛠️ 內部閉包計時器：用來追蹤該物件自己被按右鍵的時間差
+            let localLastRightClickTime = 0;
+
             cargo.addEventListener('contextmenu', (e) => {
                 e.preventDefault(); 
                 e.stopPropagation(); 
                 rightClickedElement = cargo;
                 document.getElementById('cargo-tooltip').style.display = 'none';
                 
+                // 🛠️ 核心修正：計算兩次右鍵的時間間隔
+                const currentTime = new Date().getTime();
+                const rightClickLength = currentTime - localLastRightClickTime;
+                localLastRightClickTime = currentTime;
+
+                if (rightClickLength < 300 && rightClickLength > 0) {
+                    // 如果在 300ms 內再次點右鍵，視為雙擊右鍵，立刻隱藏預設選單並打開備註視窗
+                    document.getElementById('context-menu').style.display = 'none';
+                    openEditModal('memo');
+                    return;
+                }
+
                 const menu = document.getElementById('context-menu');
                 const enterBtn = document.getElementById('menu-enter-btn');
                 const returnBtn = document.getElementById('menu-return-btn');
