@@ -176,7 +176,6 @@
         }
         .cargo-qty { font-size: calc(var(--cell-size) * 0.26); font-weight: bold; opacity: 0.9; margin-top: 3px; background: rgba(0,0,0,0.15); padding: 2px 5px; border-radius: 4px; white-space: nowrap; pointer-events: none; }
         
-        /* 🛠️ 終極修復：移除大陰影干擾，改為極淡乾淨外框，確保拖曳時跟隨毫無位移感 */
         .cargo-item.is-dragging { 
             opacity: 0.95 !important; 
             z-index: 999999 !important; 
@@ -197,7 +196,9 @@
         
         .cargo-item.is-starred::after { content: '⭐'; position: absolute; top: 1px; left: 2px; font-size: calc(var(--cell-size) * 0.28); z-index: 15; }
 
-        #cargo-buffer .cargo-item { position: relative !important; transform: none !important; display: inline-flex !important; margin: 0 !important; top: auto !important; left: auto !important; }
+        /* 🛠️ 終極修正Bug：解除限制，允許商品在待放區被拖曳時可以順暢地 translate 位移 */
+        #cargo-buffer .cargo-item { position: relative !important; display: inline-flex !important; margin: 0 !important; top: auto !important; left: auto !important; }
+        #cargo-buffer .cargo-item:not(.is-dragging) { transform: none !important; }
 
         #context-menu {
             display: none; position: absolute; background: white; border: 1px solid #cbd5e0;
@@ -379,7 +380,6 @@
         let interactInstance = null;
         let rightClickedElement = null;
 
-        // 🛠️ 優化：改寫為全相對增量追蹤模型
         let dragDeltaPos = { x: 0, y: 0 };
         let lastTapTime = 0; 
 
@@ -511,12 +511,16 @@
         }
 
         function syncFromCloud() {
+            if (isDraggingActive || document.querySelector('.is-dragging')) return;
             document.getElementById('sync-status').textContent = "⏳ 正在同步雲端資料...";
             document.getElementById('sync-status').style.color = "#6c757d";
 
             fetch(GAS_URL)
             .then(res => { if (!res.ok) throw new Error("網絡不通"); return res.json(); })
             .then(data => {
+                /* 🛠️ 優化：安全防護鎖，防止資料抓完回傳時同仁剛好在拖曳物件，避免 DOM 重繪衝突 */
+                if (isDraggingActive || document.querySelector('.is-dragging')) return;
+
                 const whList = data["倉庫設定"] || data.warehouses;
                 const cargoList = data["貨物資料"] || data.cargoItems;
 
@@ -531,6 +535,7 @@
                 document.getElementById('sync-status').style.color = "#28a745";
             })
             .catch(err => {
+                if (isDraggingActive || document.querySelector('.is-dragging')) return;
                 document.getElementById('sync-status').textContent = "⚠️ 獨立單機操作模式運作中";
                 document.getElementById('sync-status').style.color = "#e67e22";
                 renderGrid(); 
@@ -651,7 +656,10 @@
                         cargo.classList.remove('is-starred'); cargo.setAttribute('data-starred', 'false');
                     }
                     
-                    cargo.style.transform = 'none';
+                    /* 🛠️ 修復點：在非拖曳狀態下的 buffer 中重置為靜態，拖曳時則依靠內建 relative + translate 機制移動 */
+                    if (!cargo.classList.contains('is-dragging')) {
+                        cargo.style.transform = 'none';
+                    }
                     if (cargo.parentElement !== buffer) buffer.appendChild(cargo);
                 }
             });
@@ -886,7 +894,7 @@
             const w = parseInt(document.getElementById('wh-w').value);
             const h = parseInt(document.getElementById('wh-h').value);
             const id = 'wh_' + Date.now();
-            warehouses[id] = { name: name, width: w, height: h };
+             warehouses[id] = { name: name, width: w, height: h };
             switchWarehouseSelect(id, true);
             autoSaveToCloud();
         }
@@ -928,7 +936,7 @@
             const name = document.getElementById('cargo-name').value.trim();
             const qty = parseInt(document.getElementById('cargo-qty').value) || 0;
             const w = parseFloat(document.getElementById('cargo-w').value);
-            const h = parseFloat(document.getElementById('cargo-h').value);
+            const h = parseFloat(document.getElementById('cargo-w').value);
             const bgColor = document.getElementById('cargo-color').value;
             const textColor = document.getElementById('text-color').value;
 
@@ -1266,7 +1274,6 @@
             return null; 
         }
 
-        // 🛠️ 終極修復：全純粹增量式坐標系追蹤引擎（100% 消除拉扯偏移 Bug）
         function initInteractEngine() {
             if (interactInstance) interactInstance.unset();
             
@@ -1281,12 +1288,9 @@
                         isDraggingActive = true; 
                         document.getElementById('cargo-tooltip').style.display = 'none';
 
-                        // 核心改寫：停止任何跨容器的 HTML DOM 抽離移位！
-                        // 讓方塊老老實實待在原本的容器裡，直接以現有的坐標（data-x / data-y）當作起點
                         let curX = parseFloat(target.getAttribute('data-x')) || 0;
                         let curY = parseFloat(target.getAttribute('data-y')) || 0;
                         
-                        // 如果原本在待放區，起點像素坐標重置為 0
                         if (target.parentElement.id === 'cargo-buffer') {
                             curX = 0; curY = 0;
                         }
@@ -1300,11 +1304,9 @@
                         const target = event.target;
                         if (target.getAttribute('data-locked') === 'true' || target.classList.contains('underlay-ghost')) return;
 
-                        // 核心改寫：100% 純粹疊加滑鼠移動的微小差距（event.dx / dy），完美消滅「拔起右下偏移」
                         dragDeltaPos.x += event.dx;
                         dragDeltaPos.y += event.dy;
 
-                        // 渲染商品移動，保證滑鼠跟隨點絕不跑位
                         target.style.transform = `translate(${dragDeltaPos.x}px, ${dragDeltaPos.y}px)`;
                         target.setAttribute('data-x', dragDeltaPos.x); 
                         target.setAttribute('data-y', dragDeltaPos.y);
@@ -1318,7 +1320,6 @@
                         const duplicates = document.querySelectorAll(`[data-id="${thisId}"]`);
                         if (duplicates.length > 1) { for (let i = 1; i < duplicates.length; i++) duplicates[i].remove(); }
 
-                        // 取得落點時，滑鼠在全螢幕上的絕對坐標
                         const grid = document.getElementById('warehouse-grid');
                         const gridRect = grid.getBoundingClientRect();
                         const buffer = document.getElementById('cargo-buffer');
@@ -1328,7 +1329,6 @@
                         const h_m = parseFloat(target.getAttribute('data-h-m'));
                         const wh = warehouses[currentWhId];
 
-                        // 智慧落點容器判定：滑鼠放開時人在哪裡
                         const isOverWarehouse = (
                             event.clientX >= gridRect.left && event.clientX <= gridRect.right &&
                             event.clientY >= gridRect.top && event.clientY <= gridRect.bottom
@@ -1339,7 +1339,6 @@
                         );
 
                         if (isOverWarehouse) {
-                            // 精確換算落點在倉庫內的左上角相對像素位置
                             let finalLocalX = (event.clientX - (target.offsetWidth / 2)) - gridRect.left;
                             let finalLocalY = (event.clientY - (target.offsetHeight / 2)) - gridRect.top;
 
@@ -1365,7 +1364,6 @@
                                 alert("該位置空間不足，商品已自動彈回待放區。");
                             }
                         } else {
-                            // 放開在倉庫外（包含丟回待放區），順暢歸回流式排版
                             document.getElementById('cargo-buffer').appendChild(target);
                             target.removeAttribute('data-x'); target.removeAttribute('data-y');
                             target.removeAttribute('data-m-x'); target.removeAttribute('data-m-y');
