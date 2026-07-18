@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>公司內部倉儲網格系統 - 影子代理終極流暢版</title>
+    <title>公司內部倉儲網格系統 - 影子代理安全穩健版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -152,15 +152,10 @@
         .main-cargo-generator { padding: 20px; border-top: 2px solid #e2e8f0; background: #fff; }
         label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 14px; color: #4a5568; }
         
-        input, select, .action-btn { width: 100%; height: 46px; padding: 10px 12px; margin-bottom: 12px; box-sizing: border-box; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; }
-        input[type="range"] { height: auto; }
-        input[type="color"] { padding: 2px; cursor: pointer; }
+        input, select, .action-btn { width: 100%; height: 46px; padding: 10px 12px; margin-bottom: 12px; box-sizing: border-box; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; input[type="range"] { height: auto; } input[type="color"] { padding: 2px; cursor: pointer; } }
         .action-btn { background-color: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
         .switch-container { display: flex; align-items: center; justify-content: space-between; height: 46px; }
         .switch-container input { width: 22px; height: 22px; margin: 0; }
-
-        .color-history { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; margin-top: 5px; }
-        .color-combo-dot { width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 2px solid #cbd5e0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; user-select: none; -webkit-tap-highlight-color: transparent; }
 
         .cargo-item {
             position: absolute; box-sizing: border-box; border: 2px solid rgba(0,0,0,0.25);
@@ -178,7 +173,6 @@
         }
         .cargo-qty { font-size: calc(var(--cell-size) * 0.26); font-weight: bold; opacity: 0.9; margin-top: 3px; background: rgba(0,0,0,0.15); padding: 2px 5px; border-radius: 4px; white-space: nowrap; pointer-events: none; }
         
-        /* 🛠️ 影子代理專用高權重樣式，保證移動時絕對穿透所有白底、不位移、維持原色與緊湊外框 */
         .cargo-item.is-ghost-proxy {
             position: fixed !important;
             opacity: 0.92 !important;
@@ -386,10 +380,10 @@
         let interactInstance = null;
         let rightClickedElement = null;
 
-        // 🛠️ 影子代理拖曳引擎核心全域暫存變數
-        let activeDragTargetNode = null; // 當前正在隱形操作的真實商品本尊
-        let ghostProxyDOMElement = null; // 動態渲染掛載於 body 的影子分身 DOM
-        let dragPointerOffset = { x: 0, y: 0 }; // 滑鼠點選點相對偏移
+        // 影子代理專用全域控制核心暫存器
+        let activeDragTargetNode = null; 
+        let ghostProxyDOMElement = null; 
+        let dragPointerOffset = { x: 0, y: 0 }; 
 
         let lastTapTime = 0; 
 
@@ -622,7 +616,7 @@
                     cargo.style.transform = `translate(${pixelX}px, ${pixelY}px)`;
                     cargo.setAttribute('data-x', pixelX); cargo.setAttribute('data-y', pixelY);
                     cargo.setAttribute('data-m-x', itemData.m_x || 0); cargo.setAttribute('data-m-y', itemData.m_y || 0);
-                    cargo.style.visibility = 'visible'; // 確保刷新時還原可見度
+                    cargo.style.visibility = 'visible'; 
 
                     if (cargoZ === currentZLevel) {
                         if (cargo.parentElement !== layer) layer.appendChild(cargo);
@@ -1115,7 +1109,7 @@
             return null; 
         }
 
-        // 🛠️ 終極影子分身代理拖曳控制核心（徹底解決遮擋、不黏滑鼠與位移 Bug）
+        // 🛠️ 終極修復：結合「靜態米數寬高換算」的影子分身代理引擎
         function initInteractEngine() {
             if (interactInstance) interactInstance.unset();
             
@@ -1130,24 +1124,30 @@
                         isDraggingActive = true; 
                         document.getElementById('cargo-tooltip').style.display = 'none';
 
-                        // 1. 鎖定本尊指標，並將本尊就地完全隱形，不破壞排版結構
+                        // 1. 綁定真實本尊，並就地完全隱形，防範干擾與死鎖
                         activeDragTargetNode = target;
                         activeDragTargetNode.style.visibility = 'hidden';
 
-                        // 2. 獲取點擊時相對於方塊左上角的精確像素偏置量
+                        // 2. 核心大優化：不依賴網頁 offset 渲染，改由商品內存屬性「靜態米數」直接換算最穩健的絕對寬高
+                        const targetMetricW = parseFloat(target.getAttribute('data-w-m')) || 2;
+                        const targetMetricH = parseFloat(target.getAttribute('data-h-m')) || 2;
+                        const staticPixelW = targetMetricW * cellSize;
+                        const staticPixelH = targetMetricH * cellSize;
+
+                        // 3. 計算滑鼠點擊點相對於商品左上角的精確物理差距
                         const clientRect = target.getBoundingClientRect();
                         dragPointerOffset.x = event.clientX - clientRect.left;
                         dragPointerOffset.y = event.clientY - clientRect.top;
 
-                        // 3. 克隆出一個完全一樣的影子代理分身，無條件掛在全網頁最頂層 document.body
+                        // 4. 深拷貝分身掛載於頂層 body 進行無障礙浮空拖曳
                         ghostProxyDOMElement = target.cloneNode(true);
                         ghostProxyDOMElement.classList.add('is-ghost-proxy');
-                        ghostProxyDOMElement.style.visibility = 'visible'; // 影子必須可見
-                        ghostProxyDOMElement.style.width = target.offsetWidth + 'px';
-                        ghostProxyDOMElement.style.height = target.offsetHeight + 'px';
+                        ghostProxyDOMElement.style.visibility = 'visible'; 
+                        ghostProxyDOMElement.style.width = staticPixelW + 'px';
+                        ghostProxyDOMElement.style.height = staticPixelH + 'px';
                         document.body.appendChild(ghostProxyDOMElement);
 
-                        // 4. 初次同步渲染影子位置（採用 position: fixed 絕對追蹤）
+                        // 5. 初始影子跟隨同步
                         let initialFixedX = event.clientX - dragPointerOffset.x;
                         let initialFixedY = event.clientY - dragPointerOffset.y;
                         ghostProxyDOMElement.style.transform = `translate(${initialFixedX}px, ${initialFixedY}px)`;
@@ -1155,7 +1155,7 @@
                     move(event) {
                         if (!isDraggingActive || !ghostProxyDOMElement) return;
 
-                        // 5. 滑鼠移動時，影子 100% 精準跟隨滑鼠，解除任何位移、拉扯、跳動或潛入白底後方的現象
+                        // 6. 移動時全螢幕最高層級 fixed 追蹤，徹底穿透白色背景與任何父容器
                         let currentFixedX = event.clientX - dragPointerOffset.x;
                         let currentFixedY = event.clientY - dragPointerOffset.y;
                         ghostProxyDOMElement.style.transform = `translate(${currentFixedX}px, ${currentFixedY}px)`;
@@ -1163,28 +1163,26 @@
                     end(event) {
                         if (!isDraggingActive || !activeDragTargetNode) return;
 
-                        // 6. 釋放滑鼠，立刻銷毀頂層的影子分身，維持乾淨 DOM
+                        // 7. 立刻卸載並銷毀影子分身 DOM 節點
                         if (ghostProxyDOMElement) {
                             ghostProxyDOMElement.remove();
                             ghostProxyDOMElement = null;
                         }
 
-                        // 還原真實本尊的可見度
+                        // 讓真實商品本尊顯現
                         activeDragTargetNode.style.visibility = 'visible';
 
-                        // 7. 精準撈取落點時，畫布容器與緩衝容器的絕對物理範圍
                         const grid = document.getElementById('warehouse-grid');
                         const gridRect = grid.getBoundingClientRect();
 
-                        // 換算放開滑鼠時，物件左上角在倉庫畫布內部的相對像素坐標
+                        // 基於滑鼠游標精準推算畫布左上角的落點像素
                         let finalLocalX = (event.clientX - dragPointerOffset.x) - gridRect.left;
                         let finalLocalY = (event.clientY - dragPointerOffset.y) - gridRect.top;
 
-                        const w_m = parseFloat(activeDragTargetNode.getAttribute('data-w-m'));
-                        const h_m = parseFloat(activeDragTargetNode.getAttribute('data-h-m'));
+                        const w_m = parseFloat(activeDragTargetNode.getAttribute('data-w-m')) || 2;
+                        const h_m = parseFloat(activeDragTargetNode.getAttribute('data-h-m')) || 2;
                         const wh = warehouses[currentWhId];
 
-                        // 精準判定放開位置：滑鼠指針是否落於倉庫網格內
                         const isInsideWarehouse = (
                             event.clientX >= gridRect.left && event.clientX <= gridRect.right &&
                             event.clientY >= gridRect.top && event.clientY <= gridRect.bottom
@@ -1196,7 +1194,6 @@
                             if (finalLocalX < 0) finalLocalX = 0; if (finalLocalX > maxW) finalLocalX = maxW;
                             if (finalLocalY < 0) finalLocalY = 0; if (finalLocalY > maxH) finalLocalY = maxH;
 
-                            // 智慧防撞吸附計算
                             let optimalPos = findNextValidVacantSlot(activeDragTargetNode, finalLocalX, finalLocalY);
                             
                             if (optimalPos) {
@@ -1207,15 +1204,13 @@
                                 activeDragTargetNode.setAttribute('data-m-x', Math.round((optimalPos.x / cellSize) * 10) / 10);
                                 activeDragTargetNode.setAttribute('data-m-y', Math.round((optimalPos.y / cellSize) * 10) / 10);
                             } else {
-                                // 撞牆或爆滿，安全退回待放區
                                 document.getElementById('cargo-buffer').appendChild(activeDragTargetNode);
                                 activeDragTargetNode.removeAttribute('data-x'); activeDragTargetNode.removeAttribute('data-y');
                                 activeDragTargetNode.removeAttribute('data-m-x'); activeDragTargetNode.removeAttribute('data-m-y');
                                 activeDragTargetNode.style.transform = 'none';
-                                alert("該位置已有其他貨物重疊卡死，物件已自動彈回待放區。");
+                                alert("該位置空間不足或產生重疊，物件已自動退回待放區。");
                             }
                         } else {
-                            // 丟出倉庫外部（包含回歸待放區），順暢歸回流式排版
                             document.getElementById('cargo-buffer').appendChild(activeDragTargetNode);
                             activeDragTargetNode.removeAttribute('data-x'); activeDragTargetNode.removeAttribute('data-y');
                             activeDragTargetNode.removeAttribute('data-m-x'); activeDragTargetNode.removeAttribute('data-m-y');
