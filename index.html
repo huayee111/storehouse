@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>公司內部倉儲網格系統 - 終極視覺對流版</title>
+    <title>公司內部倉儲網格系統 - 影子代理終極流暢版</title>
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -84,11 +84,10 @@
         .grid-cell-block { border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; box-sizing: border-box; }
         #cargo-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
         
-        /* 🛠️ 優化：確保 cargo-buffer 原生具備相對定位基礎，方便動態切換 z-index 進行視覺穿透擴展 */
         #cargo-buffer { 
             min-height: 110px; background: #fff; border: 2px dashed #a0aec0; border-radius: 8px; 
             padding: 12px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; width: 100%; box-sizing: border-box; 
-            position: relative; z-index: 6; transition: z-index 0.1s step-end;
+            position: relative; z-index: 6;
         }
 
         .quick-view-controls {
@@ -179,10 +178,14 @@
         }
         .cargo-qty { font-size: calc(var(--cell-size) * 0.26); font-weight: bold; opacity: 0.9; margin-top: 3px; background: rgba(0,0,0,0.15); padding: 2px 5px; border-radius: 4px; white-space: nowrap; pointer-events: none; }
         
-        .cargo-item.is-dragging { 
-            opacity: 0.95 !important; 
-            z-index: 999999 !important; 
-            box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important; 
+        /* 🛠️ 影子代理專用高權重樣式，保證移動時絕對穿透所有白底、不位移、維持原色與緊湊外框 */
+        .cargo-item.is-ghost-proxy {
+            position: fixed !important;
+            opacity: 0.92 !important;
+            z-index: 99999999 !important;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.35) !important;
+            pointer-events: none !important;
+            margin: 0 !important;
         }
         
         .cargo-item.underlay-ghost { opacity: 0.15 !important; border: 2px dashed #000000 !important; background-color: #e2e8f0 !important; color: #000000 !important; pointer-events: none !important; z-index: 2 !important; box-shadow: none !important; }
@@ -246,10 +249,12 @@
                 <div id="warehouse-grid"></div>
             </div>
             
-            <div class="layer-selector-sidebar">
-                <div class="layer-tab-btn" id="btn-z3" onclick="switchZLayer(3)"><span>第 3 層</span><span style="font-size:9px;opacity:0.7;">(最上層)</span></div>
-                <div class="layer-tab-btn" id="btn-z2" onclick="switchZLayer(2)"><span>第 2 層</span><span style="font-size:9px;opacity:0.7;">(中層)</span></div>
-                <div class="layer-tab-btn active" id="btn-z1" onclick="switchZLayer(1)"><span>第 1 層</span><span style="font-size:9px;opacity:0.7;">(地面棧板)</span></div>
+            <div class="layer-sidebar-wrapper" style="position: relative; z-index: 10;">
+                <div class="layer-selector-sidebar">
+                    <div class="layer-tab-btn" id="btn-z3" onclick="switchZLayer(3)"><span>第 3 層</span><span style="font-size:9px;opacity:0.7;">(最上層)</span></div>
+                    <div class="layer-tab-btn" id="btn-z2" onclick="switchZLayer(2)"><span>第 2 層</span><span style="font-size:9px;opacity:0.7;">(中層)</span></div>
+                    <div class="layer-tab-btn active" id="btn-z1" onclick="switchZLayer(1)"><span>第 1 層</span><span style="font-size:9px;opacity:0.7;">(地面棧板)</span></div>
+                </div>
             </div>
         </div>
 
@@ -381,7 +386,11 @@
         let interactInstance = null;
         let rightClickedElement = null;
 
-        let dragDeltaPos = { x: 0, y: 0 };
+        // 🛠️ 影子代理拖曳引擎核心全域暫存變數
+        let activeDragTargetNode = null; // 當前正在隱形操作的真實商品本尊
+        let ghostProxyDOMElement = null; // 動態渲染掛載於 body 的影子分身 DOM
+        let dragPointerOffset = { x: 0, y: 0 }; // 滑鼠點選點相對偏移
+
         let lastTapTime = 0; 
 
         window.onload = function() {
@@ -613,6 +622,7 @@
                     cargo.style.transform = `translate(${pixelX}px, ${pixelY}px)`;
                     cargo.setAttribute('data-x', pixelX); cargo.setAttribute('data-y', pixelY);
                     cargo.setAttribute('data-m-x', itemData.m_x || 0); cargo.setAttribute('data-m-y', itemData.m_y || 0);
+                    cargo.style.visibility = 'visible'; // 確保刷新時還原可見度
 
                     if (cargoZ === currentZLevel) {
                         if (cargo.parentElement !== layer) layer.appendChild(cargo);
@@ -653,6 +663,7 @@
                     }
                     
                     cargo.style.transform = 'none';
+                    cargo.style.visibility = 'visible';
                     if (cargo.parentElement !== buffer) buffer.appendChild(cargo);
                 }
             });
@@ -1036,169 +1047,6 @@
             closeCustomModal();
         }
 
-        function reCreateCargoNode(itemData) {
-            const cargo = document.createElement('div');
-            cargo.className = 'cargo-item';
-            
-            const qtyInt = parseInt(itemData.qty) || 0;
-            const qtyHtml = qtyInt > 0 ? `<span class="cargo-qty">${qtyInt} 件</span>` : '';
-            cargo.innerHTML = `<span class="cargo-title">${itemData.name}</span>${qtyHtml}`;
-            
-            cargo.style.width = (parseFloat(itemData.w_m || 2) * cellSize) + 'px';
-            cargo.style.height = (parseFloat(itemData.h_m || 2) * cellSize) + 'px';
-            cargo.style.backgroundColor = itemData.bg || '#ffc107';
-            cargo.style.color = itemData.text || '#000000';
-            
-            cargo.setAttribute('data-w-m', itemData.w_m || 2);
-            cargo.setAttribute('data-h-m', itemData.h_m || 2);
-            cargo.setAttribute('data-qty', qtyInt);
-            cargo.setAttribute('data-name', itemData.name || '未命名');
-            cargo.setAttribute('data-id', itemData.id);
-            cargo.setAttribute('data-locked', itemData.isLocked ? 'true' : 'false');
-            cargo.setAttribute('data-starred', itemData.isStarred ? 'true' : 'false');
-            cargo.setAttribute('data-memo', itemData.memo || '');
-
-            cargo.addEventListener('mouseenter', (e) => {
-                if (cargo.classList.contains('is-dragging')) return;
-                const memo = cargo.getAttribute('data-memo');
-                if (memo && memo.trim() !== '') {
-                    const tip = document.getElementById('cargo-tooltip');
-                    tip.innerHTML = `📝 <strong>盤點備註資訊：</strong><br>${memo}`;
-                    tip.style.display = 'block';
-                }
-            });
-            cargo.addEventListener('mousemove', (e) => {
-                const tip = document.getElementById('cargo-tooltip');
-                if (tip.style.display === 'block') {
-                    tip.style.left = (e.pageX + 15) + 'px';
-                    tip.style.top = (e.pageY + 15) + 'px';
-                }
-            });
-            cargo.addEventListener('mouseleave', () => {
-                document.getElementById('cargo-tooltip').style.display = 'none';
-            });
-
-            cargo.addEventListener('dblclick', (e) => {
-                e.stopPropagation(); 
-                rightClickedElement = cargo; 
-                openEditModal('qty');
-            });
-
-            cargo.addEventListener('touchend', (e) => {
-                const currentTime = new Date().getTime();
-                const tapLength = currentTime - lastTapTime;
-                if (tapLength < 250 && tapLength > 0) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    rightClickedElement = cargo; 
-                    openEditModal('qty');
-                }
-                lastTapTime = currentTime;
-            });
-
-            cargo.addEventListener('contextmenu', (e) => {
-                e.preventDefault(); 
-                e.stopPropagation(); 
-                rightClickedElement = cargo;
-                document.getElementById('cargo-tooltip').style.display = 'none';
-                
-                const menu = document.getElementById('context-menu');
-                const enterBtn = document.getElementById('menu-enter-btn');
-                const returnBtn = document.getElementById('menu-return-btn');
-                const lockBtn = document.getElementById('menu-lock-btn');
-                const rotateBtn = document.getElementById('menu-rotate-btn');
-                const starBtn = document.getElementById('menu-star-btn');
-                const copyBtn = document.getElementById('menu-copy-btn');
-                
-                const isLocked = cargo.getAttribute('data-locked') === 'true';
-                const isStarred = cargo.getAttribute('data-starred') === 'true';
-                
-                lockBtn.textContent = isLocked ? "🔓 解除鎖定" : "🔒 鎖定物件";
-                starBtn.textContent = isStarred ? "✨ 取消星號標記" : "⭐ 標記星號";
-
-                if (cargo.parentElement.id === 'cargo-buffer') {
-                    enterBtn.style.display = isLocked ? 'none' : 'block';
-                    returnBtn.style.display = 'none'; 
-                    lockBtn.style.display = 'block'; 
-                    rotateBtn.style.display = isLocked ? 'none' : 'block'; 
-                    starBtn.style.display = 'block';
-                    copyBtn.style.display = 'block';
-                } else {
-                    enterBtn.style.display = 'none';
-                    returnBtn.style.display = isLocked ? 'none' : 'block';
-                    rotateBtn.style.display = isLocked ? 'none' : 'block';
-                    lockBtn.style.display = 'block';
-                    starBtn.style.display = 'block';
-                    copyBtn.style.display = 'block';
-                }
-                menu.style.display = 'block'; menu.style.left = e.pageX + 'px'; menu.style.top = e.pageY + 'px';
-            });
-            return cargo;
-        }
-
-        function toggleCargoLock() {
-            if (rightClickedElement) {
-                const isLocked = rightClickedElement.getAttribute('data-locked') === 'true';
-                const nextState = !isLocked;
-                rightClickedElement.setAttribute('data-locked', nextState ? 'true' : 'false');
-                if (nextState) rightClickedElement.classList.add('is-locked');
-                else rightClickedElement.classList.remove('is-locked');
-                
-                const targetId = rightClickedElement.getAttribute('data-id');
-                const matchInCache = globalCargoCache.find(c => c.id === targetId);
-                if (matchInCache) matchInCache.isLocked = nextState;
-
-                rightClickedElement = null;
-                initInteractEngine(); autoSaveToCloud();
-            }
-        }
-
-        function enterWarehouseDirect() {
-            if (rightClickedElement) {
-                const w_m = parseFloat(rightClickedElement.getAttribute('data-w-m'));
-                const h_m = parseFloat(rightClickedElement.getAttribute('data-h-m'));
-                rightClickedElement.style.width = (w_m * cellSize) + 'px';
-                rightClickedElement.style.height = (h_m * cellSize) + 'px';
-                
-                const layer = document.getElementById('cargo-layer');
-                layer.appendChild(rightClickedElement);
-                
-                let fitPos = findNextValidVacantSlot(rightClickedElement, 0, 0);
-                
-                if (fitPos) {
-                    rightClickedElement.style.transform = `translate(${fitPos.x}px, ${fitPos.y}px)`;
-                    rightClickedElement.setAttribute('data-x', fitPos.x); rightClickedElement.setAttribute('data-y', fitPos.y);
-                    rightClickedElement.setAttribute('data-m-x', fitPos.x / cellSize); rightClickedElement.setAttribute('data-m-y', fitPos.y / cellSize);
-                    rightClickedElement = null; 
-                    autoSaveToCloud();
-                } else {
-                    document.getElementById('cargo-buffer').appendChild(rightClickedElement);
-                    rightClickedElement.style.transform = 'none';
-                    rightClickedElement = null;
-                    alert("倉庫目前空間不足，無法自動塞入該棧板！");
-                }
-            }
-        }
-
-        function returnToBuffer() {
-            if (rightClickedElement) {
-                document.getElementById('cargo-buffer').appendChild(rightClickedElement);
-                rightClickedElement.removeAttribute('data-x'); rightClickedElement.removeAttribute('data-y');
-                rightClickedElement.removeAttribute('data-m-x'); rightClickedElement.removeAttribute('data-m-y');
-                rightClickedElement.style.transform = 'none';
-                rightClickedElement = null; initInteractEngine(); autoSaveToCloud();
-            }
-        }
-
-        function deleteSelectedCargo() { 
-            if(rightClickedElement) { 
-                const targetId = rightClickedElement.getAttribute('data-id');
-                rightClickedElement.remove(); rightClickedElement = null;
-                globalCargoCache = globalCargoCache.filter(item => item.id !== targetId);
-                autoSaveToCloud();
-            } 
-        }
-
         function findNextValidVacantSlot(target, localX, localY) {
             const wh = warehouses[currentWhId];
             const w_m = parseFloat(target.getAttribute('data-w-m'));
@@ -1267,7 +1115,7 @@
             return null; 
         }
 
-        // 🛠️ 終極修復核心：融入動態 z-index 提升機制的 1:1 相對增量拖曳引擎
+        // 🛠️ 終極影子分身代理拖曳控制核心（徹底解決遮擋、不黏滑鼠與位移 Bug）
         function initInteractEngine() {
             if (interactInstance) interactInstance.unset();
             
@@ -1282,92 +1130,100 @@
                         isDraggingActive = true; 
                         document.getElementById('cargo-tooltip').style.display = 'none';
 
-                        // 3. 核心大優化：若商品起源於待放置區，動態將整個待放置區容器的 z-index 拔高到 99999
-                        // 這能讓待放區方塊往倉庫拉時，擁有浮在最上層移動的穿透視野，解決鬧失蹤問題
-                        if (target.parentElement.id === 'cargo-buffer') {
-                            document.getElementById('cargo-buffer').style.zIndex = "99999";
-                        }
+                        // 1. 鎖定本尊指標，並將本尊就地完全隱形，不破壞排版結構
+                        activeDragTargetNode = target;
+                        activeDragTargetNode.style.visibility = 'hidden';
 
-                        let curX = parseFloat(target.getAttribute('data-x')) || 0;
-                        let curY = parseFloat(target.getAttribute('data-y')) || 0;
-                        
-                        if (target.parentElement.id === 'cargo-buffer') {
-                            curX = 0; curY = 0;
-                        }
+                        // 2. 獲取點擊時相對於方塊左上角的精確像素偏置量
+                        const clientRect = target.getBoundingClientRect();
+                        dragPointerOffset.x = event.clientX - clientRect.left;
+                        dragPointerOffset.y = event.clientY - clientRect.top;
 
-                        dragDeltaPos.x = curX;
-                        dragDeltaPos.y = curY;
+                        // 3. 克隆出一個完全一樣的影子代理分身，無條件掛在全網頁最頂層 document.body
+                        ghostProxyDOMElement = target.cloneNode(true);
+                        ghostProxyDOMElement.classList.add('is-ghost-proxy');
+                        ghostProxyDOMElement.style.visibility = 'visible'; // 影子必須可見
+                        ghostProxyDOMElement.style.width = target.offsetWidth + 'px';
+                        ghostProxyDOMElement.style.height = target.offsetHeight + 'px';
+                        document.body.appendChild(ghostProxyDOMElement);
 
-                        target.classList.add('is-dragging');
+                        // 4. 初次同步渲染影子位置（採用 position: fixed 絕對追蹤）
+                        let initialFixedX = event.clientX - dragPointerOffset.x;
+                        let initialFixedY = event.clientY - dragPointerOffset.y;
+                        ghostProxyDOMElement.style.transform = `translate(${initialFixedX}px, ${initialFixedY}px)`;
                     },
                     move(event) {
-                        const target = event.target;
-                        if (target.getAttribute('data-locked') === 'true' || target.classList.contains('underlay-ghost')) return;
+                        if (!isDraggingActive || !ghostProxyDOMElement) return;
 
-                        dragDeltaPos.x += event.dx;
-                        dragDeltaPos.y += event.dy;
-
-                        target.style.transform = `translate(${dragDeltaPos.x}px, ${dragDeltaPos.y}px)`;
-                        target.setAttribute('data-x', dragDeltaPos.x); 
-                        target.setAttribute('data-y', dragDeltaPos.y);
+                        // 5. 滑鼠移動時，影子 100% 精準跟隨滑鼠，解除任何位移、拉扯、跳動或潛入白底後方的現象
+                        let currentFixedX = event.clientX - dragPointerOffset.x;
+                        let currentFixedY = event.clientY - dragPointerOffset.y;
+                        ghostProxyDOMElement.style.transform = `translate(${currentFixedX}px, ${currentFixedY}px)`;
                     },
                     end(event) {
-                        const target = event.target;
-                        if (!isDraggingActive) return; 
-                        target.classList.remove('is-dragging');
+                        if (!isDraggingActive || !activeDragTargetNode) return;
 
-                        // 3. 核心大優化：拖曳落攤放手一瞬間，立刻將待放置區的 z-index 恢復為預設的原生層級
-                        document.getElementById('cargo-buffer').style.zIndex = "6";
+                        // 6. 釋放滑鼠，立刻銷毀頂層的影子分身，維持乾淨 DOM
+                        if (ghostProxyDOMElement) {
+                            ghostProxyDOMElement.remove();
+                            ghostProxyDOMElement = null;
+                        }
 
-                        const thisId = target.getAttribute('data-id');
-                        const duplicates = document.querySelectorAll(`[data-id="${thisId}"]`);
-                        if (duplicates.length > 1) { for (let i = 1; i < duplicates.length; i++) duplicates[i].remove(); }
+                        // 還原真實本尊的可見度
+                        activeDragTargetNode.style.visibility = 'visible';
 
+                        // 7. 精準撈取落點時，畫布容器與緩衝容器的絕對物理範圍
                         const grid = document.getElementById('warehouse-grid');
                         const gridRect = grid.getBoundingClientRect();
 
-                        const w_m = parseFloat(target.getAttribute('data-w-m'));
-                        const h_m = parseFloat(target.getAttribute('data-h-m'));
+                        // 換算放開滑鼠時，物件左上角在倉庫畫布內部的相對像素坐標
+                        let finalLocalX = (event.clientX - dragPointerOffset.x) - gridRect.left;
+                        let finalLocalY = (event.clientY - dragPointerOffset.y) - gridRect.top;
+
+                        const w_m = parseFloat(activeDragTargetNode.getAttribute('data-w-m'));
+                        const h_m = parseFloat(activeDragTargetNode.getAttribute('data-h-m'));
                         const wh = warehouses[currentWhId];
 
+                        // 精準判定放開位置：滑鼠指針是否落於倉庫網格內
                         const isInsideWarehouse = (
                             event.clientX >= gridRect.left && event.clientX <= gridRect.right &&
                             event.clientY >= gridRect.top && event.clientY <= gridRect.bottom
                         );
 
                         if (isInsideWarehouse) {
-                            let finalLocalX = (event.clientX - (target.offsetWidth / 2)) - gridRect.left;
-                            let finalLocalY = (event.clientY - (target.offsetHeight / 2)) - gridRect.top;
-
                             const maxW = (wh.width - w_m) * cellSize;
                             const maxH = (wh.height - h_m) * cellSize;
                             if (finalLocalX < 0) finalLocalX = 0; if (finalLocalX > maxW) finalLocalX = maxW;
                             if (finalLocalY < 0) finalLocalY = 0; if (finalLocalY > maxH) finalLocalY = maxH;
 
-                            let optimalPos = findNextValidVacantSlot(target, finalLocalX, finalLocalY);
+                            // 智慧防撞吸附計算
+                            let optimalPos = findNextValidVacantSlot(activeDragTargetNode, finalLocalX, finalLocalY);
                             
                             if (optimalPos) {
-                                document.getElementById('cargo-layer').appendChild(target);
-                                target.style.transform = `translate(${optimalPos.x}px, ${optimalPos.y}px)`;
-                                target.setAttribute('data-x', optimalPos.x); 
-                                target.setAttribute('data-y', optimalPos.y);
-                                target.setAttribute('data-m-x', Math.round((optimalPos.x / cellSize) * 10) / 10);
-                                target.setAttribute('data-m-y', Math.round((optimalPos.y / cellSize) * 10) / 10);
+                                document.getElementById('cargo-layer').appendChild(activeDragTargetNode);
+                                activeDragTargetNode.style.transform = `translate(${optimalPos.x}px, ${optimalPos.y}px)`;
+                                activeDragTargetNode.setAttribute('data-x', optimalPos.x); 
+                                activeDragTargetNode.setAttribute('data-y', optimalPos.y);
+                                activeDragTargetNode.setAttribute('data-m-x', Math.round((optimalPos.x / cellSize) * 10) / 10);
+                                activeDragTargetNode.setAttribute('data-m-y', Math.round((optimalPos.y / cellSize) * 10) / 10);
                             } else {
-                                document.getElementById('cargo-buffer').appendChild(target);
-                                target.removeAttribute('data-x'); target.removeAttribute('data-y');
-                                target.removeAttribute('data-m-x'); target.removeAttribute('data-m-y');
-                                target.style.transform = 'none';
-                                alert("該位置空間不足，商品已自動彈回待放區。");
+                                // 撞牆或爆滿，安全退回待放區
+                                document.getElementById('cargo-buffer').appendChild(activeDragTargetNode);
+                                activeDragTargetNode.removeAttribute('data-x'); activeDragTargetNode.removeAttribute('data-y');
+                                activeDragTargetNode.removeAttribute('data-m-x'); activeDragTargetNode.removeAttribute('data-m-y');
+                                activeDragTargetNode.style.transform = 'none';
+                                alert("該位置已有其他貨物重疊卡死，物件已自動彈回待放區。");
                             }
                         } else {
-                            document.getElementById('cargo-buffer').appendChild(target);
-                            target.removeAttribute('data-x'); target.removeAttribute('data-y');
-                            target.removeAttribute('data-m-x'); target.removeAttribute('data-m-y');
-                            target.style.transform = 'none';
+                            // 丟出倉庫外部（包含回歸待放區），順暢歸回流式排版
+                            document.getElementById('cargo-buffer').appendChild(activeDragTargetNode);
+                            activeDragTargetNode.removeAttribute('data-x'); activeDragTargetNode.removeAttribute('data-y');
+                            activeDragTargetNode.removeAttribute('data-m-x'); activeDragTargetNode.removeAttribute('data-m-y');
+                            activeDragTargetNode.style.transform = 'none';
                         }
                         
                         autoSaveToCloud();
+                        activeDragTargetNode = null;
                         isDraggingActive = false; 
                     }
                 }
