@@ -266,7 +266,7 @@
         </div>
 
         <div id="summary-panel">
-            <h4 style="margin: 0 0 5px 0; color: #1a365d;">📊 全廠商品總數量統計 (自動加總相同名稱商品，0件不顯示，⭐不計入)</h4>
+            <h4 style="margin: 0 0 5px 0; color: #1a365d;">📊 當前倉庫商品數量統計 (自動加總相同名稱商品，0件不顯示，⭐不計入)</h4>
             <div class="summary-grid" id="summary-cards-container">
                 <div style="color: #a0aec0; font-size: 13px;">暫無庫存資料</div>
             </div>
@@ -367,7 +367,8 @@
         let autoSyncTimer = null;
         let isDraggingActive = false;
         let modalActiveType = "";
-        let isCloudLoaded = false; // 🛠️ 新增：防覆蓋雲端防禦鎖，成功載入前禁止自動儲存
+        let isCloudLoaded = false; 
+        let saveTimeout = null; // 🛠️ 新增：防護高頻率大操作量的雲端防抖動定時器
 
         let colorHistory = JSON.parse(localStorage.getItem('wh_color_memory')) || [
             {bg: '#ffc107', text: '#000000'},
@@ -420,26 +421,26 @@
             if (autoSyncTimer) clearInterval(autoSyncTimer);
             if (enabled) {
                 autoSyncTimer = setInterval(() => {
-                    if (isDraggingActive || document.querySelector('.is-dragging')) return;
+                    if (isDraggingActive || document.querySelector('.is-dragging') || saveTimeout) return;
                     syncFromCloudSilent();
                 }, 300000);
             }
         }
 
         function syncFromCloudManual() {
-            if (isDraggingActive || document.querySelector('.is-dragging')) {
-                alert("目前同仁正在移動棧板，請稍後再試！");
+            if (isDraggingActive || document.querySelector('.is-dragging') || saveTimeout) {
+                alert("目前同仁正在操作或同步變更中，請稍後再試！");
                 return;
             }
             syncFromCloud();
         }
 
         function syncFromCloudSilent() {
-            if (isDraggingActive || document.querySelector('.is-dragging')) return;
+            if (isDraggingActive || document.querySelector('.is-dragging') || saveTimeout) return;
             fetch(GAS_URL)
             .then(res => res.json())
             .then(data => {
-                if (isDraggingActive || document.querySelector('.is-dragging')) return;
+                if (isDraggingActive || document.querySelector('.is-dragging') || saveTimeout) return;
                 const whList = data["倉庫設定"] || data.warehouses;
                 const cargoList = data["貨物資料"] || data.cargoItems;
                 if(whList) warehouses = whList;
@@ -527,7 +528,7 @@
                 if(whList && Object.keys(whList).length > 0) warehouses = whList;
                 if (!warehouses[currentWhId]) currentWhId = Object.keys(warehouses)[0];
                 
-                isCloudLoaded = true; // 🛠️ 標記解鎖：雲端資料讀取完成，允許之後自動存檔
+                isCloudLoaded = true; 
                 
                 switchWarehouseSelect(currentWhId, false);
                 globalCargoCache = cargoList && Array.isArray(cargoList) ? cargoList : [];
@@ -621,6 +622,8 @@
                     cargo.setAttribute('data-m-x', itemData.m_x || 0); cargo.setAttribute('data-m-y', itemData.m_y || 0);
 
                     if (cargoZ === currentZLevel) {
+                        /* 🛠️ 終極修復：回歸正常主層級時，強制清除殘留的墊底快顯屬性文字 */
+                        cargo.title = ''; 
                         if (cargo.parentElement !== layer) layer.appendChild(cargo);
                     } else if (cargoZ < currentZLevel) {
                         cargo.classList.add('underlay-ghost');
@@ -680,10 +683,13 @@
             const summaryContainer = document.getElementById('summary-cards-container');
             summaryContainer.innerHTML = '';
             const stockMap = {};
+            const targetBufferId = `buffer_${currentWhId}`; 
 
             globalCargoCache.forEach(item => {
                 if (!item.name) return;
                 if (item.isStarred === true || item.isStarred === "true") return;
+
+                if (item.warehouseId !== currentWhId && item.warehouseId !== targetBufferId) return;
 
                 const name = item.name.trim();
                 const qty = parseInt(item.qty) || 0;
@@ -712,7 +718,7 @@
             });
 
             if (!hasVisibleStock) {
-                summaryContainer.innerHTML = `<div style="color: #a0aec0; font-size: 13px;">目前無任何大於 0 件的商品庫存</div>`;
+                summaryContainer.innerHTML = `<div style="color: #a0aec0; font-size: 13px;">當前倉庫無任何大於 0 件的商品庫存</div>`;
             }
         }
 
@@ -746,14 +752,10 @@
         }
 
         function autoSaveToCloud() {
-            // 🛠️ 核心優化：如果還沒成功載入雲端過，拒絕發送儲存，防止覆蓋資料
             if (!isCloudLoaded) {
                 console.log("⚠️ 雲端資料尚未成功同步，已攔截儲存要求以防止資料覆蓋重置！");
                 return;
             }
-
-            document.getElementById('sync-status').textContent = "⏳ 正在自動儲存至雲端...";
-            document.getElementById('sync-status').style.color = "#6c757d";
 
             const targetBufferId = `buffer_${currentWhId}`;
 
@@ -800,7 +802,6 @@
                 });
             });
 
-            // 🛠️ 核心優化：前端強制進行唯一性過濾機制，消滅後台同 ID 的膨脹問題
             const uniqueCargoMap = {};
             cargoItemsToUpload.forEach(item => {
                 uniqueCargoMap[item.id] = item;
@@ -808,20 +809,33 @@
             const finalCleanCargoList = Object.values(uniqueCargoMap);
 
             globalCargoCache = finalCleanCargoList;
-            calculateStockSummary();
+            calculateStockSummary(); // 💡 即時加總前端數量，維持網頁操作不卡頓
 
-            const payload = {
-                "倉庫設定": warehouses,
-                "貨物資料": finalCleanCargoList
-            };
+            // 🛠️ 終極修復防撞鎖：暫存目前狀態，延遲 2 秒等待現場連續移動停止後再一次性 POST
+            document.getElementById('sync-status').textContent = "⏳ 變更已暫存，等待同步中...";
+            document.getElementById('sync-status').style.color = "#e67e22";
 
-            fetch(GAS_URL, {
-                method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            }).then(() => {
-                document.getElementById('sync-status').textContent = "✅ 雲端儲存成功！";
-                document.getElementById('sync-status').style.color = "#28a745";
-            });
+            if (saveTimeout) clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                document.getElementById('sync-status').textContent = "⏳ 正在自動儲存至雲端...";
+                document.getElementById('sync-status').style.color = "#6c757d";
+
+                const payload = {
+                    "倉庫設定": warehouses,
+                    "貨物資料": finalCleanCargoList
+                };
+
+                fetch(GAS_URL, {
+                    method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                }).then(() => {
+                    document.getElementById('sync-status').textContent = "✅ 雲端儲存成功！";
+                    document.getElementById('sync-status').style.color = "#28a745";
+                    saveTimeout = null; // 清空防撞標記
+                }).catch(() => {
+                    saveTimeout = null;
+                });
+            }, 2000); 
         }
 
         function toggleCargoStar() {
@@ -913,7 +927,6 @@
                 return;
             }
 
-            // 🛠️ 核心修正：直接覆蓋當前操作的 ID (而不是盲目新增全新ID)，解決「友愛倉」被覆寫的源頭問題
             warehouses[currentWhId] = { name: name, width: w, height: h };
             switchWarehouseSelect(currentWhId, true);
             autoSaveToCloud();
@@ -997,7 +1010,6 @@
                 const currentMemo = rightClickedElement.getAttribute('data-memo') || '';
                 fieldsHtml = `<label>盤點備註內容</label><input type="text" id="modal-field-memo" class="custom-modal-input" value="${currentMemo}">`;
                 
-                // 🛠️ 核心修正：如果是修改備註，且欄位內原本「已經有文字」，就讓清除按鈕亮出來
                 if (currentMemo.trim() !== "") {
                     if (clearBtn) clearBtn.style.display = 'block';
                 }
@@ -1011,7 +1023,6 @@
             if (input) input.focus();
         }
 
-        // 🛠️ 新增：點擊清除按鈕時清空文字並聚焦
         function clearModalMemo() {
             const input = document.getElementById('modal-field-memo');
             if (input) {
@@ -1141,7 +1152,6 @@
                 lastTapTime = currentTime;
             });
 
-            // 用於追蹤本物件專屬的右鍵點擊時間軸
             let localLastRightClickTime = 0;
 
             cargo.addEventListener('contextmenu', (e) => {
@@ -1154,12 +1164,10 @@
                 const rightClickLength = currentTime - localLastRightClickTime;
                 localLastRightClickTime = currentTime;
 
-                // 🛠️ 核心防敏感邏輯：小於 100ms 一律當作硬體反彈雜訊直接完全忽略
                 if (rightClickLength < 100) {
                     return;
                 }
 
-                // 🛠️ 核心功能：右鍵時間差在 100ms ~ 300ms 之間，完美觸核「雙擊右鍵直接改備註」
                 if (rightClickLength >= 100 && rightClickLength < 300) {
                     document.getElementById('context-menu').style.display = 'none';
                     openEditModal('memo');
