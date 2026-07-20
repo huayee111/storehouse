@@ -1108,7 +1108,7 @@
                 const memo = cargo.getAttribute('data-memo');
                 if (memo && memo.trim() !== '') {
                     const tip = document.getElementById('cargo-tooltip');
-                    tip.innerHTML = `📝 <strong>盤點備註資訊：</strong><br>${memo}`;
+                    tip.innerHTML = `${memo}`;
                     tip.style.display = 'block';
                 }
             });
