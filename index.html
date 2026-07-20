@@ -368,7 +368,7 @@
         let isDraggingActive = false;
         let modalActiveType = "";
         let isCloudLoaded = false; 
-        let saveTimeout = null; // 🛠️ 新增：防護高頻率大操作量的雲端防抖動定時器
+        let saveTimeout = null; 
 
         let colorHistory = JSON.parse(localStorage.getItem('wh_color_memory')) || [
             {bg: '#ffc107', text: '#000000'},
@@ -424,6 +424,14 @@
                     if (isDraggingActive || document.querySelector('.is-dragging') || saveTimeout) return;
                     syncFromCloudSilent();
                 }, 300000);
+            }
+        }
+
+        // 🛠️ 建議一優化：只要有任何操作，主動往後遞延 5 分鐘計時器，避免撞車
+        function resetAutoSyncTimer() {
+            const toggle = document.getElementById('auto-sync-toggle');
+            if (toggle && toggle.checked) {
+                toggleAutoSync(true); 
             }
         }
 
@@ -622,7 +630,6 @@
                     cargo.setAttribute('data-m-x', itemData.m_x || 0); cargo.setAttribute('data-m-y', itemData.m_y || 0);
 
                     if (cargoZ === currentZLevel) {
-                        /* 🛠️ 終極修復：回歸正常主層級時，強制清除殘留的墊底快顯屬性文字 */
                         cargo.title = ''; 
                         if (cargo.parentElement !== layer) layer.appendChild(cargo);
                     } else if (cargoZ < currentZLevel) {
@@ -757,6 +764,8 @@
                 return;
             }
 
+            resetAutoSyncTimer(); // 🛠️ 智慧暫停優化：有儲存變更要求時，自動推遲刷新時間
+
             const targetBufferId = `buffer_${currentWhId}`;
 
             const cargoItemsToUpload = globalCargoCache.filter(item => {
@@ -809,9 +818,8 @@
             const finalCleanCargoList = Object.values(uniqueCargoMap);
 
             globalCargoCache = finalCleanCargoList;
-            calculateStockSummary(); // 💡 即時加總前端數量，維持網頁操作不卡頓
+            calculateStockSummary(); 
 
-            // 🛠️ 終極修復防撞鎖：暫存目前狀態，延遲 2 秒等待現場連續移動停止後再一次性 POST
             document.getElementById('sync-status').textContent = "⏳ 變更已暫存，等待同步中...";
             document.getElementById('sync-status').style.color = "#e67e22";
 
@@ -831,7 +839,7 @@
                 }).then(() => {
                     document.getElementById('sync-status').textContent = "✅ 雲端儲存成功！";
                     document.getElementById('sync-status').style.color = "#28a745";
-                    saveTimeout = null; // 清空防撞標記
+                    saveTimeout = null; 
                 }).catch(() => {
                     saveTimeout = null;
                 });
@@ -985,7 +993,8 @@
         function openEditModal(type) {
             if (!rightClickedElement) return;
             modalActiveType = type;
-            
+            resetAutoSyncTimer(); // 🛠️ 智慧暫停優化
+
             const titleMap = {
                 name: "✏️ 變更商品名稱",
                 qty: "🔢 修改商品數量",
@@ -1351,6 +1360,8 @@
                             return;
                         }
                         isDraggingActive = true; 
+                        resetAutoSyncTimer(); // 🛠️ 智慧暫停優化
+
                         document.getElementById('cargo-tooltip').style.display = 'none';
 
                         let curX = parseFloat(target.getAttribute('data-x')) || 0;
