@@ -131,7 +131,7 @@
             gap: 4px;
         }
         .summary-card-name { font-weight: bold; font-size: 14px; color: #2d3748; }
-        .summary-card-qty { font-size: 16px; font-weight: 8px; color: #1a365d; font-weight: bold; }
+        .summary-card-qty { font-size: 16px; color: #1a365d; font-weight: bold; }
 
         .layer-selector-sidebar { display: flex; flex-direction: column; gap: 10px; }
         .layer-tab-btn {
@@ -155,8 +155,6 @@
         input[type="range"] { height: auto; }
         input[type="color"] { padding: 2px; cursor: pointer; }
         .action-btn { background-color: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
-        .switch-container { display: flex; align-items: center; justify-content: space-between; height: 46px; }
-        .switch-container input { width: 22px; height: 22px; margin: 0; }
 
         .color-history { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; margin-top: 5px; }
         .color-combo-dot { width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 2px solid #cbd5e0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; user-select: none; -webkit-tap-highlight-color: transparent; }
@@ -205,7 +203,7 @@
         }
         #context-menu div { padding: 14px 24px; cursor: pointer; font-size: 15px; font-weight: bold; }
         #context-menu div:hover { background: #edf2f7; }
-        #context-menu .rotate-opt { color: #d69e2e; font-weight: bold; }
+        #context-menu .box-opt { color: #d69e2e; font-weight: bold; }
         #context-menu .star-opt { color: #e67e22; font-weight: bold; } 
         #context-menu .copy-opt { color: #00a8ff; font-weight: bold; } 
         #context-menu .lock-opt { color: #805ad5; font-weight: bold; }
@@ -266,7 +264,7 @@
         </div>
 
         <div id="summary-panel">
-            <h4 style="margin: 0 0 5px 0; color: #1a365d;">📊 當前倉庫商品數量統計 (自動加總相同名稱商品，0件不顯示，⭐不計入)</h4>
+            <h4 style="margin: 0 0 5px 0; color: #1a365d;">📊 當前倉庫商品數量統計 (自動加總相同名稱商品，0不顯示，⭐不計入)</h4>
             <div class="summary-grid" id="summary-cards-container">
                 <div style="color: #a0aec0; font-size: 13px;">暫無庫存資料</div>
             </div>
@@ -301,15 +299,19 @@
                 <div>
                     <label>貨物商品名稱 <span style="color:red;">* (必填)</span></label>
                     <input type="text" id="cargo-name" value="" placeholder="請輸入商品或儲位編號...">
-                    <label>初始存貨數量</label>
-                    <input type="number" id="cargo-qty" value="0"> </div>
+                    <label>初始存貨數量 (箱數或件數)</label>
+                    <input type="number" id="cargo-qty" value="0">
+                    <!-- 🛠️ 新增：每箱數量設定 -->
+                    <label>每箱數量 (個/箱，選填，有填寫才算箱裝)</label>
+                    <input type="number" id="cargo-pcs-box" value="0" placeholder="例如：24 (無則留0或空白)">
+                </div>
                 <div>
                     <label>真實尺寸 寬 x 高 (米，支援小數點)</label>
-                    <div class="mobile-flex-2">
+                    <div class="mobile-flex-2" style="display:flex; gap:8px;">
                         <input type="number" id="cargo-w" step="0.1" value="2" placeholder="寬(m)">
                         <input type="number" id="cargo-h" step="0.1" value="2" placeholder="高(m)">
                     </div>
-                    <div class="mobile-flex-2" style="margin-bottom: 5px;">
+                    <div class="mobile-flex-2" style="display:flex; gap:8px; margin-bottom: 5px;">
                         <div style="flex: 1;">
                             <label>方塊背景色</label>
                             <input type="color" id="cargo-color" value="#ffc107">
@@ -332,6 +334,7 @@
     <div id="context-menu">
         <div onclick="openEditModal('name')">✏️ 變更名稱</div>
         <div onclick="openEditModal('qty')">🔢 修改數量</div>
+        <div onclick="openEditModal('box_pcs')" class="box-opt">📦 設定每箱數量</div>
         <div onclick="openEditModal('size')">📏 修改尺寸</div>
         <div onclick="openEditModal('memo')">📝 編輯備註</div>
         <div id="menu-star-btn" class="star-opt" onclick="toggleCargoStar()">⭐ 標記星號</div>
@@ -447,6 +450,7 @@
                 id: String(item.id || ''),
                 name: String(item.name || ''),
                 qty: parseInt(item.qty) || 0,
+                pcs_per_box: parseInt(item.pcs_per_box || item.pcsPerBox) || 0, // 🛠️ 每箱數量處理
                 w_m: item.w_m || 2,
                 h_m: item.h_m || 2,
                 m_x: item.m_x || "0",
@@ -687,7 +691,7 @@
                     if (itemData.isStarred) {
                         cargo.classList.add('is-starred'); cargo.setAttribute('data-starred', 'true');
                     } else {
-                        cargo.classList.remove('is-starred'); cargo.setAttribute('data-starred', 'false');
+                        cargo.setAttribute('data-starred', 'false');
                     }
                     
                     if (!cargo.classList.contains('is-dragging')) {
@@ -708,6 +712,7 @@
             initInteractEngine();
         }
 
+        // 🛠️ 核心功能：統計自動判定「箱 (個)」與「件」
         function calculateStockSummary() {
             const summaryContainer = document.getElementById('summary-cards-container');
             summaryContainer.innerHTML = '';
@@ -722,32 +727,44 @@
                 if (item.warehouseId !== currentWhId && item.warehouseId !== targetBufferId) return;
 
                 const qty = parseInt(item.qty) || 0;
+                const pcsPerBox = parseInt(item.pcs_per_box) || 0;
 
                 if (!stockMap[safeName]) {
-                    stockMap[safeName] = 0;
+                    stockMap[safeName] = { qty: 0, pcsPerBox: pcsPerBox };
                 }
-                stockMap[safeName] += qty;
+                stockMap[safeName].qty += qty;
+                if (pcsPerBox > 0) stockMap[safeName].pcsPerBox = pcsPerBox;
             });
 
             const sortedItems = Object.keys(stockMap).sort();
             let hasVisibleStock = false;
 
             sortedItems.forEach(name => {
-                const totalQty = stockMap[name];
+                const itemData = stockMap[name];
+                const totalQty = itemData.qty;
                 if (totalQty <= 0) return;
 
                 hasVisibleStock = true;
                 const card = document.createElement('div');
                 card.className = 'summary-card';
+                
+                let qtyDisplay = '';
+                if (itemData.pcsPerBox > 0) {
+                    const totalPcs = totalQty * itemData.pcsPerBox;
+                    qtyDisplay = `${totalQty} 箱 (${totalPcs} 個)`;
+                } else {
+                    qtyDisplay = `${totalQty} 件`;
+                }
+
                 card.innerHTML = `
                     <span class="summary-card-name">${name}</span>
-                    <span class="summary-card-qty">${totalQty} 件</span>
+                    <span class="summary-card-qty">${qtyDisplay}</span>
                 `;
                 summaryContainer.appendChild(card);
             });
 
             if (!hasVisibleStock) {
-                summaryContainer.innerHTML = `<div style="color: #a0aec0; font-size: 13px;">當前倉庫無任何大於 0 件的商品庫存</div>`;
+                summaryContainer.innerHTML = `<div style="color: #a0aec0; font-size: 13px;">當前倉庫無任何大於 0 的商品庫存</div>`;
             }
         }
 
@@ -755,10 +772,12 @@
             cargo.setAttribute('data-w-m', itemData.w_m || 2);
             cargo.setAttribute('data-h-m', itemData.h_m || 2);
             const qtyInt = parseInt(itemData.qty) || 0;
+            const pcsPerBox = parseInt(itemData.pcs_per_box) || 0;
             const safeName = String(itemData.name || '未命名');
             const safeMemo = String(itemData.memo || '');
 
             cargo.setAttribute('data-qty', qtyInt);
+            cargo.setAttribute('data-pcs-per-box', pcsPerBox);
             cargo.setAttribute('data-name', safeName);
             cargo.setAttribute('data-memo', safeMemo);
 
@@ -777,7 +796,8 @@
                     qtySpan.className = 'cargo-qty';
                     cargo.appendChild(qtySpan);
                 }
-                qtySpan.textContent = `${qtyInt} 件`;
+                // 🛠️ 貨物方塊標籤顯示「箱」或「件」
+                qtySpan.textContent = pcsPerBox > 0 ? `${qtyInt} 箱` : `${qtyInt} 件`;
             } else {
                 if (qtySpan) qtySpan.remove();
             }
@@ -804,6 +824,7 @@
                     id: item.getAttribute('data-id'),
                     name: String(item.getAttribute('data-name') || ''),
                     qty: item.getAttribute('data-qty'),
+                    pcs_per_box: item.getAttribute('data-pcs-per-box') || 0,
                     w_m: item.getAttribute('data-w-m'),
                     h_m: item.getAttribute('data-h-m'),
                     m_x: item.getAttribute('data-m-x') || "0",
@@ -823,6 +844,7 @@
                     id: item.getAttribute('data-id'),
                     name: String(item.getAttribute('data-name') || ''),
                     qty: item.getAttribute('data-qty'),
+                    pcs_per_box: item.getAttribute('data-pcs-per-box') || 0,
                     w_m: item.getAttribute('data-w-m'),
                     h_m: item.getAttribute('data-h-m'),
                     m_x: "0", m_y: "0",
@@ -985,6 +1007,7 @@
             createNewCargo();
             autoSaveToCloud();
             document.getElementById('cargo-name').value = "";
+            document.getElementById('cargo-pcs-box').value = "0";
         }
 
         function renderColorHistory() {
@@ -1001,6 +1024,7 @@
         function createNewCargo() {
             const name = String(document.getElementById('cargo-name').value || '').trim();
             const qty = parseInt(document.getElementById('cargo-qty').value) || 0;
+            const pcsPerBox = parseInt(document.getElementById('cargo-pcs-box').value) || 0;
             const w = parseFloat(document.getElementById('cargo-w').value);
             const h = parseFloat(document.getElementById('cargo-h').value);
             const bgColor = document.getElementById('cargo-color').value;
@@ -1008,7 +1032,7 @@
 
             const targetBufferId = `buffer_${currentWhId}`;
 
-            const itemData = normalizeCargoItem({ id: 'item_' + Date.now(), name: name, qty: qty, w_m: w, h_m: h, bg: bgColor, text: textColor, warehouseId: targetBufferId, z_level: currentZLevel, isLocked: false, isStarred: false, memo: '' });
+            const itemData = normalizeCargoItem({ id: 'item_' + Date.now(), name: name, qty: qty, pcs_per_box: pcsPerBox, w_m: w, h_m: h, bg: bgColor, text: textColor, warehouseId: targetBufferId, z_level: currentZLevel, isLocked: false, isStarred: false, memo: '' });
             const cargo = reCreateCargoNode(itemData);
             document.getElementById('cargo-buffer').appendChild(cargo);
             globalCargoCache.push(itemData);
@@ -1023,6 +1047,7 @@
             const titleMap = {
                 name: "✏️ 變更商品名稱",
                 qty: "🔢 修改商品數量",
+                box_pcs: "📦 設定每箱數量",
                 size: "📏 變更真實尺寸",
                 memo: "💬 編輯盤點備註"
             };
@@ -1034,7 +1059,11 @@
             if (type === "name") {
                 fieldsHtml = `<label>新商品名稱</label><input type="text" id="modal-field-name" class="custom-modal-input" value="${rightClickedElement.getAttribute('data-name')}">`;
             } else if (type === "qty") {
-                fieldsHtml = `<label>新貨物數量</label><input type="number" id="modal-field-qty" class="custom-modal-input" value="${rightClickedElement.getAttribute('data-qty')}">`;
+                const isBox = (parseInt(rightClickedElement.getAttribute('data-pcs-per-box')) || 0) > 0;
+                fieldsHtml = `<label>新貨物庫存數量 (${isBox ? '箱' : '件'})</label><input type="number" id="modal-field-qty" class="custom-modal-input" value="${rightClickedElement.getAttribute('data-qty')}">`;
+            } else if (type === "box_pcs") {
+                const currentPcs = rightClickedElement.getAttribute('data-pcs-per-box') || '0';
+                fieldsHtml = `<label>每箱數量 (個/箱，填 0 即還原為一般「件」類商品)</label><input type="number" id="modal-field-box-pcs" class="custom-modal-input" value="${currentPcs}">`;
             } else if (type === "size") {
                 fieldsHtml = `
                     <label>物理寬度 (米 m)</label><input type="number" step="0.1" id="modal-field-w" class="custom-modal-input" value="${rightClickedElement.getAttribute('data-w-m')}">
@@ -1086,11 +1115,12 @@
                 const val = parseInt(document.getElementById('modal-field-qty').value) || 0;
                 rightClickedElement.setAttribute('data-qty', val);
                 if (matchInCache) matchInCache.qty = val;
-                let qtySpan = rightClickedElement.querySelector('.cargo-qty');
-                if (val > 0) {
-                    if (!qtySpan) { qtySpan = document.createElement('span'); qtySpan.className = 'cargo-qty'; rightClickedElement.appendChild(qtySpan); }
-                    qtySpan.textContent = `${val} 件`;
-                } else { if (qtySpan) qtySpan.remove(); }
+                updateCargoNodeData(rightClickedElement, matchInCache || { name: rightClickedElement.getAttribute('data-name'), qty: val, pcs_per_box: rightClickedElement.getAttribute('data-pcs-per-box') });
+            } else if (modalActiveType === "box_pcs") {
+                const pcsVal = parseInt(document.getElementById('modal-field-box-pcs').value) || 0;
+                rightClickedElement.setAttribute('data-pcs-per-box', pcsVal);
+                if (matchInCache) matchInCache.pcs_per_box = pcsVal;
+                updateCargoNodeData(rightClickedElement, matchInCache || { name: rightClickedElement.getAttribute('data-name'), qty: rightClickedElement.getAttribute('data-qty'), pcs_per_box: pcsVal });
             } else if (modalActiveType === "size") {
                 const w = parseFloat(document.getElementById('modal-field-w').value) || 2;
                 const h = parseFloat(document.getElementById('modal-field-h').value) || 2;
@@ -1131,7 +1161,9 @@
             cargo.className = 'cargo-item';
             
             const qtyInt = parseInt(itemData.qty) || 0;
-            const qtyHtml = qtyInt > 0 ? `<span class="cargo-qty">${qtyInt} 件</span>` : '';
+            const pcsPerBox = parseInt(itemData.pcs_per_box) || 0;
+            const unitStr = pcsPerBox > 0 ? '箱' : '件';
+            const qtyHtml = qtyInt > 0 ? `<span class="cargo-qty">${qtyInt} ${unitStr}</span>` : '';
             const safeName = String(itemData.name || '未命名');
             const safeMemo = String(itemData.memo || '');
 
@@ -1145,6 +1177,7 @@
             cargo.setAttribute('data-w-m', itemData.w_m || 2);
             cargo.setAttribute('data-h-m', itemData.h_m || 2);
             cargo.setAttribute('data-qty', qtyInt);
+            cargo.setAttribute('data-pcs-per-box', pcsPerBox);
             cargo.setAttribute('data-name', safeName);
             cargo.setAttribute('data-id', itemData.id);
             cargo.setAttribute('data-locked', itemData.isLocked ? 'true' : 'false');
