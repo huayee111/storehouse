@@ -427,7 +427,6 @@
             }
         }
 
-        // 🛠️ 建議一優化：只要有任何操作，主動往後遞延 5 分鐘計時器，避免撞車
         function resetAutoSyncTimer() {
             const toggle = document.getElementById('auto-sync-toggle');
             if (toggle && toggle.checked) {
@@ -443,6 +442,25 @@
             syncFromCloud();
         }
 
+        function normalizeCargoItem(item) {
+            return {
+                id: String(item.id || ''),
+                name: String(item.name || ''),
+                qty: parseInt(item.qty) || 0,
+                w_m: item.w_m || 2,
+                h_m: item.h_m || 2,
+                m_x: item.m_x || "0",
+                m_y: item.m_y || "0",
+                bg: String(item.bg || '#ffc107'),
+                text: String(item.text || '#000000'),
+                warehouseId: String(item.warehouseId || ''),
+                z_level: parseInt(item.z_level || 1),
+                isLocked: item.isLocked === true || item.isLocked === "true" || item.isLocked === "TRUE",
+                isStarred: item.isStarred === true || item.isStarred === "true" || item.isStarred === "TRUE",
+                memo: String(item.memo || '')
+            };
+        }
+
         function syncFromCloudSilent() {
             if (isDraggingActive || document.querySelector('.is-dragging') || saveTimeout) return;
             fetch(GAS_URL)
@@ -452,7 +470,7 @@
                 const whList = data["倉庫設定"] || data.warehouses;
                 const cargoList = data["貨物資料"] || data.cargoItems;
                 if(whList) warehouses = whList;
-                globalCargoCache = cargoList && Array.isArray(cargoList) ? cargoList : [];
+                globalCargoCache = (cargoList && Array.isArray(cargoList)) ? cargoList.map(normalizeCargoItem) : [];
                 renderCurrentWarehouseCargoes();
             }).catch(e => console.log("同步延遲"));
         }
@@ -539,13 +557,14 @@
                 isCloudLoaded = true; 
                 
                 switchWarehouseSelect(currentWhId, false);
-                globalCargoCache = cargoList && Array.isArray(cargoList) ? cargoList : [];
+                globalCargoCache = (cargoList && Array.isArray(cargoList)) ? cargoList.map(normalizeCargoItem) : [];
                 renderCurrentWarehouseCargoes();
                 
                 document.getElementById('sync-status').textContent = "✅ 雲端資料同步完成";
                 document.getElementById('sync-status').style.color = "#28a745";
             })
             .catch(err => {
+                console.error(err);
                 if (isDraggingActive || document.querySelector('.is-dragging')) return;
                 document.getElementById('sync-status').textContent = "⚠️ 獨立單機操作模式運作中";
                 document.getElementById('sync-status').style.color = "#e67e22";
@@ -591,7 +610,8 @@
             const targetBufferId = `buffer_${currentWhId}`;
 
             globalCargoCache.forEach(itemData => {
-                if (!itemData.name || !itemData.id) return;
+                const safeName = String(itemData.name || '');
+                if (!safeName || !itemData.id) return;
 
                 if (itemData.warehouseId === currentWhId) {
                     const cargoZ = parseInt(itemData.z_level || 1);
@@ -605,19 +625,20 @@
                     }
 
                     cargo.className = 'cargo-item';
-                    if (itemData.isLocked === true || itemData.isLocked === "true") {
+                    if (itemData.isLocked) {
                         cargo.classList.add('is-locked'); cargo.setAttribute('data-locked', 'true');
                     } else {
                         cargo.setAttribute('data-locked', 'false');
                     }
                     
-                    if (itemData.memo && itemData.memo.trim() !== "") {
+                    const safeMemo = String(itemData.memo || '');
+                    if (safeMemo.trim() !== "") {
                         cargo.classList.add('has-memo');
                     } else {
                         cargo.classList.remove('has-memo');
                     }
 
-                    if (itemData.isStarred === true || itemData.isStarred === "true") {
+                    if (itemData.isStarred) {
                         cargo.classList.add('is-starred'); cargo.setAttribute('data-starred', 'true');
                     } else {
                         cargo.setAttribute('data-starred', 'false');
@@ -634,7 +655,7 @@
                         if (cargo.parentElement !== layer) layer.appendChild(cargo);
                     } else if (cargoZ < currentZLevel) {
                         cargo.classList.add('underlay-ghost');
-                        cargo.title = `下方 ${cargoZ} 層墊底商品: ${itemData.name}`;
+                        cargo.title = `下方 ${cargoZ} 層墊底商品: ${safeName}`;
                         if (cargo.parentElement !== layer) layer.appendChild(cargo);
                     } else {
                         cargo.remove();
@@ -650,19 +671,20 @@
                     }
                     cargo.className = 'cargo-item';
                     
-                    if (itemData.isLocked === true || itemData.isLocked === "true") {
+                    if (itemData.isLocked) {
                         cargo.classList.add('is-locked'); cargo.setAttribute('data-locked', 'true');
                     } else {
                         cargo.classList.remove('is-locked'); cargo.setAttribute('data-locked', 'false');
                     }
 
-                    if (itemData.memo && itemData.memo.trim() !== "") {
+                    const safeMemo = String(itemData.memo || '');
+                    if (safeMemo.trim() !== "") {
                         cargo.classList.add('has-memo');
                     } else {
                         cargo.classList.remove('has-memo');
                     }
 
-                    if (itemData.isStarred === true || itemData.isStarred === "true") {
+                    if (itemData.isStarred) {
                         cargo.classList.add('is-starred'); cargo.setAttribute('data-starred', 'true');
                     } else {
                         cargo.classList.remove('is-starred'); cargo.setAttribute('data-starred', 'false');
@@ -693,18 +715,18 @@
             const targetBufferId = `buffer_${currentWhId}`; 
 
             globalCargoCache.forEach(item => {
-                if (!item.name) return;
+                const safeName = String(item.name || '').trim();
+                if (!safeName) return;
                 if (item.isStarred === true || item.isStarred === "true") return;
 
                 if (item.warehouseId !== currentWhId && item.warehouseId !== targetBufferId) return;
 
-                const name = item.name.trim();
                 const qty = parseInt(item.qty) || 0;
 
-                if (!stockMap[name]) {
-                    stockMap[name] = 0;
+                if (!stockMap[safeName]) {
+                    stockMap[safeName] = 0;
                 }
-                stockMap[name] += qty;
+                stockMap[safeName] += qty;
             });
 
             const sortedItems = Object.keys(stockMap).sort();
@@ -733,9 +755,12 @@
             cargo.setAttribute('data-w-m', itemData.w_m || 2);
             cargo.setAttribute('data-h-m', itemData.h_m || 2);
             const qtyInt = parseInt(itemData.qty) || 0;
+            const safeName = String(itemData.name || '未命名');
+            const safeMemo = String(itemData.memo || '');
+
             cargo.setAttribute('data-qty', qtyInt);
-            cargo.setAttribute('data-name', itemData.name || '未命名');
-            cargo.setAttribute('data-memo', itemData.memo || '');
+            cargo.setAttribute('data-name', safeName);
+            cargo.setAttribute('data-memo', safeMemo);
 
             cargo.style.width = (parseFloat(itemData.w_m || 2) * cellSize) + 'px';
             cargo.style.height = (parseFloat(itemData.h_m || 2) * cellSize) + 'px';
@@ -743,7 +768,7 @@
             cargo.style.color = itemData.text || '#000000';
 
             const titleEl = cargo.querySelector('.cargo-title');
-            if (titleEl) titleEl.textContent = itemData.name;
+            if (titleEl) titleEl.textContent = safeName;
             
             let qtySpan = cargo.querySelector('.cargo-qty');
             if (qtyInt > 0) {
@@ -764,7 +789,7 @@
                 return;
             }
 
-            resetAutoSyncTimer(); // 🛠️ 智慧暫停優化：有儲存變更要求時，自動推遲刷新時間
+            resetAutoSyncTimer(); 
 
             const targetBufferId = `buffer_${currentWhId}`;
 
@@ -777,7 +802,7 @@
             document.querySelectorAll('#cargo-layer .cargo-item:not(.underlay-ghost)').forEach(item => {
                 cargoItemsToUpload.push({
                     id: item.getAttribute('data-id'),
-                    name: item.getAttribute('data-name'),
+                    name: String(item.getAttribute('data-name') || ''),
                     qty: item.getAttribute('data-qty'),
                     w_m: item.getAttribute('data-w-m'),
                     h_m: item.getAttribute('data-h-m'),
@@ -789,14 +814,14 @@
                     z_level: currentZLevel,
                     isLocked: item.getAttribute('data-locked') === 'true',
                     isStarred: item.getAttribute('data-starred') === 'true', 
-                    memo: item.getAttribute('data-memo') || ''
+                    memo: String(item.getAttribute('data-memo') || '')
                 });
             });
 
             document.querySelectorAll('#cargo-buffer .cargo-item').forEach(item => {
                 cargoItemsToUpload.push({
                     id: item.getAttribute('data-id'),
-                    name: item.getAttribute('data-name'),
+                    name: String(item.getAttribute('data-name') || ''),
                     qty: item.getAttribute('data-qty'),
                     w_m: item.getAttribute('data-w-m'),
                     h_m: item.getAttribute('data-h-m'),
@@ -807,13 +832,13 @@
                     z_level: currentZLevel, 
                     isLocked: item.getAttribute('data-locked') === 'true', 
                     isStarred: item.getAttribute('data-starred') === 'true',
-                    memo: item.getAttribute('data-memo') || ''
+                    memo: String(item.getAttribute('data-memo') || '')
                 });
             });
 
             const uniqueCargoMap = {};
             cargoItemsToUpload.forEach(item => {
-                uniqueCargoMap[item.id] = item;
+                uniqueCargoMap[item.id] = normalizeCargoItem(item);
             });
             const finalCleanCargoList = Object.values(uniqueCargoMap);
 
@@ -926,7 +951,7 @@
         }
 
         function saveWarehouseSettings() {
-            const name = document.getElementById('wh-name').value.trim();
+            const name = String(document.getElementById('wh-name').value || '').trim();
             const w = parseInt(document.getElementById('wh-w').value);
             const h = parseInt(document.getElementById('wh-h').value);
             
@@ -941,7 +966,7 @@
         }
 
         function triggerCreateCargo() {
-            const nameInput = document.getElementById('cargo-name').value.trim();
+            const nameInput = String(document.getElementById('cargo-name').value || '').trim();
             if (nameInput === "") {
                 alert("⚠️ 錯誤：貨物商品名稱不能為空，請輸入文字後再行生成！");
                 document.getElementById('cargo-name').focus();
@@ -974,7 +999,7 @@
         }
 
         function createNewCargo() {
-            const name = document.getElementById('cargo-name').value.trim();
+            const name = String(document.getElementById('cargo-name').value || '').trim();
             const qty = parseInt(document.getElementById('cargo-qty').value) || 0;
             const w = parseFloat(document.getElementById('cargo-w').value);
             const h = parseFloat(document.getElementById('cargo-h').value);
@@ -983,7 +1008,7 @@
 
             const targetBufferId = `buffer_${currentWhId}`;
 
-            const itemData = { id: 'item_' + Date.now(), name: name, qty: qty, w_m: w, h_m: h, bg: bgColor, text: textColor, warehouseId: targetBufferId, z_level: currentZLevel, isLocked: false, isStarred: false, memo: '' };
+            const itemData = normalizeCargoItem({ id: 'item_' + Date.now(), name: name, qty: qty, w_m: w, h_m: h, bg: bgColor, text: textColor, warehouseId: targetBufferId, z_level: currentZLevel, isLocked: false, isStarred: false, memo: '' });
             const cargo = reCreateCargoNode(itemData);
             document.getElementById('cargo-buffer').appendChild(cargo);
             globalCargoCache.push(itemData);
@@ -993,7 +1018,7 @@
         function openEditModal(type) {
             if (!rightClickedElement) return;
             modalActiveType = type;
-            resetAutoSyncTimer(); // 🛠️ 智慧暫停優化
+            resetAutoSyncTimer(); 
 
             const titleMap = {
                 name: "✏️ 變更商品名稱",
@@ -1016,7 +1041,7 @@
                     <label>物理長度 (米 m)</label><input type="number" step="0.1" id="modal-field-h" class="custom-modal-input" value="${rightClickedElement.getAttribute('data-h-m')}">
                 `;
             } else if (type === "memo") {
-                const currentMemo = rightClickedElement.getAttribute('data-memo') || '';
+                const currentMemo = String(rightClickedElement.getAttribute('data-memo') || '');
                 fieldsHtml = `<label>盤點備註內容</label><input type="text" id="modal-field-memo" class="custom-modal-input" value="${currentMemo}">`;
                 
                 if (currentMemo.trim() !== "") {
@@ -1051,7 +1076,7 @@
             const matchInCache = globalCargoCache.find(c => c.id === targetId);
 
             if (modalActiveType === "name") {
-                const val = document.getElementById('modal-field-name').value.trim();
+                const val = String(document.getElementById('modal-field-name').value || '').trim();
                 if (val) {
                     rightClickedElement.setAttribute('data-name', val);
                     rightClickedElement.querySelector('.cargo-title').textContent = val;
@@ -1089,7 +1114,7 @@
                     if (matchInCache) { matchInCache.m_x = lx / cellSize; matchInCache.m_y = ly / cellSize; }
                 }
             } else if (modalActiveType === "memo") {
-                const val = document.getElementById('modal-field-memo').value.trim();
+                const val = String(document.getElementById('modal-field-memo').value || '').trim();
                 rightClickedElement.setAttribute('data-memo', val);
                 if (matchInCache) matchInCache.memo = val;
                 
@@ -1107,7 +1132,10 @@
             
             const qtyInt = parseInt(itemData.qty) || 0;
             const qtyHtml = qtyInt > 0 ? `<span class="cargo-qty">${qtyInt} 件</span>` : '';
-            cargo.innerHTML = `<span class="cargo-title">${itemData.name}</span>${qtyHtml}`;
+            const safeName = String(itemData.name || '未命名');
+            const safeMemo = String(itemData.memo || '');
+
+            cargo.innerHTML = `<span class="cargo-title">${safeName}</span>${qtyHtml}`;
             
             cargo.style.width = (parseFloat(itemData.w_m || 2) * cellSize) + 'px';
             cargo.style.height = (parseFloat(itemData.h_m || 2) * cellSize) + 'px';
@@ -1117,16 +1145,16 @@
             cargo.setAttribute('data-w-m', itemData.w_m || 2);
             cargo.setAttribute('data-h-m', itemData.h_m || 2);
             cargo.setAttribute('data-qty', qtyInt);
-            cargo.setAttribute('data-name', itemData.name || '未命名');
+            cargo.setAttribute('data-name', safeName);
             cargo.setAttribute('data-id', itemData.id);
             cargo.setAttribute('data-locked', itemData.isLocked ? 'true' : 'false');
             cargo.setAttribute('data-starred', itemData.isStarred ? 'true' : 'false');
-            cargo.setAttribute('data-memo', itemData.memo || '');
+            cargo.setAttribute('data-memo', safeMemo);
 
             cargo.addEventListener('mouseenter', (e) => {
                 if (cargo.classList.contains('is-dragging')) return;
-                const memo = cargo.getAttribute('data-memo');
-                if (memo && memo.trim() !== '') {
+                const memo = String(cargo.getAttribute('data-memo') || '');
+                if (memo.trim() !== '') {
                     const tip = document.getElementById('cargo-tooltip');
                     tip.innerHTML = `${memo}`;
                     tip.style.display = 'block';
@@ -1360,7 +1388,7 @@
                             return;
                         }
                         isDraggingActive = true; 
-                        resetAutoSyncTimer(); // 🛠️ 智慧暫停優化
+                        resetAutoSyncTimer(); 
 
                         document.getElementById('cargo-tooltip').style.display = 'none';
 
