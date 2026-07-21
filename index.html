@@ -301,7 +301,6 @@
                     <input type="text" id="cargo-name" value="" placeholder="請輸入商品或儲位編號...">
                     <label>初始存貨數量 (箱數或件數)</label>
                     <input type="number" id="cargo-qty" value="0">
-                    <!-- 🛠️ 新增：每箱數量設定 -->
                     <label>每箱數量 (個/箱，選填，有填寫才算箱裝)</label>
                     <input type="number" id="cargo-pcs-box" value="0" placeholder="例如：24 (無則留0或空白)">
                 </div>
@@ -450,7 +449,7 @@
                 id: String(item.id || ''),
                 name: String(item.name || ''),
                 qty: parseInt(item.qty) || 0,
-                pcs_per_box: parseInt(item.pcs_per_box || item.pcsPerBox) || 0, // 🛠️ 每箱數量處理
+                pcs_per_box: parseInt(item.pcs_per_box || item.pcsPerBox) || 0,
                 w_m: item.w_m || 2,
                 h_m: item.h_m || 2,
                 m_x: item.m_x || "0",
@@ -678,7 +677,7 @@
                     if (itemData.isLocked) {
                         cargo.classList.add('is-locked'); cargo.setAttribute('data-locked', 'true');
                     } else {
-                        cargo.classList.remove('is-locked'); cargo.setAttribute('data-locked', 'false');
+                        cargo.setAttribute('data-locked', 'false');
                     }
 
                     const safeMemo = String(itemData.memo || '');
@@ -712,7 +711,6 @@
             initInteractEngine();
         }
 
-        // 🛠️ 核心功能：統計自動判定「箱 (個)」與「件」
         function calculateStockSummary() {
             const summaryContainer = document.getElementById('summary-cards-container');
             summaryContainer.innerHTML = '';
@@ -796,7 +794,6 @@
                     qtySpan.className = 'cargo-qty';
                     cargo.appendChild(qtySpan);
                 }
-                // 🛠️ 貨物方塊標籤顯示「箱」或「件」
                 qtySpan.textContent = pcsPerBox > 0 ? `${qtyInt} 箱` : `${qtyInt} 件`;
             } else {
                 if (qtySpan) qtySpan.remove();
@@ -1156,6 +1153,45 @@
             closeCustomModal();
         }
 
+        // 🛠️ 選單開啟邏輯獨立提出，方便電腦右鍵與 iPhone 長按共同呼叫
+        function openContextMenuAt(cargo, pageX, pageY) {
+            rightClickedElement = cargo;
+            document.getElementById('cargo-tooltip').style.display = 'none';
+            
+            const menu = document.getElementById('context-menu');
+            const enterBtn = document.getElementById('menu-enter-btn');
+            const returnBtn = document.getElementById('menu-return-btn');
+            const lockBtn = document.getElementById('menu-lock-btn');
+            const rotateBtn = document.getElementById('menu-rotate-btn');
+            const starBtn = document.getElementById('menu-star-btn');
+            const copyBtn = document.getElementById('menu-copy-btn');
+            
+            const isLocked = cargo.getAttribute('data-locked') === 'true';
+            const isStarred = cargo.getAttribute('data-starred') === 'true';
+            
+            lockBtn.textContent = isLocked ? "🔓 解除鎖定" : "🔒 鎖定物件";
+            starBtn.textContent = isStarred ? "✨ 取消星號標記" : "⭐ 標記星號";
+
+            if (cargo.parentElement.id === 'cargo-buffer') {
+                enterBtn.style.display = isLocked ? 'none' : 'block';
+                returnBtn.style.display = 'none'; 
+                lockBtn.style.display = 'block'; 
+                rotateBtn.style.display = isLocked ? 'none' : 'block'; 
+                starBtn.style.display = 'block';
+                copyBtn.style.display = 'block';
+            } else {
+                enterBtn.style.display = 'none';
+                returnBtn.style.display = isLocked ? 'none' : 'block';
+                rotateBtn.style.display = isLocked ? 'none' : 'block';
+                lockBtn.style.display = 'block';
+                starBtn.style.display = 'block';
+                copyBtn.style.display = 'block';
+            }
+            menu.style.display = 'block'; 
+            menu.style.left = pageX + 'px'; 
+            menu.style.top = pageY + 'px';
+        }
+
         function reCreateCargoNode(itemData) {
             const cargo = document.createElement('div');
             cargo.className = 'cargo-item';
@@ -1210,7 +1246,40 @@
                 openEditModal('qty');
             });
 
+            // 🛠️ 核心修正：iPhone / 觸控螢幕 0.5 秒長按判定器
+            let touchTimer = null;
+            let touchStartX = 0;
+            let touchStartY = 0;
+
+            cargo.addEventListener('touchstart', (e) => {
+                if (e.touches.length > 1) return;
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                
+                if (touchTimer) clearTimeout(touchTimer);
+                
+                touchTimer = setTimeout(() => {
+                    touchTimer = null;
+                    openContextMenuAt(cargo, e.touches[0].pageX, e.touches[0].pageY);
+                }, 500); // 按住 0.5 秒直接跳選單
+            }, { passive: false });
+
+            cargo.addEventListener('touchmove', (e) => {
+                if (!touchTimer) return;
+                const moveX = e.touches[0].clientX;
+                const moveY = e.touches[0].clientY;
+                // 若手指移動超過 8px，視為搬運拖曳，自動取消長按選單
+                if (Math.hypot(moveX - touchStartX, moveY - touchStartY) > 8) {
+                    clearTimeout(touchTimer);
+                    touchTimer = null;
+                }
+            });
+
             cargo.addEventListener('touchend', (e) => {
+                if (touchTimer) {
+                    clearTimeout(touchTimer);
+                    touchTimer = null;
+                }
                 const currentTime = new Date().getTime();
                 const tapLength = currentTime - lastTapTime;
                 if (tapLength < 250 && tapLength > 0) {
@@ -1222,21 +1291,24 @@
                 lastTapTime = currentTime;
             });
 
+            cargo.addEventListener('touchcancel', () => {
+                if (touchTimer) {
+                    clearTimeout(touchTimer);
+                    touchTimer = null;
+                }
+            });
+
             let localLastRightClickTime = 0;
 
             cargo.addEventListener('contextmenu', (e) => {
                 e.preventDefault(); 
                 e.stopPropagation(); 
-                rightClickedElement = cargo;
-                document.getElementById('cargo-tooltip').style.display = 'none';
                 
                 const currentTime = new Date().getTime();
                 const rightClickLength = currentTime - localLastRightClickTime;
                 localLastRightClickTime = currentTime;
 
-                if (rightClickLength < 100) {
-                    return;
-                }
+                if (rightClickLength < 100) return;
 
                 if (rightClickLength >= 100 && rightClickLength < 300) {
                     document.getElementById('context-menu').style.display = 'none';
@@ -1244,36 +1316,7 @@
                     return;
                 }
 
-                const menu = document.getElementById('context-menu');
-                const enterBtn = document.getElementById('menu-enter-btn');
-                const returnBtn = document.getElementById('menu-return-btn');
-                const lockBtn = document.getElementById('menu-lock-btn');
-                const rotateBtn = document.getElementById('menu-rotate-btn');
-                const starBtn = document.getElementById('menu-star-btn');
-                const copyBtn = document.getElementById('menu-copy-btn');
-                
-                const isLocked = cargo.getAttribute('data-locked') === 'true';
-                const isStarred = cargo.getAttribute('data-starred') === 'true';
-                
-                lockBtn.textContent = isLocked ? "🔓 解除鎖定" : "🔒 鎖定物件";
-                starBtn.textContent = isStarred ? "✨ 取消星號標記" : "⭐ 標記星號";
-
-                if (cargo.parentElement.id === 'cargo-buffer') {
-                    enterBtn.style.display = isLocked ? 'none' : 'block';
-                    returnBtn.style.display = 'none'; 
-                    lockBtn.style.display = 'block'; 
-                    rotateBtn.style.display = isLocked ? 'none' : 'block'; 
-                    starBtn.style.display = 'block';
-                    copyBtn.style.display = 'block';
-                } else {
-                    enterBtn.style.display = 'none';
-                    returnBtn.style.display = isLocked ? 'none' : 'block';
-                    rotateBtn.style.display = isLocked ? 'none' : 'block';
-                    lockBtn.style.display = 'block';
-                    starBtn.style.display = 'block';
-                    copyBtn.style.display = 'block';
-                }
-                menu.style.display = 'block'; menu.style.left = e.pageX + 'px'; menu.style.top = e.pageY + 'px';
+                openContextMenuAt(cargo, e.pageX, e.pageY);
             });
             return cargo;
         }
